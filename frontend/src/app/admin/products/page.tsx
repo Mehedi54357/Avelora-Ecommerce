@@ -30,6 +30,27 @@ const PRESET_CATEGORIES = [
   { slug: 'kids-accessories', name: 'Kids\' Shoes & Accessories (বাচ্চাদের জুতা ও এক্সেসরিজ)', department: 'kids' },
 ];
 
+const PRESET_COLORS = [
+  { name: 'Olive', hex: '#556B2F' },
+  { name: 'Black', hex: '#0F172A' },
+  { name: 'White', hex: '#FFFFFF' },
+  { name: 'Dusty Pink', hex: '#E08B9B' },
+  { name: 'Maroon', hex: '#58111A' },
+  { name: 'Red', hex: '#DC2626' },
+  { name: 'Navy Blue', hex: '#1B2A4A' },
+  { name: 'Grey', hex: '#64748B' },
+  { name: 'Purple', hex: '#6B21A8' },
+  { name: 'Beige', hex: '#E8D8C8' },
+  { name: 'Nude', hex: '#CDB49B' },
+  { name: 'Gold', hex: '#C5A059' },
+  { name: 'Emerald Green', hex: '#16A34A' },
+  { name: 'Orange', hex: '#EA580C' },
+  { name: 'Yellow', hex: '#EAB308' },
+  { name: 'Cyan', hex: '#06B6D4' },
+  { name: 'Magenta', hex: '#D946EF' },
+  { name: 'Brown', hex: '#78350F' },
+];
+
 export default function AdminProductsPage() {
   const [products, setProducts] = useState<any[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
@@ -248,6 +269,39 @@ export default function AdminProductsPage() {
   };
 
   // Variant Controls
+  const addPresetColorVariant = (preset: { name: string; hex: string }) => {
+    const exists = variants.some((v) => v.color.toLowerCase() === preset.name.toLowerCase());
+    if (exists) return;
+
+    const skuSuffix = Math.floor(100 + Math.random() * 900);
+    if (variants.length === 1 && (variants[0].color === 'Standard' || !variants[0].color)) {
+      setVariants([
+        {
+          sku: `AVE-${skuSuffix}`,
+          color: preset.name,
+          colorHex: preset.hex,
+          size: 'Standard',
+          price: salePrice || originalPrice || 0,
+          costPrice: 0,
+          stock: 15,
+        },
+      ]);
+    } else {
+      setVariants((prev) => [
+        ...prev,
+        {
+          sku: `AVE-${skuSuffix}`,
+          color: preset.name,
+          colorHex: preset.hex,
+          size: 'Standard',
+          price: salePrice || originalPrice || 0,
+          costPrice: 0,
+          stock: 15,
+        },
+      ]);
+    }
+  };
+
   const addVariantRow = () => {
     const skuSuffix = Math.floor(100 + Math.random() * 900);
     setVariants((prev) => [
@@ -851,17 +905,54 @@ export default function AdminProductsPage() {
 
               {/* Embedded Variants Builder */}
               <div className="space-y-3 pt-2">
-                <div className="flex items-center justify-between pb-2 border-b border-gray-200">
-                  <label className="font-bold uppercase text-gray-900 text-sm">
-                    Product Variants (Color, Size, SKU, Cost Price, Stock)
-                  </label>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-2 border-b border-gray-200 gap-2">
+                  <div>
+                    <label className="font-bold uppercase text-gray-900 text-sm">
+                      Product Variants & Stock (রঙ, সাইজ ও স্টক সংখ্যা)
+                    </label>
+                    <p className="text-[11px] text-gray-500">
+                      নিচে ক্লিক করে আপনার স্টকে থাকা কালারগুলো যুক্ত করুন (Click to add colors in stock):
+                    </p>
+                  </div>
                   <button
                     type="button"
                     onClick={addVariantRow}
-                    className="px-3 py-1.5 bg-slate-900 text-white rounded-lg font-bold text-[11px] uppercase tracking-wider hover:bg-[#C5A059] transition flex items-center gap-1"
+                    className="px-3 py-1.5 bg-slate-900 text-white rounded-lg font-bold text-[11px] uppercase tracking-wider hover:bg-[#C5A059] transition flex items-center gap-1 w-fit"
                   >
-                    <Plus className="w-3.5 h-3.5" /> Add Variant
+                    <Plus className="w-3.5 h-3.5" /> + Custom Variant
                   </button>
+                </div>
+
+                {/* 1-Click Color Preset Buttons (Screenshot Color Swatches) */}
+                <div className="p-3 bg-white rounded-xl border border-gray-200 shadow-2xs space-y-2">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-gray-700 block">
+                    🎨 Quick-Add Color to Stock (এক ক্লিকে কালার যুক্ত করুন):
+                  </span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {PRESET_COLORS.map((preset) => {
+                      const isAdded = variants.some((v) => v.color.toLowerCase() === preset.name.toLowerCase());
+                      return (
+                        <button
+                          key={preset.name}
+                          type="button"
+                          onClick={() => addPresetColorVariant(preset)}
+                          className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border transition ${
+                            isAdded
+                              ? 'bg-emerald-50 text-emerald-800 border-emerald-300 shadow-2xs'
+                              : 'bg-gray-50 hover:bg-gray-100 text-gray-700 border-gray-300'
+                          }`}
+                          title={`Add ${preset.name} with color ${preset.hex}`}
+                        >
+                          <span
+                            className="w-3 h-3 rounded-full border border-black/20 flex-shrink-0"
+                            style={{ backgroundColor: preset.hex }}
+                          />
+                          <span>{preset.name}</span>
+                          {isAdded && <Check className="w-3 h-3 text-emerald-600" />}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
 
                 <div className="space-y-2.5">
