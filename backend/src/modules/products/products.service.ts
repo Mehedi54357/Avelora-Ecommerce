@@ -36,21 +36,39 @@ export class ProductsService {
   }) {
     const filter: any = { isPublished: { $ne: false } };
 
-    if (query.category) {
-      const categoryDoc = await this.categoryModel.findOne({ slug: query.category }).exec();
+    if (query.category && query.category.trim() !== '') {
+      const catSlugOrId = query.category.trim();
+      const categoryDoc = await this.categoryModel
+        .findOne({
+          $or: [
+            { slug: catSlugOrId },
+            { name: catSlugOrId },
+            ...(catSlugOrId.match(/^[0-9a-fA-F]{24}$/) ? [{ _id: catSlugOrId }] : []),
+          ],
+        })
+        .exec();
+
       if (categoryDoc) {
         filter.categoryId = categoryDoc._id;
+      } else {
+        // If specific category was requested but does not exist, return 0 products (do not leak all products)
+        filter.categoryId = '000000000000000000000000';
       }
-    } else if (query.department) {
-      const deptCats = await this.categoryModel.find({ department: query.department }).select('_id').exec();
+    } else if (query.department && query.department.trim() !== '') {
+      const dept = query.department.trim().toLowerCase();
+      const deptCats = await this.categoryModel
+        .find({ department: dept })
+        .select('_id')
+        .exec();
       const catIds = deptCats.map((c) => c._id);
       filter.categoryId = { $in: catIds };
     }
 
-    if (query.search) {
+    if (query.search && query.search.trim() !== '') {
+      const s = query.search.trim();
       filter.$or = [
-        { name: { $regex: query.search, $options: 'i' } },
-        { description: { $regex: query.search, $options: 'i' } },
+        { name: { $regex: s, $options: 'i' } },
+        { description: { $regex: s, $options: 'i' } },
       ];
     }
 
