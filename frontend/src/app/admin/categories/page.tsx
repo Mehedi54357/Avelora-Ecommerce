@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Layers, Plus, Edit2, Trash2, UploadCloud, X, RefreshCw, AlertCircle, Check, ArrowLeft, ChevronRight, ShoppingBag, Image as ImageIcon } from 'lucide-react';
 import { compressImage } from '../../../utils/image-compressor';
-import { API_BASE_URL } from '../../../utils/api-config';
+import { API_BASE_URL, authFetch } from '../../../utils/api-config';
 
 export default function AdminCategoriesPage() {
   const [categories, setCategories] = useState<any[]>([]);
@@ -28,8 +28,8 @@ export default function AdminCategoriesPage() {
     setLoading(true);
     try {
       const [catRes, prodRes] = await Promise.all([
-        fetch(`${API_BASE_URL}/api/admin/categories`, { credentials: 'include' }),
-        fetch(`${API_BASE_URL}/api/admin/products`, { credentials: 'include' }),
+        authFetch(`${API_BASE_URL}/api/admin/categories`),
+        authFetch(`${API_BASE_URL}/api/admin/products`),
       ]);
 
       if (catRes.ok) {
@@ -139,10 +139,9 @@ export default function AdminCategoriesPage() {
         : `${API_BASE_URL}/api/admin/categories`;
       const method = editingCategory ? 'PUT' : 'POST';
 
-      const res = await fetch(url, {
+      const res = await authFetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
         body: JSON.stringify(payload),
       });
 
@@ -164,9 +163,8 @@ export default function AdminCategoriesPage() {
     if (!confirm(`Are you sure you want to delete category "${catName}"?`)) return;
 
     try {
-      const res = await fetch(`${API_BASE_URL}/api/admin/categories/${id}`, {
+      const res = await authFetch(`${API_BASE_URL}/api/admin/categories/${id}`, {
         method: 'DELETE',
-        credentials: 'include',
       });
       if (res.ok) {
         fetchCategories();
@@ -185,9 +183,8 @@ export default function AdminCategoriesPage() {
       return;
 
     try {
-      const res = await fetch(`${API_BASE_URL}/api/admin/categories-clear-all`, {
+      const res = await authFetch(`${API_BASE_URL}/api/admin/categories-clear-all`, {
         method: 'DELETE',
-        credentials: 'include',
       });
       if (res.ok) {
         fetchCategories();

@@ -18,7 +18,7 @@ import {
   ShieldCheck,
   Loader2,
 } from 'lucide-react';
-import { API_BASE_URL } from '../../utils/api-config';
+import { API_BASE_URL, authFetch } from '../../utils/api-config';
 
 interface AdminNavItem {
   name: string;
@@ -54,9 +54,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     let isMounted = true;
     const checkAuthSession = async () => {
       try {
-        const res = await fetch(`${API_BASE_URL}/api/auth/me`, {
-          credentials: 'include',
-        });
+        const res = await authFetch(`${API_BASE_URL}/api/auth/me`);
 
         if (!res.ok) {
           throw new Error('Unauthorized');
@@ -69,6 +67,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         }
       } catch {
         if (isMounted) {
+          if (typeof window !== 'undefined') {
+            localStorage.removeItem('admin_token');
+          }
           router.replace('/admin/login');
         }
       }
@@ -99,14 +100,17 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   const handleLogout = async () => {
     try {
-      await fetch(`${API_BASE_URL}/api/auth/logout`, {
+      await authFetch(`${API_BASE_URL}/api/auth/logout`, {
         method: 'POST',
-        credentials: 'include',
       });
     } catch (e) {
       console.error('Logout notice:', e);
+    } finally {
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('admin_token');
+      }
+      window.location.href = '/admin/login';
     }
-    window.location.href = '/admin/login';
   };
 
   const userRole = currentUser?.role || 'STAFF';

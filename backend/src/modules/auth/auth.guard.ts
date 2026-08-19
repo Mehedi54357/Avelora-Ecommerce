@@ -8,7 +8,15 @@ export class AuthGuard implements CanActivate {
 
   canActivate(context: ExecutionContext): boolean {
     const request = context.switchToHttp().getRequest();
-    const token = request.cookies?.token;
+    let token = request.cookies?.token;
+
+    // Check Authorization: Bearer <token> header for robust cross-domain API compatibility
+    if (!token && request.headers?.authorization) {
+      const authHeader = request.headers.authorization;
+      if (typeof authHeader === 'string' && authHeader.startsWith('Bearer ')) {
+        token = authHeader.substring(7).trim();
+      }
+    }
 
     if (!token) {
       throw new UnauthorizedException('No auth token found');

@@ -15,7 +15,7 @@ import {
   RefreshCw,
 } from 'lucide-react';
 import { compressImage } from '../../../utils/image-compressor';
-import { API_BASE_URL } from '../../../utils/api-config';
+import { API_BASE_URL, authFetch } from '../../../utils/api-config';
 
 const PRESET_CATEGORIES = [
   { slug: 'women-hijab', name: 'Hijab Collection (হিজাব)', department: 'women' },
@@ -109,7 +109,7 @@ export default function AdminProductsPage() {
     setLoading(true);
     try {
       const [prodRes, catRes] = await Promise.all([
-        fetch(`${API_BASE_URL}/api/admin/products`, { credentials: 'include' }),
+        authFetch(`${API_BASE_URL}/api/admin/products`),
         fetch(`${API_BASE_URL}/api/categories`),
       ]);
 
@@ -223,10 +223,9 @@ export default function AdminProductsPage() {
         const compressedDataUrl = await compressImage(file, 1200, 0.85);
 
         try {
-          const res = await fetch(`${API_BASE_URL}/api/upload/image`, {
+          const res = await authFetch(`${API_BASE_URL}/api/upload/image`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            credentials: 'include',
             body: JSON.stringify({ image: compressedDataUrl, folder: 'avelora/products' }),
           });
 
@@ -369,10 +368,9 @@ export default function AdminProductsPage() {
         : `${API_BASE_URL}/api/admin/products`;
       const method = editingProduct ? 'PUT' : 'POST';
 
-      const res = await fetch(url, {
+      const res = await authFetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
         body: JSON.stringify(payload),
       });
 
@@ -394,9 +392,8 @@ export default function AdminProductsPage() {
     if (!confirm(`Are you sure you want to delete "${name}"?`)) return;
 
     try {
-      const res = await fetch(`${API_BASE_URL}/api/admin/products/${id}`, {
+      const res = await authFetch(`${API_BASE_URL}/api/admin/products/${id}`, {
         method: 'DELETE',
-        credentials: 'include',
       });
       if (res.ok) {
         fetchData();

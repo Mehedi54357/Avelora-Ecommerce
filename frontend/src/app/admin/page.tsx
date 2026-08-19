@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { API_BASE_URL } from '../../utils/api-config';
+import { API_BASE_URL, authFetch } from '../../utils/api-config';
 import {
   DollarSign,
   TrendingUp,
@@ -27,8 +27,8 @@ export default function AdminDashboardPage() {
     setLoading(true);
     try {
       const [finRes, ordRes] = await Promise.all([
-        fetch(`${API_BASE_URL}/api/admin/finance/analytics`, { credentials: 'include' }),
-        fetch(`${API_BASE_URL}/api/admin/orders?limit=6`, { credentials: 'include' }),
+        authFetch(`${API_BASE_URL}/api/admin/finance/analytics`),
+        authFetch(`${API_BASE_URL}/api/admin/orders?limit=6`),
       ]);
 
       if (finRes.ok) {

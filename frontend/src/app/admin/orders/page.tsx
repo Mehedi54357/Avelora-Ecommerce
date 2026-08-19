@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import InvoiceModal from '../../../components/invoice-modal';
-import { API_BASE_URL } from '../../../utils/api-config';
+import { API_BASE_URL, authFetch } from '../../../utils/api-config';
 import {
   Package,
   Search,
@@ -51,9 +51,7 @@ export default function AdminOrdersPage() {
       if (statusFilter && statusFilter !== 'ALL') params.set('status', statusFilter);
       if (search) params.set('search', search);
 
-      const res = await fetch(`${API_BASE_URL}/api/admin/orders?${params.toString()}`, {
-        credentials: 'include',
-      });
+      const res = await authFetch(`${API_BASE_URL}/api/admin/orders?${params.toString()}`);
       if (res.ok) {
         const data = await res.json();
         setOrders(data || []);
@@ -72,10 +70,9 @@ export default function AdminOrdersPage() {
   const handleStatusChange = async (orderId: string, newStatus: string) => {
     setUpdatingId(orderId);
     try {
-      const res = await fetch(`${API_BASE_URL}/api/admin/orders/${orderId}/status`, {
+      const res = await authFetch(`${API_BASE_URL}/api/admin/orders/${orderId}/status`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
         body: JSON.stringify({ status: newStatus }),
       });
 
@@ -93,10 +90,9 @@ export default function AdminOrdersPage() {
     const nextStatus = currentStatus === 'PAID' ? 'PENDING' : 'PAID';
     setUpdatingId(orderId);
     try {
-      const res = await fetch(`${API_BASE_URL}/api/admin/orders/${orderId}/payment`, {
+      const res = await authFetch(`${API_BASE_URL}/api/admin/orders/${orderId}/payment`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
         body: JSON.stringify({ paymentStatus: nextStatus }),
       });
 

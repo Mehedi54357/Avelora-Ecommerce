@@ -14,7 +14,9 @@ export class AuthController {
   private getCookieOptions() {
     const isProd = this.configService.get<string>('NODE_ENV') === 'production';
     const secure = this.configService.get<string>('COOKIE_SECURE') === 'true' || isProd;
-    const sameSite = (this.configService.get<string>('COOKIE_SAME_SITE') as 'lax' | 'none' | 'strict') || 'lax';
+    const sameSite =
+      (this.configService.get<string>('COOKIE_SAME_SITE') as 'lax' | 'none' | 'strict') ||
+      (isProd ? 'none' : 'lax');
     const domain = this.configService.get<string>('COOKIE_DOMAIN') || undefined;
 
     return {
@@ -33,11 +35,13 @@ export class AuthController {
     const { token, user: userData } = await this.authService.login(user);
 
     const cookieOptions = this.getCookieOptions();
-    res.cookie('token', token, cookieOptions);
+    try {
+      res.cookie('token', token, cookieOptions);
+    } catch {}
 
-    // Never expose token to client-side JS; authenticated via HttpOnly cookie
     return {
       message: 'Logged in successfully',
+      token,
       user: {
         id: userData._id,
         name: userData.name,

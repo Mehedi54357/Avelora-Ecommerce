@@ -31,7 +31,9 @@ export default function AdminLoginPage() {
       const data = await res.json();
 
       if (res.ok) {
-        // Successful login: HttpOnly cookie is set by the backend
+        if (data.token) {
+          localStorage.setItem('admin_token', data.token);
+        }
         // Redirect directly to the authenticated admin dashboard
         window.location.href = '/admin/dashboard';
       } else {

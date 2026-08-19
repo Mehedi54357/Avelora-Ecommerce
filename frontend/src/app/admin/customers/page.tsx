@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Users, Search, ShoppingBag, DollarSign, MapPin, Phone, RefreshCw } from 'lucide-react';
-import { API_BASE_URL } from '../../../utils/api-config';
+import { API_BASE_URL, authFetch } from '../../../utils/api-config';
 
 export default function AdminCustomersPage() {
   const [customers, setCustomers] = useState<any[]>([]);
@@ -15,9 +15,7 @@ export default function AdminCustomersPage() {
       const params = new URLSearchParams();
       if (search) params.set('search', search);
 
-      const res = await fetch(`${API_BASE_URL}/api/admin/customers?${params.toString()}`, {
-        credentials: 'include',
-      });
+      const res = await authFetch(`${API_BASE_URL}/api/admin/customers?${params.toString()}`);
       if (res.ok) {
         const data = await res.json();
         setCustomers(data || []);

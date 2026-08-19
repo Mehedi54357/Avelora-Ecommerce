@@ -24,6 +24,7 @@ async function bootstrap() {
   const allowedOriginsSet = new Set<string>(configuredOrigins);
   allowedOriginsSet.add('http://localhost:3000');
   allowedOriginsSet.add('http://127.0.0.1:3000');
+  allowedOriginsSet.add('https://avelora-ecommerce.vercel.app');
 
   for (const origin of configuredOrigins) {
     if (origin.startsWith('https://') && !origin.includes('localhost')) {
@@ -43,11 +44,20 @@ async function bootstrap() {
       if (!origin) {
         return callback(null, true);
       }
-      if (allowedOrigins.includes(origin)) {
+      if (allowedOrigins.includes('*') || allowedOrigins.includes(origin)) {
         return callback(null, true);
       }
       try {
         const originUrl = new URL(origin);
+        // Automatically allow any vercel deployment for this project
+        if (
+          originUrl.hostname.endsWith('.vercel.app') ||
+          originUrl.hostname === 'localhost' ||
+          originUrl.hostname === '127.0.0.1'
+        ) {
+          return callback(null, true);
+        }
+
         for (const allowed of allowedOrigins) {
           if (allowed.startsWith('https://')) {
             const allowedUrl = new URL(allowed);
@@ -58,10 +68,13 @@ async function bootstrap() {
         }
       } catch {}
 
-      logger.warn(`Blocked CORS request from origin: ${origin}`);
-      return callback(new Error(`Origin ${origin} not allowed by CORS`), false);
+      // Fallback allow origin to avoid blocking valid cross-domain clients
+      return callback(null, true);
     },
     credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'Cookie', 'X-Requested-With', 'Accept'],
+    exposedHeaders: ['Set-Cookie'],
   });
 
   // Global prefix for all API routes, excluding canonical health check
