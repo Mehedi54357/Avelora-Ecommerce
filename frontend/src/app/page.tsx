@@ -66,7 +66,7 @@ export default async function HomePage() {
         <div className="relative z-10 max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center space-y-6 py-20">
           <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/10 backdrop-blur-md border border-[#D4AF37]/30 text-[#E6CA85] text-xs font-semibold uppercase tracking-[0.25em]">
             <Sparkles className="w-3.5 h-3.5" />
-            <span>Aarong-Style Haute Heritage Edit</span>
+            <span>Bespoke Haute Heritage Collection</span>
           </div>
 
           <h1 className="text-4xl sm:text-6xl md:text-7xl font-bold tracking-tight text-white font-serif-luxury leading-[1.1]">
@@ -74,7 +74,7 @@ export default async function HomePage() {
           </h1>
 
           <p className="max-w-2xl mx-auto text-sm sm:text-base text-gray-300 font-light leading-relaxed">
-            AVELORA presents a prestigious lifestyle curation for Women, Men & Kids — featuring Turkish Silk Hijabs, traditional কাঁচের ও রেশমি চুড়ি, Fine Jewellery, Italian Leather Loafers, and Little Princess Festive Gowns.
+            Exquisite lifestyle curation for Women, Men & Kids — crafted with uncompromising elegance, artisanal perfection, and timeless prestige.
           </p>
 
           <div className="pt-4 flex flex-col sm:flex-row items-center justify-center gap-4">
@@ -282,7 +282,7 @@ export default async function HomePage() {
               ))}
             </div>
             <p className="text-xs text-gray-600 leading-relaxed italic">
-              "The velvet reshmi churi box set is stunning! The colors are so rich and the gold borders give an opulent bridal touch. Truly Aarong-level quality."
+              "The velvet reshmi churi box set is stunning! The colors are so rich and the gold borders give an opulent bridal touch. Truly unmatched royal quality."
             </p>
             <div>
               <p className="text-sm font-bold text-gray-900 font-serif-luxury">Tasnia Karim</p>

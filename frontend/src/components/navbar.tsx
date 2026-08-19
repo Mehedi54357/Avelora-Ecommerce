@@ -137,7 +137,7 @@ export default function Navbar() {
       {/* Top Notification Announcement Bar */}
       <div className="bg-[#0B0F19] text-[#E6CA85] text-[11px] font-medium tracking-widest uppercase py-2 px-4 text-center border-b border-[#D4AF37]/20 flex items-center justify-center gap-2">
         <span className="inline-block w-1.5 h-1.5 rounded-full bg-[#D4AF37] animate-pulse"></span>
-        <span>Aarong-Grade Luxury Craftsmanship • Complimentary Signature Bag & Box on Every Order</span>
+        <span>Complimentary Signature Gift Packaging & Express Delivery Nationwide</span>
       </div>
 
       {/* Main Luxury Header */}
@@ -222,7 +222,7 @@ export default function Navbar() {
               </Link>
             </div>
 
-            {/* Right: Actions (Search, Track Order, Cart, Admin) */}
+            {/* Right: Actions (Search, Track Order, Cart) */}
             <div className="flex items-center gap-3 sm:gap-5">
               <button
                 onClick={() => setSearchOpen(!searchOpen)}
@@ -238,14 +238,6 @@ export default function Navbar() {
               >
                 <Compass className="w-4 h-4 text-[#C5A059]" />
                 <span>Track Order</span>
-              </Link>
-
-              <Link
-                href="/admin"
-                className="hidden xl:flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider px-3 py-1.5 rounded-lg border border-gray-300 text-gray-700 hover:bg-slate-950 hover:text-white hover:border-slate-950 transition"
-              >
-                <ShieldCheck className="w-3.5 h-3.5 text-[#C5A059]" />
-                <span>Admin</span>
               </Link>
 
               {/* Shopping Bag Trigger with Animated Badge */}
@@ -440,13 +432,6 @@ export default function Navbar() {
                 className="text-xs font-bold uppercase tracking-wider text-[#C5A059]"
               >
                 Track Your Order →
-              </Link>
-              <Link
-                href="/admin"
-                onClick={() => setMobileMenuOpen(false)}
-                className="text-xs font-semibold text-gray-500 uppercase"
-              >
-                Admin Cockpit
               </Link>
             </div>
           </div>

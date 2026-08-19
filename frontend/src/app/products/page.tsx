@@ -77,7 +77,7 @@ export default function ProductsPage() {
       <div className="text-center space-y-3 py-10 bg-[#0B0F19] text-white rounded-3xl border border-[#D4AF37]/20 relative overflow-hidden px-4">
         <div className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-white/10 text-[#E6CA85] text-[10px] font-bold uppercase tracking-widest border border-[#D4AF37]/30">
           <Sparkles className="w-3 h-3" />
-          <span>Aarong-Style Curated Catalog</span>
+          <span>AVELORA Haute Collection</span>
         </div>
         <h1 className="text-3xl sm:text-5xl font-bold font-serif-luxury text-white">
           {selectedDepartment
