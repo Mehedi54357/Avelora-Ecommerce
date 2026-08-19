@@ -202,22 +202,35 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-h-screen overflow-x-hidden">
         {/* Top Header */}
-        <header className="hidden md:flex bg-white border-b border-gray-200 px-8 py-4 items-center justify-between shadow-sm sticky top-0 z-20">
-          <div>
-            <h2 className="text-lg font-bold font-serif-luxury text-gray-900">
-              AVELORA Business Suite
-            </h2>
-            <p className="text-xs text-gray-500">Live Transactional Synchronization</p>
+        <header className="bg-white border-b border-gray-200 px-4 sm:px-8 py-3.5 items-center justify-between shadow-sm sticky top-0 z-20 flex">
+          <div className="flex items-center gap-3">
+            <Link
+              href="/"
+              target="_blank"
+              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-gray-100 hover:bg-[#C5A059] hover:text-slate-950 text-gray-700 text-xs font-bold transition shadow-sm"
+              title="Open Public Storefront"
+            >
+              <ExternalLink className="w-3.5 h-3.5" />
+              <span>← View Live Store</span>
+            </Link>
+
+            <Link
+              href="/admin/dashboard"
+              className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-slate-900 text-white text-xs font-semibold hover:bg-slate-800 transition"
+            >
+              <LayoutDashboard className="w-3.5 h-3.5 text-[#C5A059]" />
+              <span>Dashboard Home</span>
+            </Link>
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3 sm:gap-4">
             <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-50 text-emerald-800 text-xs font-semibold border border-emerald-200">
               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-              <span>System Live</span>
+              <span className="hidden sm:inline">System Live</span>
             </div>
             <div className="text-right">
               <p className="text-xs font-bold text-gray-900">{currentUser?.name || 'Administrator'}</p>
-              <p className="text-[10px] text-gray-500">{currentUser?.email || userRole}</p>
+              <p className="text-[10px] text-gray-500 font-mono">{currentUser?.email || userRole}</p>
             </div>
           </div>
         </header>

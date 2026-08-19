@@ -259,7 +259,21 @@ export class ProductsService {
     }
 
     try {
-      return await this.productModel.create(payload);
+      const createdProduct = await this.productModel.create(payload);
+
+      // If category has no image yet and this product has an image, auto-assign first image to category
+      if (payload.categoryId && Array.isArray(payload.images) && payload.images.length > 0 && payload.images[0]) {
+        try {
+          const category = await this.categoryModel.findById(payload.categoryId).exec();
+          if (category && (!category.image || category.image.trim() === '')) {
+            await this.categoryModel.findByIdAndUpdate(payload.categoryId, { image: payload.images[0] }).exec();
+          }
+        } catch (e) {
+          console.error('Error auto-syncing category image:', e);
+        }
+      }
+
+      return createdProduct;
     } catch (err: any) {
       console.error('Error in productModel.create:', err);
       throw new BadRequestException(err.message || 'Failed to create product document');

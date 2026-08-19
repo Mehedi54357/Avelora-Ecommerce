@@ -1,12 +1,14 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Layers, Plus, Edit2, Trash2, UploadCloud, X, RefreshCw, AlertCircle, Check } from 'lucide-react';
+import Link from 'next/link';
+import { Layers, Plus, Edit2, Trash2, UploadCloud, X, RefreshCw, AlertCircle, Check, ArrowLeft, ChevronRight, ShoppingBag, Image as ImageIcon } from 'lucide-react';
 import { compressImage } from '../../../utils/image-compressor';
 import { API_BASE_URL } from '../../../utils/api-config';
 
 export default function AdminCategoriesPage() {
   const [categories, setCategories] = useState<any[]>([]);
+  const [products, setProducts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Modal
@@ -25,12 +27,18 @@ export default function AdminCategoriesPage() {
   const fetchCategories = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`${API_BASE_URL}/api/admin/categories`, {
-        credentials: 'include',
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setCategories(data || []);
+      const [catRes, prodRes] = await Promise.all([
+        fetch(`${API_BASE_URL}/api/admin/categories`, { credentials: 'include' }),
+        fetch(`${API_BASE_URL}/api/admin/products`, { credentials: 'include' }),
+      ]);
+
+      if (catRes.ok) {
+        const catData = await catRes.json();
+        setCategories(catData || []);
+      }
+      if (prodRes.ok) {
+        const prodData = await prodRes.json();
+        setProducts(prodData || []);
       }
     } catch (e) {
       console.error(e);
@@ -191,6 +199,34 @@ export default function AdminCategoriesPage() {
 
   return (
     <div className="space-y-6 animate-fadeIn">
+      {/* 0. Breadcrumb & Quick Back Navigation */}
+      <div className="flex flex-wrap items-center justify-between gap-4 bg-white px-5 py-3 rounded-2xl border border-gray-200 shadow-sm text-xs">
+        <nav className="flex items-center gap-2 text-gray-500 font-medium py-1">
+          <Link href="/admin/dashboard" className="hover:text-[#C5A059] transition text-gray-700 font-semibold">
+            Admin Dashboard
+          </Link>
+          <ChevronRight className="w-3.5 h-3.5 text-gray-400" />
+          <span className="text-gray-900 font-bold">Categories & Collections</span>
+        </nav>
+
+        <div className="flex items-center gap-2">
+          <Link
+            href="/admin/dashboard"
+            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold text-xs transition"
+          >
+            <ArrowLeft className="w-3.5 h-3.5" />
+            <span>Back to Dashboard</span>
+          </Link>
+          <Link
+            href="/admin/products"
+            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-slate-900 hover:bg-[#C5A059] text-white hover:text-slate-950 font-bold text-xs transition"
+          >
+            <ShoppingBag className="w-3.5 h-3.5" />
+            <span>Manage Products</span>
+          </Link>
+        </div>
+      </div>
+
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-6 rounded-2xl border border-gray-200 shadow-sm">
         <div>
@@ -246,59 +282,86 @@ export default function AdminCategoriesPage() {
           <p className="text-xs text-gray-400">Click "Add New Category" to create your first collection.</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          {categories.map((cat) => (
-            <div
-              key={cat._id}
-              className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden flex flex-col justify-between p-5 space-y-4"
-            >
-              <div className="space-y-3">
-                <div className="aspect-video w-full rounded-xl overflow-hidden bg-gray-100 border relative group">
-                  {cat.image ? (
-                    <img
-                      src={cat.image}
-                      alt={cat.name}
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center text-gray-400 text-xs font-medium">
-                      No Image Attached
-                    </div>
-                  )}
-                  {cat.department && (
-                    <span className="absolute top-2 left-2 px-2 py-0.5 bg-black/70 text-[#E6CA85] text-[9px] font-bold uppercase tracking-wider rounded backdrop-blur-sm">
-                      {cat.department}
-                    </span>
-                  )}
-                </div>
-                <div>
-                  <h3 className="font-bold text-gray-900 font-serif-luxury text-lg">{cat.name}</h3>
-                  <p className="text-[11px] text-gray-400 font-mono">/{cat.slug}</p>
-                  {cat.description && (
-                    <p className="text-xs text-gray-600 mt-1 line-clamp-2">{cat.description}</p>
-                  )}
-                </div>
-              </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          {categories.map((cat) => {
+            // Find products belonging to this category
+            const matchingProducts = products.filter(
+              (p) =>
+                p.categoryId?._id === cat._id ||
+                p.categoryId === cat._id ||
+                p.categoryId?.slug === cat.slug ||
+                (p.categoryId && typeof p.categoryId === 'string' && p.categoryId === cat.slug)
+            );
 
-              <div className="flex items-center justify-between pt-3 border-t border-gray-100">
-                <span className="text-[10px] text-gray-400 font-mono">Priority: #{cat.sortOrder || 0}</span>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => openEditModal(cat)}
-                    className="p-1.5 text-gray-600 hover:text-slate-900 hover:bg-gray-100 rounded transition"
-                  >
-                    <Edit2 className="w-3.5 h-3.5" />
-                  </button>
-                  <button
-                    onClick={() => handleDelete(cat._id, cat.name)}
-                    className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
+            // Auto-fallback image: Category Image -> First product's image -> Default placeholder
+            const displayImage =
+              cat.image && cat.image.trim() !== ''
+                ? cat.image
+                : matchingProducts.find((p) => Array.isArray(p.images) && p.images.length > 0 && p.images[0])?.images[0] ||
+                  '';
+
+            return (
+              <div
+                key={cat._id}
+                className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden flex flex-col justify-between p-5 space-y-4 hover:shadow-md transition"
+              >
+                <div className="space-y-3">
+                  <div className="aspect-video w-full rounded-xl overflow-hidden bg-gray-100 border border-gray-200 relative group">
+                    {displayImage ? (
+                      <img
+                        src={displayImage}
+                        alt={cat.name}
+                        className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex flex-col items-center justify-center text-gray-400 text-xs font-medium space-y-1 bg-gray-50">
+                        <ImageIcon className="w-6 h-6 text-gray-300" />
+                        <span>No Image Attached</span>
+                      </div>
+                    )}
+                    {cat.department && (
+                      <span className="absolute top-2 left-2 px-2.5 py-0.5 bg-slate-950/80 text-[#E6CA85] text-[9px] font-bold uppercase tracking-wider rounded backdrop-blur-sm shadow">
+                        {cat.department}
+                      </span>
+                    )}
+
+                    {/* Product count pill on image */}
+                    <span className="absolute bottom-2 right-2 px-2 py-0.5 bg-white/90 text-slate-900 text-[10px] font-bold rounded-md shadow-sm border border-gray-200">
+                      {matchingProducts.length} {matchingProducts.length === 1 ? 'Product' : 'Products'}
+                    </span>
+                  </div>
+
+                  <div>
+                    <h3 className="font-bold text-gray-900 font-serif-luxury text-base sm:text-lg">{cat.name}</h3>
+                    <p className="text-[11px] text-gray-400 font-mono">/{cat.slug}</p>
+                    {cat.description && (
+                      <p className="text-xs text-gray-600 mt-1 line-clamp-2">{cat.description}</p>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between pt-3 border-t border-gray-100 text-xs">
+                  <span className="text-[10px] text-gray-400 font-mono">Priority: #{cat.sortOrder || 0}</span>
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      onClick={() => openEditModal(cat)}
+                      className="p-2 text-gray-600 hover:text-slate-900 hover:bg-gray-100 rounded-lg transition"
+                      title="Edit Category Details & Banner"
+                    >
+                      <Edit2 className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      onClick={() => handleDelete(cat._id, cat.name)}
+                      className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition"
+                      title="Delete Category"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
