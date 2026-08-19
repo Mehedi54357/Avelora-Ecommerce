@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useCart } from '../../../context/cart-context';
 import BadgeStrip from '../../../components/badge-strip';
+import { API_BASE_URL } from '../../../utils/api-config';
 import {
   ShoppingBag,
   Heart,
@@ -15,13 +16,14 @@ import {
   Minus,
   Sparkles,
   ArrowRight,
+  Zap,
 } from 'lucide-react';
 
 export default function ProductDetailPage() {
   const params = useParams();
   const router = useRouter();
   const slug = params?.slug as string;
-  const { addItem, setIsCartOpen } = useCart();
+  const { addItem, clearCart, setIsCartOpen } = useCart();
 
   const [product, setProduct] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -33,7 +35,7 @@ export default function ProductDetailPage() {
   useEffect(() => {
     if (!slug) return;
     setLoading(true);
-    fetch(`http://localhost:3001/api/products/${slug}`)
+    fetch(`${API_BASE_URL}/api/products/${slug}`)
       .then((res) => {
         if (!res.ok) throw new Error('Product not found');
         return res.json();
@@ -69,34 +71,35 @@ export default function ProductDetailPage() {
 
   if (!product) {
     return (
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24 text-center space-y-4">
-        <h2 className="text-2xl font-bold font-serif-luxury text-gray-900">Product Not Found</h2>
-        <p className="text-sm text-gray-500">The luxury piece you are looking for may have been archived.</p>
+      <div className="min-h-[60vh] flex flex-col items-center justify-center text-center px-4">
+        <h2 className="text-2xl font-bold text-gray-900 mb-2">Piece Not Found</h2>
+        <p className="text-gray-500 mb-6">The requested luxury item may have been relocated or archived.</p>
         <button
           onClick={() => router.push('/products')}
-          className="px-6 py-3 bg-slate-900 text-white rounded-full text-xs font-bold uppercase tracking-wider hover:bg-[#C5A059] transition"
+          className="px-6 py-2.5 bg-slate-900 text-white rounded-xl text-xs font-bold uppercase tracking-wider hover:bg-[#C5A059] transition"
         >
-          Return to Catalog
+          Explore All Pieces
         </button>
       </div>
     );
   }
 
+  const images = product.images?.length > 0 ? product.images : [
+    'https://images.unsplash.com/photo-1584917865442-de89df76afd3?auto=format&fit=crop&w=1000&q=80',
+  ];
+
   const selectedVariant = product.variants?.[selectedVariantIndex] || {
     sku: `SKU-${product.slug}`,
-    color: 'Standard',
-    size: 'Standard',
+    color: '',
+    size: '',
     price: product.salePrice,
     stockQuantity: 10,
-    reservedQuantity: 0,
+    stock: 10,
   };
 
-  const currentPrice = selectedVariant.price > 0 ? selectedVariant.price : product.salePrice;
-  const physicalStock = selectedVariant.stockQuantity !== undefined ? selectedVariant.stockQuantity : (selectedVariant.stock || 0);
-  const reservedStock = selectedVariant.reservedQuantity || 0;
-  const availableStock = Math.max(0, physicalStock - reservedStock);
+  const currentPrice = selectedVariant.price || product.salePrice || product.originalPrice;
+  const availableStock = selectedVariant.stockQuantity ?? (selectedVariant.stock ?? 10);
   const isOutOfStock = availableStock <= 0;
-  const images = product.images?.length > 0 ? product.images : ['https://images.unsplash.com/photo-1583391733956-3750e0ff4e8b?auto=format&fit=crop&w=1000&q=85'];
 
   const handleAddToCart = () => {
     if (isOutOfStock) return;
@@ -117,7 +120,20 @@ export default function ProductDetailPage() {
   };
 
   const handleBuyNow = () => {
-    handleAddToCart();
+    if (isOutOfStock) return;
+    clearCart();
+    addItem({
+      productId: product._id,
+      sku: selectedVariant.sku,
+      name: product.name,
+      image: images[0],
+      color: selectedVariant.color,
+      size: selectedVariant.size,
+      price: currentPrice,
+      originalPrice: product.originalPrice,
+      quantity,
+      maxStock: availableStock,
+    });
     setIsCartOpen(false);
     router.push('/checkout');
   };
@@ -291,8 +307,8 @@ export default function ProductDetailPage() {
                       : 'bg-[#C5A059] hover:bg-[#b08b3a] text-slate-950 hover:shadow-[#D4AF37]/30'
                   }`}
                 >
-                  <span>Buy It Now</span>
-                  <ArrowRight className="w-4 h-4" />
+                  <Zap className="w-4 h-4 fill-current" />
+                  <span>⚡ Buy Now</span>
                 </button>
               </div>
             </div>

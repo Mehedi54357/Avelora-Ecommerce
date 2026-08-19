@@ -12,6 +12,7 @@ import {
   X,
   PieChart,
 } from 'lucide-react';
+import { API_BASE_URL } from '../../../utils/api-config';
 
 const EXPENSE_CATEGORIES = [
   'Delivery Cost',
@@ -44,8 +45,8 @@ export default function AdminFinancePage() {
       if (selectedCategory) params.set('category', selectedCategory);
 
       const [expRes, anaRes] = await Promise.all([
-        fetch(`http://localhost:3001/api/admin/finance/expenses?${params.toString()}`, { credentials: 'include' }),
-        fetch('http://localhost:3001/api/admin/finance/analytics', { credentials: 'include' }),
+        fetch(`${API_BASE_URL}/api/admin/finance/expenses?${params.toString()}`, { credentials: 'include' }),
+        fetch(`${API_BASE_URL}/api/admin/finance/analytics`, { credentials: 'include' }),
       ]);
 
       if (expRes.ok) {
@@ -78,7 +79,7 @@ export default function AdminFinancePage() {
     setError('');
 
     try {
-      const res = await fetch('http://localhost:3001/api/admin/finance/expenses', {
+      const res = await fetch(`${API_BASE_URL}/api/admin/finance/expenses`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -111,7 +112,7 @@ export default function AdminFinancePage() {
     if (!confirm(`Delete expense "${expTitle}"?`)) return;
 
     try {
-      const res = await fetch(`http://localhost:3001/api/admin/finance/expenses/${id}`, {
+      const res = await fetch(`${API_BASE_URL}/api/admin/finance/expenses/${id}`, {
         method: 'DELETE',
         credentials: 'include',
       });

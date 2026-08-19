@@ -13,6 +13,7 @@ import {
   X,
   Lock,
 } from 'lucide-react';
+import { API_BASE_URL } from '../../../utils/api-config';
 
 export default function AdminInventoryPage() {
   const [statusData, setStatusData] = useState<any>(null);
@@ -33,8 +34,8 @@ export default function AdminInventoryPage() {
     setLoading(true);
     try {
       const [statRes, transRes] = await Promise.all([
-        fetch('http://localhost:3001/api/admin/inventory/status', { credentials: 'include' }),
-        fetch('http://localhost:3001/api/admin/inventory/transactions?limit=100', { credentials: 'include' }),
+        fetch(`${API_BASE_URL}/api/admin/inventory/status`, { credentials: 'include' }),
+        fetch(`${API_BASE_URL}/api/admin/inventory/transactions?limit=100`, { credentials: 'include' }),
       ]);
 
       if (statRes.ok) {
@@ -72,7 +73,7 @@ export default function AdminInventoryPage() {
     setError('');
 
     try {
-      const res = await fetch('http://localhost:3001/api/admin/inventory/adjust', {
+      const res = await fetch(`${API_BASE_URL}/api/admin/inventory/adjust`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',

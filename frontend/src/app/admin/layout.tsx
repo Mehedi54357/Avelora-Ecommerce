@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import {
   LayoutDashboard,
   ShoppingBag,
@@ -16,35 +16,103 @@ import {
   Menu,
   X,
   ShieldCheck,
+  Loader2,
 } from 'lucide-react';
+import { API_BASE_URL } from '../../utils/api-config';
 
-const ADMIN_NAV = [
-  { name: 'Financial Dashboard', href: '/admin', icon: LayoutDashboard },
-  { name: 'Products & Variants', href: '/admin/products', icon: ShoppingBag },
-  { name: 'Categories', href: '/admin/categories', icon: Layers },
-  { name: 'Orders Management', href: '/admin/orders', icon: Package },
-  { name: 'Inventory & Logs', href: '/admin/inventory', icon: Boxes },
-  { name: 'Finance & Expenses', href: '/admin/finance', icon: DollarSign },
-  { name: 'Customer Directory', href: '/admin/customers', icon: Users },
+interface AdminNavItem {
+  name: string;
+  href: string;
+  icon: React.ComponentType<{ className?: string }>;
+  roles: string[];
+}
+
+const ALL_ADMIN_NAV: AdminNavItem[] = [
+  { name: 'Financial Dashboard', href: '/admin/dashboard', icon: LayoutDashboard, roles: ['SUPER_ADMIN', 'ADMIN', 'MANAGER'] },
+  { name: 'Products & Variants', href: '/admin/products', icon: ShoppingBag, roles: ['SUPER_ADMIN', 'ADMIN', 'MANAGER'] },
+  { name: 'Categories', href: '/admin/categories', icon: Layers, roles: ['SUPER_ADMIN', 'ADMIN', 'MANAGER'] },
+  { name: 'Orders Management', href: '/admin/orders', icon: Package, roles: ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'STAFF'] },
+  { name: 'Inventory & Logs', href: '/admin/inventory', icon: Boxes, roles: ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'STAFF'] },
+  { name: 'Finance & Expenses', href: '/admin/finance', icon: DollarSign, roles: ['SUPER_ADMIN', 'ADMIN'] },
+  { name: 'Customer Directory', href: '/admin/customers', icon: Users, roles: ['SUPER_ADMIN', 'ADMIN', 'MANAGER'] },
 ];
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const router = useRouter();
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [currentUser, setCurrentUser] = useState<any>(null);
+  const [verifyingSession, setVerifyingSession] = useState(pathname !== '/admin/login');
+
+  // Verify active session with the backend source of truth
+  useEffect(() => {
+    if (pathname === '/admin/login') {
+      setVerifyingSession(false);
+      return;
+    }
+
+    let isMounted = true;
+    const checkAuthSession = async () => {
+      try {
+        const res = await fetch(`${API_BASE_URL}/api/auth/me`, {
+          credentials: 'include',
+        });
+
+        if (!res.ok) {
+          throw new Error('Unauthorized');
+        }
+
+        const data = await res.json();
+        if (isMounted) {
+          setCurrentUser(data.user || data);
+          setVerifyingSession(false);
+        }
+      } catch {
+        if (isMounted) {
+          router.replace('/admin/login');
+        }
+      }
+    };
+
+    checkAuthSession();
+    return () => {
+      isMounted = false;
+    };
+  }, [pathname, router]);
 
   // If on login page, render children directly
   if (pathname === '/admin/login') {
     return <>{children}</>;
   }
 
+  // Session verification loader
+  if (verifyingSession) {
+    return (
+      <div className="min-h-screen bg-[#0B0F19] flex flex-col items-center justify-center text-white space-y-4">
+        <Loader2 className="w-8 h-8 animate-spin text-[#C5A059]" />
+        <p className="text-xs uppercase tracking-widest text-gray-400 font-semibold">
+          Verifying Administrator Session...
+        </p>
+      </div>
+    );
+  }
+
   const handleLogout = async () => {
     try {
-      await fetch('http://localhost:3001/api/auth/logout', { method: 'POST' });
+      await fetch(`${API_BASE_URL}/api/auth/logout`, {
+        method: 'POST',
+        credentials: 'include',
+      });
     } catch (e) {
-      console.error(e);
+      console.error('Logout notice:', e);
     }
     window.location.href = '/admin/login';
   };
+
+  const userRole = currentUser?.role || 'STAFF';
+  const visibleNavItems = ALL_ADMIN_NAV.filter(
+    (item) => item.roles.includes(userRole) || userRole === 'SUPER_ADMIN',
+  );
 
   return (
     <div className="min-h-screen bg-[#F4F6F8] flex flex-col md:flex-row text-slate-900">
@@ -52,7 +120,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       <div className="md:hidden bg-slate-950 text-white p-4 flex items-center justify-between border-b border-gray-800">
         <div className="flex items-center gap-2">
           <span className="text-lg font-bold tracking-widest text-[#E6CA85] font-serif-luxury">AVELORA</span>
-          <span className="text-[10px] px-1.5 py-0.5 bg-gray-800 text-gray-300 rounded font-mono">ADMIN</span>
+          <span className="text-[10px] px-1.5 py-0.5 bg-gray-800 text-gray-300 rounded font-mono">{userRole}</span>
         </div>
         <button
           onClick={() => setMobileNavOpen(!mobileNavOpen)}
@@ -87,9 +155,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
           {/* Navigation Links */}
           <nav className="space-y-1">
-            {ADMIN_NAV.map((item) => {
+            {visibleNavItems.map((item) => {
               const Icon = item.icon;
-              const isActive = pathname === item.href;
+              const isActive = pathname === item.href || (item.href === '/admin/dashboard' && pathname === '/admin');
 
               return (
                 <Link
@@ -148,8 +216,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               <span>System Live</span>
             </div>
             <div className="text-right">
-              <p className="text-xs font-bold text-gray-900">Super Admin</p>
-              <p className="text-[10px] text-gray-500">admin@avelora.com</p>
+              <p className="text-xs font-bold text-gray-900">{currentUser?.name || 'Administrator'}</p>
+              <p className="text-[10px] text-gray-500">{currentUser?.email || userRole}</p>
             </div>
           </div>
         </header>
@@ -162,3 +230,4 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     </div>
   );
 }
+

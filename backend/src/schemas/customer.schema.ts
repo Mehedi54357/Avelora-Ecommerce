@@ -8,8 +8,8 @@ export class Address {
   @Prop({ required: true })
   district: string;
 
-  @Prop({ required: true })
-  area: string;
+  @Prop({ required: false, default: '' })
+  area?: string;
 
   @Prop({ required: true })
   fullAddress: string;

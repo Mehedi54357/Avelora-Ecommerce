@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { API_BASE_URL } from '../../utils/api-config';
 import {
   DollarSign,
   TrendingUp,
@@ -26,8 +27,8 @@ export default function AdminDashboardPage() {
     setLoading(true);
     try {
       const [finRes, ordRes] = await Promise.all([
-        fetch('http://localhost:3001/api/admin/finance/analytics', { credentials: 'include' }),
-        fetch('http://localhost:3001/api/admin/orders?limit=6', { credentials: 'include' }),
+        fetch(`${API_BASE_URL}/api/admin/finance/analytics`, { credentials: 'include' }),
+        fetch(`${API_BASE_URL}/api/admin/orders?limit=6`, { credentials: 'include' }),
       ]);
 
       if (finRes.ok) {
@@ -113,20 +114,20 @@ export default function AdminDashboardPage() {
           </div>
         </div>
 
-        {/* 2. Active Pipeline Value (Orders awaiting delivery) */}
+        {/* 2. Total Orders & Pipeline */}
         <div className="bg-white p-5 rounded-2xl border border-gray-200/80 shadow-sm space-y-2">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold uppercase tracking-wider text-amber-700">Pipeline Value</span>
+            <span className="text-xs font-bold uppercase tracking-wider text-amber-700">Orders Queue</span>
             <div className="w-8 h-8 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center font-bold text-sm">
               <Clock className="w-4 h-4" />
             </div>
           </div>
           <div>
             <h3 className="text-xl font-bold font-mono text-amber-700">
-              ৳{(summary.pipelineRevenue || 0).toLocaleString()}
+              {recentOrders.length} Orders
             </h3>
             <p className="text-[10px] text-gray-500 mt-1">
-              {summary.pipelineOrdersCount || 0} pending/in-transit orders
+              Pipeline Value: ৳{(summary.pipelineRevenue || 0).toLocaleString()}
             </p>
           </div>
         </div>
@@ -162,7 +163,7 @@ export default function AdminDashboardPage() {
               ৳{(summary.totalOperatingExpenses || 0).toLocaleString()}
             </h3>
             <p className="text-[10px] text-gray-500 mt-1">
-              Packaging, Delivery & Ads
+              Packaging, Delivery & Marketing
             </p>
           </div>
         </div>

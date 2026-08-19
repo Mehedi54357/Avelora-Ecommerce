@@ -14,6 +14,21 @@ import {
   AlertCircle,
   RefreshCw,
 } from 'lucide-react';
+import { compressImage } from '../../../utils/image-compressor';
+import { API_BASE_URL } from '../../../utils/api-config';
+
+const PRESET_CATEGORIES = [
+  { slug: 'women-hijab', name: 'Hijab Collection (হিজাব)', department: 'women' },
+  { slug: 'women-churi-bangles', name: 'Churi & Bangles (কাঁচের ও রেশমি চুড়ি)', department: 'women' },
+  { slug: 'women-accessories', name: 'Accessories & Fine Jewellery (জুয়েলারি ও গহনা)', department: 'women' },
+  { slug: 'women-dresses', name: 'Dresses & Modest Wear (ড্রেস ও গাউন)', department: 'women' },
+  { slug: 'women-hair-accessories', name: 'Hair Accessories (হেয়ার এক্সেসরিজ)', department: 'women' },
+  { slug: 'women-shoes', name: 'Shoes & Footwear (জুতা ও নাগরা)', department: 'women' },
+  { slug: 'men-shoes', name: 'Shoes & Loafers (মেনস জুতা ও লোফার)', department: 'men' },
+  { slug: 'men-clothing', name: 'Clothing & Panjabi (মেনস পাঞ্জাবি)', department: 'men' },
+  { slug: 'kids-girls-dresses', name: 'Girls\' Dresses (বাচ্চাদের ড্রেস ও পার্টি গাউন)', department: 'kids' },
+  { slug: 'kids-accessories', name: 'Kids\' Shoes & Accessories (বাচ্চাদের জুতা ও এক্সেসরিজ)', department: 'kids' },
+];
 
 export default function AdminProductsPage() {
   const [products, setProducts] = useState<any[]>([]);
@@ -58,8 +73,8 @@ export default function AdminProductsPage() {
     setLoading(true);
     try {
       const [prodRes, catRes] = await Promise.all([
-        fetch('http://localhost:3001/api/admin/products', { credentials: 'include' }),
-        fetch('http://localhost:3001/api/categories'),
+        fetch(`${API_BASE_URL}/api/admin/products`, { credentials: 'include' }),
+        fetch(`${API_BASE_URL}/api/categories`),
       ]);
 
       if (prodRes.ok) {
@@ -93,7 +108,7 @@ export default function AdminProductsPage() {
     setDiscountPercentage(0);
     setSalePrice(0);
     setIsPublished(true);
-    setVariants([{ sku: `AVE-${Date.now().toString().slice(-4)}`, color: 'Standard', size: 'Standard', price: 0, costPrice: 0, stock: 10 }]);
+    setVariants([{ sku: `AVE-${Date.now().toString().slice(-5)}`, color: 'Standard', size: 'Standard', price: 0, costPrice: 0, stock: 10 }]);
     setError('');
     setIsModalOpen(true);
   };
@@ -112,14 +127,21 @@ export default function AdminProductsPage() {
     setIsPublished(prod.isPublished !== false);
     setVariants(
       prod.variants?.length > 0
-        ? prod.variants
-        : [{ sku: `AVE-${prod.slug}`, color: 'Standard', size: 'Standard', price: prod.salePrice, costPrice: 0, stock: 10 }],
+        ? prod.variants.map((v: any) => ({
+            sku: v.sku || '',
+            color: v.color || '',
+            size: v.size || '',
+            price: v.price || prod.salePrice || 0,
+            costPrice: v.costPrice || 0,
+            stock: v.stockQuantity !== undefined ? v.stockQuantity : (v.stock || 0),
+          }))
+        : [{ sku: `AVE-${prod.slug || Date.now().toString().slice(-4)}`, color: 'Standard', size: 'Standard', price: prod.salePrice, costPrice: 0, stock: 10 }],
     );
     setError('');
     setIsModalOpen(true);
   };
 
-  // Image Upload handler from Local File / Device
+  // Image Upload handler with client-side auto compression
   const handleLocalImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
@@ -130,33 +152,30 @@ export default function AdminProductsPage() {
     try {
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
-        const reader = new FileReader();
+        // Client-side auto-compression to 1200px max width
+        const compressedDataUrl = await compressImage(file, 1200, 0.85);
 
-        const dataUrl: string = await new Promise((resolve, reject) => {
-          reader.onload = () => resolve(reader.result as string);
-          reader.onerror = reject;
-          reader.readAsDataURL(file);
-        });
+        try {
+          const res = await fetch(`${API_BASE_URL}/api/upload/image`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({ image: compressedDataUrl, folder: 'avelora/products' }),
+          });
 
-        // Send to backend upload service
-        const res = await fetch('http://localhost:3001/api/upload/image', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify({ image: dataUrl }),
-        });
-
-        if (res.ok) {
-          const data = await res.json();
-          setImages((prev) => [...prev, data.url]);
-        } else {
-          // If upload endpoint gives error, store dataUrl directly
-          setImages((prev) => [...prev, dataUrl]);
+          if (res.ok) {
+            const data = await res.json();
+            setImages((prev) => [...prev, data.url || compressedDataUrl]);
+          } else {
+            setImages((prev) => [...prev, compressedDataUrl]);
+          }
+        } catch {
+          setImages((prev) => [...prev, compressedDataUrl]);
         }
       }
     } catch (err) {
       console.error('Error uploading image', err);
-      setError('Could not process image file.');
+      setError('ছবি আপলোড করতে সমস্যা হয়েছে। অন্য ছবি চেষ্টা করুন।');
     } finally {
       setUploadingImage(false);
     }
@@ -205,10 +224,13 @@ export default function AdminProductsPage() {
     setSaving(true);
     setError('');
 
+    const cleanSlug = name.trim().toLowerCase().replace(/[^a-z0-9\u0980-\u09FF]+/g, '-').replace(/(^-|-$)/g, '');
+    const autoSlug = slug.trim() || (cleanSlug && cleanSlug !== '-' ? cleanSlug : `prod-${Date.now().toString().slice(-6)}`);
+
     const payload = {
       name: name.trim(),
-      slug: slug.trim() || undefined,
-      categoryId: categoryId || undefined,
+      slug: autoSlug,
+      categoryId: categoryId && categoryId.trim() !== '' ? categoryId : undefined,
       description: description.trim(),
       images,
       originalPrice: Number(originalPrice) || 0,
@@ -221,14 +243,14 @@ export default function AdminProductsPage() {
         size: v.size.trim(),
         price: Number(v.price) || Number(salePrice) || 0,
         costPrice: Number(v.costPrice) || 0,
-        stock: Number(v.stock) || 0,
+        stockQuantity: Number(v.stock) || 0,
       })),
     };
 
     try {
       const url = editingProduct
-        ? `http://localhost:3001/api/admin/products/${editingProduct._id}`
-        : 'http://localhost:3001/api/admin/products';
+        ? `${API_BASE_URL}/api/admin/products/${editingProduct._id}`
+        : `${API_BASE_URL}/api/admin/products`;
       const method = editingProduct ? 'PUT' : 'POST';
 
       const res = await fetch(url, {
@@ -256,7 +278,28 @@ export default function AdminProductsPage() {
     if (!confirm(`Are you sure you want to delete "${name}"?`)) return;
 
     try {
-      const res = await fetch(`http://localhost:3001/api/admin/products/${id}`, {
+      const res = await fetch(`${API_BASE_URL}/api/admin/products/${id}`, {
+        method: 'DELETE',
+        credentials: 'include',
+      });
+      if (res.ok) {
+        fetchData();
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleClearAllDemoProducts = async () => {
+    if (
+      !confirm(
+        '⚠️ Are you sure you want to delete ALL demo products? This will completely clear the database so you can add your original real products manually.',
+      )
+    )
+      return;
+
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/admin/products-clear-all`, {
         method: 'DELETE',
         credentials: 'include',
       });
@@ -275,7 +318,7 @@ export default function AdminProductsPage() {
   );
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fadeIn">
       {/* Top Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-6 rounded-2xl border border-gray-200 shadow-sm">
         <div>
@@ -283,20 +326,33 @@ export default function AdminProductsPage() {
             Catalog & Inventory Management
           </span>
           <h1 className="text-2xl font-bold font-serif-luxury text-gray-900">
-            Products & Embedded Variants ({products.length})
+            Products & Variants ({products.length})
           </h1>
           <p className="text-xs text-gray-500">
             Create pieces, upload photos directly from your device, and manage SKUs, COGS & prices.
           </p>
         </div>
 
-        <button
-          onClick={openCreateModal}
-          className="px-5 py-2.5 bg-slate-950 hover:bg-[#C5A059] text-white text-xs font-bold uppercase tracking-wider rounded-xl transition flex items-center gap-2 shadow"
-        >
-          <Plus className="w-4 h-4" />
-          <span>Add New Product</span>
-        </button>
+        <div className="flex items-center gap-3">
+          {products.length > 0 && (
+            <button
+              onClick={handleClearAllDemoProducts}
+              className="px-4 py-2.5 bg-red-50 hover:bg-red-100 text-red-700 text-xs font-bold uppercase tracking-wider rounded-xl transition flex items-center gap-1.5 border border-red-200 shadow-sm"
+              title="Clear all demo products"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              <span>Clear All Demo</span>
+            </button>
+          )}
+
+          <button
+            onClick={openCreateModal}
+            className="px-5 py-2.5 bg-slate-950 hover:bg-[#C5A059] text-white text-xs font-bold uppercase tracking-wider rounded-xl transition flex items-center gap-2 shadow"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Add New Product</span>
+          </button>
+        </div>
       </div>
 
       {/* Filter and Search Bar */}
@@ -326,7 +382,11 @@ export default function AdminProductsPage() {
         {loading ? (
           <div className="p-12 text-center text-xs text-gray-500">Loading catalog...</div>
         ) : filteredProducts.length === 0 ? (
-          <div className="p-12 text-center text-xs text-gray-500">No products found.</div>
+          <div className="p-12 text-center space-y-3">
+            <Layers className="w-10 h-10 text-gray-400 mx-auto" />
+            <p className="text-sm font-bold text-gray-700">No products created yet.</p>
+            <p className="text-xs text-gray-400">Click "Add New Product" to manually publish your first piece.</p>
+          </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
@@ -342,19 +402,25 @@ export default function AdminProductsPage() {
               </thead>
               <tbody className="divide-y divide-gray-100 text-xs">
                 {filteredProducts.map((prod) => {
-                  const totalStock = prod.variants?.reduce((acc: number, v: any) => acc + (v.stock || 0), 0) || 0;
+                  const totalStock = prod.variants?.reduce((acc: number, v: any) => acc + (v.stockQuantity !== undefined ? v.stockQuantity : (v.stock || 0)), 0) || 0;
                   return (
                     <tr key={prod._id} className="hover:bg-gray-50/60">
                       <td className="py-3.5 px-4">
                         <div className="flex items-center gap-3">
-                          <img
-                            src={prod.images?.[0] || 'https://images.unsplash.com/photo-1584917865442-de89df76afd3?auto=format&fit=crop&w=100&q=80'}
-                            alt={prod.name}
-                            className="w-12 h-14 object-cover rounded-lg border border-gray-200 flex-shrink-0"
-                          />
+                          {prod.images?.[0] ? (
+                            <img
+                              src={prod.images[0]}
+                              alt={prod.name}
+                              className="w-12 h-14 object-cover rounded-lg border border-gray-200 flex-shrink-0"
+                            />
+                          ) : (
+                            <div className="w-12 h-14 bg-gray-100 rounded-lg border flex items-center justify-center text-gray-400 text-[10px]">
+                              No Photo
+                            </div>
+                          )}
                           <div>
                             <p className="font-bold text-gray-900 font-serif-luxury text-sm">{prod.name}</p>
-                            <p className="text-[11px] text-gray-400 font-mono">{prod.slug}</p>
+                            <p className="text-[11px] text-gray-400 font-mono">/{prod.slug}</p>
                           </div>
                         </div>
                       </td>
@@ -372,7 +438,7 @@ export default function AdminProductsPage() {
                       <td className="py-3.5 px-4">
                         <p className="font-semibold text-gray-800">{prod.variants?.length || 0} variants</p>
                         <p className={`text-[10px] font-mono ${totalStock > 0 ? 'text-emerald-600' : 'text-red-500'}`}>
-                          {totalStock} units available
+                          {totalStock} units in stock
                         </p>
                       </td>
                       <td className="py-3.5 px-4">
@@ -417,7 +483,7 @@ export default function AdminProductsPage() {
             <div className="p-6 bg-slate-950 text-white flex items-center justify-between">
               <div>
                 <h3 className="text-lg font-bold font-serif-luxury text-[#E6CA85]">
-                  {editingProduct ? 'Edit Luxury Product' : 'Add New Luxury Piece'}
+                  {editingProduct ? 'Edit Product' : 'Add New Luxury Piece'}
                 </h3>
                 <p className="text-xs text-gray-400">Configure details, upload imagery, and specify variants</p>
               </div>
@@ -432,8 +498,9 @@ export default function AdminProductsPage() {
             {/* Modal Body */}
             <form onSubmit={handleSaveProduct} className="p-6 sm:p-8 overflow-y-auto flex-1 space-y-6 text-xs text-gray-700">
               {error && (
-                <div className="p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg">
-                  {error}
+                <div className="p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0" />
+                  <span>{error}</span>
                 </div>
               )}
 
@@ -444,26 +511,86 @@ export default function AdminProductsPage() {
                   <input
                     type="text"
                     required
-                    placeholder="e.g. AVELORA Royal Velvet Clutch"
+                    placeholder="e.g. AVELORA Silk Georgette Hijab"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     className="w-full px-3.5 py-2.5 rounded-lg border border-gray-300 focus:outline-none focus:border-[#C5A059] bg-white text-gray-900 font-medium"
                   />
                 </div>
 
-                <div className="space-y-1">
-                  <label className="font-bold uppercase text-gray-900">Category *</label>
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <label className="font-bold uppercase text-gray-900">
+                      Category (প্রোডাক্টের ক্যাটাগরি) *
+                    </label>
+                    <a
+                      href="/admin/categories"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-[10px] text-[#997B21] hover:underline font-bold"
+                    >
+                      + Manage Categories
+                    </a>
+                  </div>
+
                   <select
                     value={categoryId}
                     onChange={(e) => setCategoryId(e.target.value)}
-                    className="w-full px-3.5 py-2.5 rounded-lg border border-gray-300 focus:outline-none focus:border-[#C5A059] bg-white font-medium text-gray-900"
+                    className="w-full px-3.5 py-2.5 rounded-lg border-2 border-gray-300 focus:outline-none focus:border-[#C5A059] bg-white font-semibold text-gray-900 text-xs shadow-sm"
                   >
-                    {categories.map((c) => (
-                      <option key={c._id} value={c._id}>
-                        {c.name}
-                      </option>
-                    ))}
+                    <option value="">-- সিলেক্ট ক্যাটাগরি (Select Category) --</option>
+
+                    {/* Women Collection */}
+                    <optgroup label="👗 WOMEN COLLECTION (মহিলা)">
+                      {PRESET_CATEGORIES.filter((c) => c.department === 'women').map((c) => {
+                        const dbCat = categories.find((d) => d.slug === c.slug);
+                        const val = dbCat?._id || c.slug;
+                        return (
+                          <option key={c.slug} value={val}>
+                            {c.name}
+                          </option>
+                        );
+                      })}
+                    </optgroup>
+
+                    {/* Men Collection */}
+                    <optgroup label="👔 MEN COLLECTION (পুরুষ)">
+                      {PRESET_CATEGORIES.filter((c) => c.department === 'men').map((c) => {
+                        const dbCat = categories.find((d) => d.slug === c.slug);
+                        const val = dbCat?._id || c.slug;
+                        return (
+                          <option key={c.slug} value={val}>
+                            {c.name}
+                          </option>
+                        );
+                      })}
+                    </optgroup>
+
+                    {/* Kids Collection */}
+                    <optgroup label="🧸 KIDS COLLECTION (বাচ্চা)">
+                      {PRESET_CATEGORIES.filter((c) => c.department === 'kids').map((c) => {
+                        const dbCat = categories.find((d) => d.slug === c.slug);
+                        const val = dbCat?._id || c.slug;
+                        return (
+                          <option key={c.slug} value={val}>
+                            {c.name}
+                          </option>
+                        );
+                      })}
+                    </optgroup>
                   </select>
+
+                  {categoryId && (
+                    <div className="pt-0.5">
+                      <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded">
+                        ✓ Selected Category: {
+                          categories.find((c) => c._id === categoryId || c.slug === categoryId)?.name ||
+                          PRESET_CATEGORIES.find((c) => c.slug === categoryId)?.name ||
+                          categoryId
+                        }
+                      </span>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -482,15 +609,15 @@ export default function AdminProductsPage() {
               {/* Direct Image Upload from Device & Cloudinary CDN */}
               <div className="space-y-3 p-4 bg-[#FAFAF8] rounded-xl border border-gray-200">
                 <label className="font-bold uppercase text-gray-900 flex items-center justify-between">
-                  <span>Product Imagery (Cloudinary CDN Direct Upload)</span>
-                  {uploadingImage && <span className="text-amber-600 font-normal">Uploading file...</span>}
+                  <span>Product Photos (Multiple Image Upload)</span>
+                  {uploadingImage && <span className="text-amber-600 font-semibold">Compressing & uploading photo...</span>}
                 </label>
 
                 {/* Local File Picker Button */}
                 <div className="flex flex-col sm:flex-row items-center gap-3">
-                  <label className="w-full sm:w-auto px-4 py-2.5 bg-slate-900 text-white rounded-lg text-xs font-bold uppercase tracking-wider hover:bg-[#C5A059] transition cursor-pointer flex items-center justify-center gap-2">
+                  <label className="w-full sm:w-auto px-4 py-2.5 bg-slate-900 text-white rounded-lg text-xs font-bold uppercase tracking-wider hover:bg-[#C5A059] transition cursor-pointer flex items-center justify-center gap-2 shadow-sm">
                     <UploadCloud className="w-4 h-4" />
-                    <span>Upload From Laptop / Device</span>
+                    <span>Upload From Device</span>
                     <input
                       type="file"
                       accept="image/*"
@@ -505,7 +632,7 @@ export default function AdminProductsPage() {
                   <div className="flex-1 flex gap-2 w-full">
                     <input
                       type="url"
-                      placeholder="https://images.unsplash.com/..."
+                      placeholder="https://..."
                       value={imageInput}
                       onChange={(e) => setImageInput(e.target.value)}
                       className="flex-1 px-3 py-2 rounded-lg border border-gray-300 bg-white"
@@ -529,7 +656,8 @@ export default function AdminProductsPage() {
                         <button
                           type="button"
                           onClick={() => removeImage(idx)}
-                          className="absolute top-1 right-1 bg-red-600 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition"
+                          className="absolute top-1 right-1 bg-red-600 text-white p-1 rounded-full opacity-90 hover:opacity-100 transition shadow-sm"
+                          title="Remove"
                         >
                           <X className="w-3 h-3" />
                         </button>
@@ -576,9 +704,10 @@ export default function AdminProductsPage() {
                 </div>
 
                 <div className="space-y-1">
-                  <label className="font-bold uppercase text-gray-900">Sale Price (৳)</label>
+                  <label className="font-bold uppercase text-gray-900">Sale Price (৳) *</label>
                   <input
                     type="number"
+                    required
                     value={salePrice}
                     onChange={(e) => setSalePrice(Number(e.target.value))}
                     className="w-full px-3.5 py-2.5 rounded-lg border border-gray-300 bg-white font-mono font-bold text-[#0F172A]"
@@ -608,7 +737,7 @@ export default function AdminProductsPage() {
                         <span className="text-[10px] text-gray-400 uppercase font-semibold">Color</span>
                         <input
                           type="text"
-                          placeholder="e.g. Gold"
+                          placeholder="e.g. Red"
                           value={v.color}
                           onChange={(e) => updateVariant(idx, 'color', e.target.value)}
                           className="w-full px-2 py-1.5 rounded border border-gray-300 bg-white text-xs"
@@ -618,7 +747,7 @@ export default function AdminProductsPage() {
                         <span className="text-[10px] text-gray-400 uppercase font-semibold">Size</span>
                         <input
                           type="text"
-                          placeholder="e.g. M / 50ml"
+                          placeholder="e.g. M / 2.6"
                           value={v.size}
                           onChange={(e) => updateVariant(idx, 'size', e.target.value)}
                           className="w-full px-2 py-1.5 rounded border border-gray-300 bg-white text-xs"
@@ -654,7 +783,7 @@ export default function AdminProductsPage() {
                       </div>
                       <div className="flex items-center gap-2">
                         <div className="flex-1">
-                          <span className="text-[10px] text-gray-400 uppercase font-semibold">Stock</span>
+                          <span className="text-[10px] text-gray-400 uppercase font-semibold">Stock Quantity</span>
                           <input
                             type="number"
                             value={v.stock}
@@ -702,7 +831,7 @@ export default function AdminProductsPage() {
                 </button>
                 <button
                   type="submit"
-                  disabled={saving}
+                  disabled={saving || uploadingImage}
                   className="px-6 py-2.5 bg-slate-950 hover:bg-[#C5A059] text-white font-bold uppercase rounded-lg shadow disabled:opacity-50"
                 >
                   {saving ? 'Saving...' : editingProduct ? 'Update Product' : 'Create Product'}

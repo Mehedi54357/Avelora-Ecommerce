@@ -2,8 +2,9 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useCart } from '../context/cart-context';
-import { ShoppingBag, Eye, Check } from 'lucide-react';
+import { ShoppingBag, Zap, Check } from 'lucide-react';
 
 interface ProductCardProps {
   product: {
@@ -20,13 +21,15 @@ interface ProductCardProps {
       color?: string;
       size?: string;
       price: number;
-      stock: number;
+      stockQuantity?: number;
+      stock?: number;
     }>;
   };
 }
 
 export default function ProductCard({ product }: ProductCardProps) {
-  const { addItem } = useCart();
+  const router = useRouter();
+  const { addItem, clearCart } = useCart();
   const [selectedVariantIndex, setSelectedVariantIndex] = useState(0);
   const [isHovered, setIsHovered] = useState(false);
   const [added, setAdded] = useState(false);
@@ -36,6 +39,7 @@ export default function ProductCard({ product }: ProductCardProps) {
     color: '',
     size: '',
     price: product.salePrice,
+    stockQuantity: 10,
     stock: 10,
   };
 
@@ -43,7 +47,8 @@ export default function ProductCard({ product }: ProductCardProps) {
   const hoverImage = product.images?.[1] || mainImage;
 
   const currentPrice = selectedVariant.price > 0 ? selectedVariant.price : product.salePrice;
-  const isOutOfStock = selectedVariant.stock === 0;
+  const variantStock = selectedVariant.stockQuantity !== undefined ? selectedVariant.stockQuantity : (selectedVariant.stock ?? 10);
+  const isOutOfStock = variantStock === 0;
 
   const handleQuickAdd = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -60,26 +65,50 @@ export default function ProductCard({ product }: ProductCardProps) {
       price: currentPrice,
       originalPrice: product.originalPrice,
       quantity: 1,
-      maxStock: selectedVariant.stock,
+      maxStock: variantStock,
     });
 
     setAdded(true);
     setTimeout(() => setAdded(false), 1500);
   };
 
+  const handleBuyNow = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (isOutOfStock) return;
+
+    clearCart();
+    addItem({
+      productId: product._id,
+      sku: selectedVariant.sku,
+      name: product.name,
+      image: mainImage,
+      color: selectedVariant.color,
+      size: selectedVariant.size,
+      price: currentPrice,
+      originalPrice: product.originalPrice,
+      quantity: 1,
+      maxStock: variantStock,
+    });
+
+    router.push('/checkout');
+  };
+
   return (
     <div
-      className="group relative bg-white rounded-xl overflow-hidden border border-gray-100/80 hover:border-[#D4AF37]/50 transition-all duration-300 hover:shadow-xl flex flex-col"
+      className="group relative bg-white rounded-2xl overflow-hidden border border-gray-200 hover:border-[#D4AF37]/60 transition-all duration-300 hover:shadow-xl flex flex-col justify-between"
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
       {/* Product Image Container */}
-      <Link href={`/products/${product.slug}`} className="relative aspect-[4/5] bg-gray-50 overflow-hidden block">
-        <img
-          src={isHovered ? hoverImage : mainImage}
-          alt={product.name}
-          className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-105"
-        />
+      <div className="relative aspect-[4/5] bg-gray-50 overflow-hidden block">
+        <Link href={`/products/${product.slug}`} className="block w-full h-full">
+          <img
+            src={isHovered ? hoverImage : mainImage}
+            alt={product.name}
+            className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-105"
+          />
+        </Link>
 
         {/* Discount Badge */}
         {product.discountPercentage && product.discountPercentage > 0 ? (
@@ -96,41 +125,16 @@ export default function ProductCard({ product }: ProductCardProps) {
             </span>
           </div>
         )}
-
-        {/* Quick View Button overlay on hover */}
-        <div className="absolute inset-x-3 bottom-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center gap-2">
-          <button
-            onClick={handleQuickAdd}
-            disabled={isOutOfStock}
-            className={`flex-1 py-2.5 px-4 rounded-lg text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-1.5 shadow-lg transition-all ${
-              added
-                ? 'bg-emerald-600 text-white'
-                : isOutOfStock
-                ? 'bg-gray-400 text-white cursor-not-allowed'
-                : 'bg-slate-900 text-white hover:bg-[#C5A059]'
-            }`}
-          >
-            {added ? (
-              <>
-                <Check className="w-3.5 h-3.5" /> Added
-              </>
-            ) : (
-              <>
-                <ShoppingBag className="w-3.5 h-3.5" /> Quick Add
-              </>
-            )}
-          </button>
-        </div>
-      </Link>
+      </div>
 
       {/* Product Details */}
       <div className="p-4 sm:p-5 flex-1 flex flex-col justify-between space-y-3">
         <div>
-          <span className="text-[10px] font-semibold uppercase tracking-widest text-[#997B21]">
-            {product.categoryId?.name || 'Exclusive'}
+          <span className="text-[10px] font-bold uppercase tracking-widest text-[#997B21]">
+            {product.categoryId?.name || 'Avelora Collection'}
           </span>
           <Link href={`/products/${product.slug}`}>
-            <h3 className="text-sm font-semibold text-gray-900 line-clamp-1 group-hover:text-[#C5A059] transition font-serif-luxury text-base mt-0.5">
+            <h3 className="text-sm font-bold text-gray-900 line-clamp-1 group-hover:text-[#C5A059] transition font-serif-luxury mt-0.5">
               {product.name}
             </h3>
           </Link>
@@ -138,7 +142,7 @@ export default function ProductCard({ product }: ProductCardProps) {
 
         {/* Variants Pill Bar if available */}
         {product.variants && product.variants.length > 1 && (
-          <div className="flex items-center gap-1.5 flex-wrap pt-1">
+          <div className="flex items-center gap-1.5 flex-wrap pt-0.5">
             {product.variants.slice(0, 4).map((variant, idx) => (
               <button
                 key={variant.sku}
@@ -146,7 +150,7 @@ export default function ProductCard({ product }: ProductCardProps) {
                   e.preventDefault();
                   setSelectedVariantIndex(idx);
                 }}
-                className={`text-[10px] px-2 py-0.5 rounded border transition ${
+                className={`text-[10px] px-2 py-0.5 rounded border font-medium transition ${
                   selectedVariantIndex === idx
                     ? 'border-slate-900 bg-slate-900 text-white'
                     : 'border-gray-200 text-gray-600 hover:border-gray-400 bg-gray-50'
@@ -170,7 +174,47 @@ export default function ProductCard({ product }: ProductCardProps) {
               </span>
             )}
           </div>
-          <span className="text-[10px] text-emerald-600 font-medium">In Stock</span>
+          <span className={`text-[10px] font-semibold ${isOutOfStock ? 'text-red-500' : 'text-emerald-600'}`}>
+            {isOutOfStock ? 'Out of Stock' : 'In Stock'}
+          </span>
+        </div>
+
+        {/* Action Buttons: Buy Now & Add to Bag */}
+        <div className="grid grid-cols-2 gap-2 pt-1">
+          <button
+            onClick={handleQuickAdd}
+            disabled={isOutOfStock}
+            className={`py-2 px-2 rounded-xl text-[11px] font-bold uppercase tracking-wider flex items-center justify-center gap-1 transition-all ${
+              added
+                ? 'bg-emerald-600 text-white'
+                : isOutOfStock
+                ? 'bg-gray-100 text-gray-400 cursor-not-allowed border'
+                : 'bg-white border border-gray-300 hover:border-slate-900 text-gray-800'
+            }`}
+          >
+            {added ? (
+              <>
+                <Check className="w-3.5 h-3.5" /> Added
+              </>
+            ) : (
+              <>
+                <ShoppingBag className="w-3.5 h-3.5" /> Add to Bag
+              </>
+            )}
+          </button>
+
+          <button
+            onClick={handleBuyNow}
+            disabled={isOutOfStock}
+            className={`py-2 px-2 rounded-xl text-[11px] font-bold uppercase tracking-wider flex items-center justify-center gap-1 transition-all shadow-sm ${
+              isOutOfStock
+                ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                : 'bg-slate-950 hover:bg-[#C5A059] text-white hover:text-slate-950'
+            }`}
+          >
+            <Zap className="w-3.5 h-3.5 fill-current" />
+            <span>Buy Now</span>
+          </button>
         </div>
       </div>
     </div>

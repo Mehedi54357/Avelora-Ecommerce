@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Lock, Mail, ShieldCheck, ArrowRight, AlertCircle } from 'lucide-react';
+import { API_BASE_URL } from '../../../utils/api-config';
 import { AveloraLogo } from '../../../components/navbar';
 
 export default function AdminLoginPage() {
@@ -18,7 +19,7 @@ export default function AdminLoginPage() {
     setLoading(true);
 
     try {
-      const res = await fetch('http://localhost:3001/api/auth/login', {
+      const res = await fetch(`${API_BASE_URL}/api/auth/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -30,21 +31,14 @@ export default function AdminLoginPage() {
       const data = await res.json();
 
       if (res.ok) {
-        // Set client-side cookie so Next.js middleware allows /admin routes
-        if (data.token) {
-          document.cookie = `token=${data.token}; path=/; max-age=86400; SameSite=Lax`;
-        }
-        if (data.user) {
-          localStorage.setItem('avelora_admin_user', JSON.stringify(data.user));
-        }
-
-        // Navigate to Admin Dashboard
-        window.location.href = '/admin';
+        // Successful login: HttpOnly cookie is set by the backend
+        // Redirect directly to the authenticated admin dashboard
+        window.location.href = '/admin/dashboard';
       } else {
         setError(data.message || 'Invalid administrator email or password.');
       }
     } catch (err: any) {
-      setError('Unable to connect to backend server. Ensure backend is running on port 3001.');
+      setError('Unable to connect to backend server. Please verify backend service availability.');
     } finally {
       setLoading(false);
     }

@@ -24,8 +24,8 @@ export class AuthService {
   }
 
   async login(user: any) {
-    const payload = { email: user.email, sub: user._id, role: user.role };
-    const secret = this.configService.get<string>('JWT_SECRET') as string;
+    const payload = { email: user.email, sub: user._id, role: user.role, name: user.name };
+    const secret = this.configService.get<string>('JWT_SECRET') || 'default_avelora_jwt_secret_key';
     const token = jwt.sign(payload, secret, { expiresIn: '1d' });
     return { token, user };
   }

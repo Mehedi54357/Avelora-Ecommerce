@@ -25,6 +25,7 @@ interface CartContextType {
   setIsCartOpen: (open: boolean) => void;
   cartCount: number;
   cartSubtotal: number;
+  getSubtotal: () => number;
 }
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
@@ -116,6 +117,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setIsCartOpen,
         cartCount,
         cartSubtotal,
+        getSubtotal: () => cartSubtotal,
       }}
     >
       {children}

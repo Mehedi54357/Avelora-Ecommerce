@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation';
 import { CartProvider } from '../context/cart-context';
 import Navbar from './navbar';
 import CartDrawer from './cart-drawer';
+import FloatingCartButton from './floating-cart-button';
 import Footer from './footer';
 
 export default function LayoutProvider({ children }: { children: React.ReactNode }) {
@@ -19,6 +20,7 @@ export default function LayoutProvider({ children }: { children: React.ReactNode
         <div className="flex flex-col min-h-screen">
           <Navbar />
           <CartDrawer />
+          <FloatingCartButton />
           <main className="flex-1">{children}</main>
           <Footer />
         </div>

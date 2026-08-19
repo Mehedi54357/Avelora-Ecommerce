@@ -45,6 +45,20 @@ export class CategoriesController {
 
   @UseGuards(AuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
+  @Post('admin/categories-reset-defaults')
+  async resetDefaultCategories() {
+    return this.categoriesService.resetDefaultCategories();
+  }
+
+  @UseGuards(AuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
+  @Delete('admin/categories-clear-all')
+  async clearAllCategories() {
+    return this.categoriesService.clearAll();
+  }
+
+  @UseGuards(AuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
   @Delete('admin/categories/:id')
   async deleteCategory(@Param('id') id: string) {
     return this.categoriesService.delete(id);

@@ -164,6 +164,23 @@ export default function InvoiceModal({ order, isOpen, onClose }: InvoiceModalPro
                 <span>Total Amount:</span>
                 <span className="text-base text-[#0F172A] font-mono">৳{(order.totalAmount || 0).toLocaleString()}</span>
               </div>
+              
+              {/* Payment Split in Invoice */}
+              <div className="pt-2 mt-2 border-t border-dashed border-gray-300 space-y-1 text-xs">
+                <div className="flex justify-between text-emerald-800 font-semibold">
+                  <span>Advance Paid ({order.paymentProvider || order.paymentMethod}):</span>
+                  <span className="font-mono">৳{(order.paidAmount || (order.paymentMethod === 'COD' ? order.deliveryCharge : order.totalAmount) || 0).toLocaleString()}</span>
+                </div>
+                <div className="flex justify-between text-amber-800 font-semibold">
+                  <span>Cash Due on Delivery:</span>
+                  <span className="font-mono">৳{(order.dueAmount || (order.paymentMethod === 'COD' ? order.subtotal : 0) || 0).toLocaleString()}</span>
+                </div>
+                {order.transactionId && (
+                  <p className="text-[10px] text-gray-500 font-mono pt-0.5">
+                    TrxID: {order.transactionId} {order.senderMobile ? `• From: ${order.senderMobile}` : ''}
+                  </p>
+                )}
+              </div>
             </div>
           </div>
 

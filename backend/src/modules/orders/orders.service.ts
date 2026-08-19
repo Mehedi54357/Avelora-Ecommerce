@@ -99,34 +99,60 @@ export class OrdersService {
     const deliveryCharge = data.deliveryCharge !== undefined ? data.deliveryCharge : (isDhaka ? 70 : 130);
     const totalAmount = subtotal + deliveryCharge;
 
-    // 5. Create / Update Customer profile
-    let customer = await this.customerModel.findOne({ mobile: data.customerDetails.mobile }).exec();
-    if (!customer) {
-      customer = await this.customerModel.create({
-        name: data.customerDetails.name,
-        mobile: data.customerDetails.mobile,
-        addresses: [
-          {
-            district: data.customerDetails.district || 'Dhaka',
-            area: '',
-            fullAddress: data.customerDetails.address,
-          },
-        ],
-        totalOrders: 1,
-        totalSpent: totalAmount,
-        isGuest: true,
-      });
+    // Calculate Payment Split (Advance Delivery Fee vs Cash on Delivery Due)
+    const paymentMethod = data.paymentMethod || 'COD';
+    const paymentProvider = (data as any).paymentProvider || (paymentMethod === 'COD' ? 'bKash' : paymentMethod);
+    const senderMobile = (data as any).senderMobile || '';
+    const transactionId = (data as any).transactionId || '';
+    
+    let paidAmount = 0;
+    let dueAmount = totalAmount;
+    let isAdvancePaid = false;
+
+    if (paymentMethod === 'COD') {
+      // For COD, the customer pays the Advance Delivery Charge (৳70/৳130) to confirm order
+      paidAmount = (data as any).paidAmount !== undefined ? (data as any).paidAmount : deliveryCharge;
+      dueAmount = Math.max(0, totalAmount - paidAmount);
+      isAdvancePaid = Boolean(transactionId || senderMobile || paidAmount > 0);
     } else {
-      customer.totalOrders = (customer.totalOrders || 0) + 1;
-      customer.totalSpent = (customer.totalSpent || 0) + totalAmount;
-      await customer.save();
+      // For full Mobile Banking (bKash / Nagad), 100% is paid upfront
+      paidAmount = (data as any).paidAmount !== undefined ? (data as any).paidAmount : totalAmount;
+      dueAmount = Math.max(0, totalAmount - paidAmount);
+      isAdvancePaid = true;
+    }
+
+    // 5. Create / Update Customer profile safely
+    let customer: any = null;
+    try {
+      customer = await this.customerModel.findOne({ mobile: data.customerDetails.mobile }).exec();
+      if (!customer) {
+        customer = await this.customerModel.create({
+          name: data.customerDetails.name,
+          mobile: data.customerDetails.mobile,
+          addresses: [
+            {
+              district: data.customerDetails.district || 'Dhaka',
+              area: '',
+              fullAddress: data.customerDetails.address,
+            },
+          ],
+          totalOrders: 1,
+          totalSpent: totalAmount,
+          isGuest: true,
+        });
+      } else {
+        customer.totalOrders = (customer.totalOrders || 0) + 1;
+        customer.totalSpent = (customer.totalSpent || 0) + totalAmount;
+        await customer.save();
+      }
+    } catch (custErr) {
+      this.logger.warn(`Non-critical customer profile update notice: ${custErr.message}`);
     }
 
     // 6. Create Order document
-    const paymentMethod = data.paymentMethod || 'COD';
     const orderDoc: any = {
       orderId,
-      customerId: customer._id as any,
+      customerId: customer?._id || undefined,
       customerDetails: {
         name: data.customerDetails.name,
         mobile: data.customerDetails.mobile,
@@ -136,6 +162,12 @@ export class OrdersService {
       status: OrderStatus.PENDING,
       paymentStatus: PaymentStatus.PENDING,
       paymentMethod,
+      paymentProvider,
+      paidAmount,
+      dueAmount,
+      senderMobile,
+      transactionId,
+      isAdvancePaid,
       items: orderItems,
       subtotal,
       discount: totalDiscount,
@@ -147,14 +179,18 @@ export class OrdersService {
     const order = await this.orderModel.create(orderDoc);
 
     // 7. Create Payment Record
-    await this.paymentModel.create({
-      orderId: (order as any)._id,
-      transactionId: `TXN-${orderId}`,
-      method: paymentMethod,
-      provider: paymentMethod === 'COD' ? 'CashOnDelivery' : paymentMethod,
-      amount: totalAmount,
-      status: 'PENDING',
-    });
+    try {
+      await this.paymentModel.create({
+        orderId: (order as any)._id,
+        transactionId: transactionId || `TXN-${orderId}-${Date.now()}`,
+        method: paymentMethod,
+        provider: paymentProvider,
+        amount: paidAmount > 0 ? paidAmount : totalAmount,
+        status: paidAmount >= totalAmount ? 'PAID' : (paidAmount > 0 ? 'PARTIAL' : 'PENDING'),
+      });
+    } catch (payErr) {
+      this.logger.warn(`Payment transaction log notice: ${payErr.message}`);
+    }
 
     return order;
   }
@@ -275,4 +311,33 @@ export class OrdersService {
     await order.save();
     return order;
   }
+
+  // Admin Payment Verification and Update
+  async updatePaymentDetails(
+    id: string,
+    data: {
+      paymentStatus?: PaymentStatus;
+      paidAmount?: number;
+      dueAmount?: number;
+      transactionId?: string;
+      senderMobile?: string;
+      isAdvancePaid?: boolean;
+    },
+  ) {
+    const order = await this.orderModel.findById(id).exec();
+    if (!order) {
+      throw new NotFoundException('Order not found');
+    }
+
+    if (data.paymentStatus !== undefined) order.paymentStatus = data.paymentStatus;
+    if (data.paidAmount !== undefined) order.paidAmount = data.paidAmount;
+    if (data.dueAmount !== undefined) order.dueAmount = data.dueAmount;
+    if (data.transactionId !== undefined) order.transactionId = data.transactionId;
+    if (data.senderMobile !== undefined) order.senderMobile = data.senderMobile;
+    if (data.isAdvancePaid !== undefined) order.isAdvancePaid = data.isAdvancePaid;
+
+    await order.save();
+    return order;
+  }
 }
+

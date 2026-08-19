@@ -13,8 +13,8 @@ export function middleware(request: NextRequest) {
   }
 
   // If logged in and trying to access login page, redirect to dashboard
-  if (pathname.startsWith('/admin/login') && token) {
-    return NextResponse.redirect(new URL('/admin', request.url));
+  if (pathname === '/admin/login' && token) {
+    return NextResponse.redirect(new URL('/admin/dashboard', request.url));
   }
 
   return NextResponse.next();

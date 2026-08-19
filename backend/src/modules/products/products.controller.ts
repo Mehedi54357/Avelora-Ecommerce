@@ -52,6 +52,13 @@ export class ProductsController {
 
   @UseGuards(AuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
+  @Delete('admin/products-clear-all')
+  async clearAllProducts() {
+    return this.productsService.clearAll();
+  }
+
+  @UseGuards(AuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
   @Delete('admin/products/:id')
   async deleteProduct(@Param('id') id: string) {
     return this.productsService.delete(id);

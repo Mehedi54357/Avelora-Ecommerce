@@ -23,7 +23,7 @@ export class ProductVariant {
   @Prop({ required: true, default: 0 })
   stockQuantity: number; // Total physical inventory on hand
 
-  @Prop({ required: true, default: 0 })
+  @Prop({ required: false, default: 0 })
   reservedQuantity: number; // Currently reserved by active orders
 }
 
@@ -37,8 +37,8 @@ export class Product {
   @Prop({ required: true, unique: true, index: true })
   slug: string;
 
-  @Prop({ type: MongooseSchema.Types.ObjectId, ref: 'Category', required: true, index: true })
-  categoryId: MongooseSchema.Types.ObjectId;
+  @Prop({ type: MongooseSchema.Types.ObjectId, ref: 'Category', required: false, index: true })
+  categoryId?: MongooseSchema.Types.ObjectId;
 
   @Prop({ required: false, default: '' })
   description: string;

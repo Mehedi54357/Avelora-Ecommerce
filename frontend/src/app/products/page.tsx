@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import ProductCard from '../../components/product-card';
 import { Search, Filter, SlidersHorizontal, Sparkles, X } from 'lucide-react';
+import { API_BASE_URL } from '../../utils/api-config';
 
 const DEPARTMENTS = [
   { id: '', label: 'All Departments' },
@@ -35,7 +36,7 @@ export default function ProductsPage() {
 
   // Fetch categories
   useEffect(() => {
-    fetch('http://localhost:3001/api/categories')
+    fetch(`${API_BASE_URL}/api/categories`)
       .then((res) => (res.ok ? res.json() : []))
       .then((data) => setCategories(data))
       .catch((err) => console.error(err));
@@ -46,30 +47,29 @@ export default function ProductsPage() {
     ? categories.filter((c) => c.department === selectedDepartment)
     : categories;
 
-  // Fetch products with filters
-  useEffect(() => {
-    setLoading(true);
-    const params = new URLSearchParams();
-    if (selectedCategory) params.set('category', selectedCategory);
-    if (search) params.set('search', search);
-    if (sort) params.set('sort', sort);
+    // Fetch products with filters
+    useEffect(() => {
+      setLoading(true);
+      const params = new URLSearchParams();
+      if (selectedCategory) {
+        params.set('category', selectedCategory);
+      } else if (selectedDepartment) {
+        params.set('department', selectedDepartment);
+      }
+      if (search) params.set('search', search);
+      if (sort) params.set('sort', sort);
 
-    fetch(`http://localhost:3001/api/products?${params.toString()}`)
-      .then((res) => (res.ok ? res.json() : { products: [] }))
-      .then((data) => {
-        let prods = data.products || [];
-        // If department is selected and no specific category selected, filter on client side by category's department
-        if (selectedDepartment && !selectedCategory) {
-          prods = prods.filter((p: any) => p.categoryId?.department === selectedDepartment);
-        }
-        setProducts(prods);
-      })
-      .catch((err) => {
-        console.error(err);
-        setProducts([]);
-      })
-      .finally(() => setLoading(false));
-  }, [selectedDepartment, selectedCategory, search, sort]);
+      fetch(`${API_BASE_URL}/api/products?${params.toString()}`)
+        .then((res) => (res.ok ? res.json() : { products: [] }))
+        .then((data) => {
+          setProducts(data.products || []);
+        })
+        .catch((err) => {
+          console.error(err);
+          setProducts([]);
+        })
+        .finally(() => setLoading(false));
+    }, [selectedDepartment, selectedCategory, search, sort]);
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-8">

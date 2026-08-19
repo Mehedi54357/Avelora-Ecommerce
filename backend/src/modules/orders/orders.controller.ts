@@ -51,4 +51,14 @@ export class OrdersController {
   ) {
     return this.ordersService.updateOrderStatus(id, body.status, body.paymentStatus);
   }
+
+  @UseGuards(AuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN, UserRole.MANAGER)
+  @Put('admin/orders/:id/payment')
+  async updatePaymentDetails(
+    @Param('id') id: string,
+    @Body() body: any,
+  ) {
+    return this.ordersService.updatePaymentDetails(id, body);
+  }
 }

@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import InvoiceModal from '../../components/invoice-modal';
+import { API_BASE_URL } from '../../utils/api-config';
 import {
   Compass,
   Search,
@@ -53,7 +54,7 @@ export default function TrackOrderPage() {
     setError('');
 
     try {
-      const res = await fetch('http://localhost:3001/api/orders/track', {
+      const res = await fetch(`${API_BASE_URL}/api/orders/track`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

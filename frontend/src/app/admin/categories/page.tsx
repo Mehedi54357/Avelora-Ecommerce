@@ -1,7 +1,9 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Layers, Plus, Edit2, Trash2, UploadCloud, X, RefreshCw } from 'lucide-react';
+import { Layers, Plus, Edit2, Trash2, UploadCloud, X, RefreshCw, AlertCircle, Check } from 'lucide-react';
+import { compressImage } from '../../../utils/image-compressor';
+import { API_BASE_URL } from '../../../utils/api-config';
 
 export default function AdminCategoriesPage() {
   const [categories, setCategories] = useState<any[]>([]);
@@ -12,6 +14,7 @@ export default function AdminCategoriesPage() {
   const [editingCategory, setEditingCategory] = useState<any>(null);
   const [name, setName] = useState('');
   const [slug, setSlug] = useState('');
+  const [department, setDepartment] = useState<'women' | 'men' | 'kids' | 'all'>('women');
   const [description, setDescription] = useState('');
   const [image, setImage] = useState('');
   const [sortOrder, setSortOrder] = useState(0);
@@ -22,7 +25,7 @@ export default function AdminCategoriesPage() {
   const fetchCategories = async () => {
     setLoading(true);
     try {
-      const res = await fetch('http://localhost:3001/api/admin/categories', {
+      const res = await fetch(`${API_BASE_URL}/api/admin/categories`, {
         credentials: 'include',
       });
       if (res.ok) {
@@ -44,6 +47,7 @@ export default function AdminCategoriesPage() {
     setEditingCategory(null);
     setName('');
     setSlug('');
+    setDepartment('women');
     setDescription('');
     setImage('');
     setSortOrder(categories.length + 1);
@@ -55,6 +59,7 @@ export default function AdminCategoriesPage() {
     setEditingCategory(cat);
     setName(cat.name);
     setSlug(cat.slug);
+    setDepartment(cat.department || 'women');
     setDescription(cat.description || '');
     setImage(cat.image || '');
     setSortOrder(cat.sortOrder || 0);
@@ -67,29 +72,33 @@ export default function AdminCategoriesPage() {
     if (!file) return;
 
     setUploadingImage(true);
+    setError('');
+
     try {
-      const reader = new FileReader();
-      const dataUrl: string = await new Promise((resolve, reject) => {
-        reader.onload = () => resolve(reader.result as string);
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
-      });
+      // Compress client-side to ensure fast loading and prevent payload limits
+      const compressedDataUrl = await compressImage(file, 1200, 0.85);
 
-      const res = await fetch('http://localhost:3001/api/upload/image', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ image: dataUrl, folder: 'avelora/categories' }),
-      });
+      // Try uploading to backend upload endpoint
+      try {
+        const res = await fetch(`${API_BASE_URL}/api/upload/image`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ image: compressedDataUrl, folder: 'avelora/categories' }),
+        });
 
-      if (res.ok) {
-        const data = await res.json();
-        setImage(data.url);
-      } else {
-        setImage(dataUrl);
+        if (res.ok) {
+          const data = await res.json();
+          setImage(data.url || compressedDataUrl);
+        } else {
+          setImage(compressedDataUrl);
+        }
+      } catch {
+        setImage(compressedDataUrl);
       }
     } catch (err) {
       console.error(err);
+      setError('ছবি প্রসেস করতে সমস্যা হয়েছে। অন্য ছবি চেষ্টা করুন।');
     } finally {
       setUploadingImage(false);
     }
@@ -97,14 +106,20 @@ export default function AdminCategoriesPage() {
 
   const handleSaveCategory = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim()) return;
+    if (!name.trim()) {
+      setError('ক্যাটাগরির নাম দেওয়া আবশ্যক।');
+      return;
+    }
 
     setSaving(true);
     setError('');
 
+    const autoSlug = slug.trim() || name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+
     const payload = {
       name: name.trim(),
-      slug: slug.trim() || undefined,
+      slug: autoSlug,
+      department,
       description: description.trim(),
       image,
       sortOrder: Number(sortOrder),
@@ -112,8 +127,8 @@ export default function AdminCategoriesPage() {
 
     try {
       const url = editingCategory
-        ? `http://localhost:3001/api/admin/categories/${editingCategory._id}`
-        : 'http://localhost:3001/api/admin/categories';
+        ? `${API_BASE_URL}/api/admin/categories/${editingCategory._id}`
+        : `${API_BASE_URL}/api/admin/categories`;
       const method = editingCategory ? 'PUT' : 'POST';
 
       const res = await fetch(url, {
@@ -138,10 +153,31 @@ export default function AdminCategoriesPage() {
   };
 
   const handleDelete = async (id: string, catName: string) => {
-    if (!confirm(`Delete category "${catName}"?`)) return;
+    if (!confirm(`Are you sure you want to delete category "${catName}"?`)) return;
 
     try {
-      const res = await fetch(`http://localhost:3001/api/admin/categories/${id}`, {
+      const res = await fetch(`${API_BASE_URL}/api/admin/categories/${id}`, {
+        method: 'DELETE',
+        credentials: 'include',
+      });
+      if (res.ok) {
+        fetchCategories();
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleClearAllDemoCategories = async () => {
+    if (
+      !confirm(
+        '⚠️ Are you sure you want to delete ALL demo categories? You will be able to create your own fresh collections from scratch.',
+      )
+    )
+      return;
+
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/admin/categories-clear-all`, {
         method: 'DELETE',
         credentials: 'include',
       });
@@ -159,7 +195,7 @@ export default function AdminCategoriesPage() {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-6 rounded-2xl border border-gray-200 shadow-sm">
         <div>
           <span className="text-[10px] font-bold uppercase tracking-widest text-[#997B21]">
-            Taxonomy & Navigation
+            Taxonomy & Showcase Management
           </span>
           <h1 className="text-2xl font-bold font-serif-luxury text-gray-900">
             Product Categories ({categories.length})
@@ -169,59 +205,102 @@ export default function AdminCategoriesPage() {
           </p>
         </div>
 
-        <button
-          onClick={openCreateModal}
-          className="px-5 py-2.5 bg-slate-950 hover:bg-[#C5A059] text-white text-xs font-bold uppercase tracking-wider rounded-xl transition flex items-center gap-2 shadow"
-        >
-          <Plus className="w-4 h-4" />
-          <span>Add New Category</span>
-        </button>
+        <div className="flex items-center gap-3">
+          {categories.length > 0 && (
+            <button
+              onClick={handleClearAllDemoCategories}
+              className="px-4 py-2.5 bg-red-50 hover:bg-red-100 text-red-700 text-xs font-bold uppercase tracking-wider rounded-xl transition flex items-center gap-1.5 border border-red-200 shadow-sm"
+              title="Clear all categories"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              <span>Clear All</span>
+            </button>
+          )}
+
+          <button
+            onClick={fetchCategories}
+            className="p-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl transition"
+            title="Refresh"
+          >
+            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+          </button>
+          <button
+            onClick={openCreateModal}
+            className="px-5 py-2.5 bg-slate-950 hover:bg-[#C5A059] text-white text-xs font-bold uppercase tracking-wider rounded-xl transition flex items-center gap-2 shadow"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Add New Category</span>
+          </button>
+        </div>
       </div>
 
       {/* Categories Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-        {categories.map((cat) => (
-          <div
-            key={cat._id}
-            className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden flex flex-col justify-between p-5 space-y-4"
-          >
-            <div className="space-y-3">
-              <div className="aspect-video w-full rounded-xl overflow-hidden bg-gray-100 border">
-                <img
-                  src={cat.image || 'https://images.unsplash.com/photo-1584917865442-de89df76afd3?auto=format&fit=crop&w=400&q=80'}
-                  alt={cat.name}
-                  className="w-full h-full object-cover"
-                />
+      {loading ? (
+        <div className="bg-white p-12 rounded-2xl border border-gray-200 text-center text-xs text-gray-500">
+          Loading categories...
+        </div>
+      ) : categories.length === 0 ? (
+        <div className="bg-white p-12 rounded-2xl border border-gray-200 text-center space-y-3">
+          <Layers className="w-10 h-10 text-gray-400 mx-auto" />
+          <p className="text-sm font-bold text-gray-700">No categories created yet.</p>
+          <p className="text-xs text-gray-400">Click "Add New Category" to create your first collection.</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          {categories.map((cat) => (
+            <div
+              key={cat._id}
+              className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden flex flex-col justify-between p-5 space-y-4"
+            >
+              <div className="space-y-3">
+                <div className="aspect-video w-full rounded-xl overflow-hidden bg-gray-100 border relative group">
+                  {cat.image ? (
+                    <img
+                      src={cat.image}
+                      alt={cat.name}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-gray-400 text-xs font-medium">
+                      No Image Attached
+                    </div>
+                  )}
+                  {cat.department && (
+                    <span className="absolute top-2 left-2 px-2 py-0.5 bg-black/70 text-[#E6CA85] text-[9px] font-bold uppercase tracking-wider rounded backdrop-blur-sm">
+                      {cat.department}
+                    </span>
+                  )}
+                </div>
+                <div>
+                  <h3 className="font-bold text-gray-900 font-serif-luxury text-lg">{cat.name}</h3>
+                  <p className="text-[11px] text-gray-400 font-mono">/{cat.slug}</p>
+                  {cat.description && (
+                    <p className="text-xs text-gray-600 mt-1 line-clamp-2">{cat.description}</p>
+                  )}
+                </div>
               </div>
-              <div>
-                <h3 className="font-bold text-gray-900 font-serif-luxury text-lg">{cat.name}</h3>
-                <p className="text-[11px] text-gray-400 font-mono">/{cat.slug}</p>
-                {cat.description && (
-                  <p className="text-xs text-gray-600 mt-1 line-clamp-2">{cat.description}</p>
-                )}
-              </div>
-            </div>
 
-            <div className="flex items-center justify-between pt-3 border-t border-gray-100">
-              <span className="text-[10px] text-gray-400 font-mono">Order: #{cat.sortOrder || 0}</span>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => openEditModal(cat)}
-                  className="p-1.5 text-gray-600 hover:text-slate-900 hover:bg-gray-100 rounded transition"
-                >
-                  <Edit2 className="w-3.5 h-3.5" />
-                </button>
-                <button
-                  onClick={() => handleDelete(cat._id, cat.name)}
-                  className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                </button>
+              <div className="flex items-center justify-between pt-3 border-t border-gray-100">
+                <span className="text-[10px] text-gray-400 font-mono">Priority: #{cat.sortOrder || 0}</span>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => openEditModal(cat)}
+                    className="p-1.5 text-gray-600 hover:text-slate-900 hover:bg-gray-100 rounded transition"
+                  >
+                    <Edit2 className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    onClick={() => handleDelete(cat._id, cat.name)}
+                    className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
               </div>
             </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
 
       {/* Category Modal */}
       {isModalOpen && (
@@ -244,7 +323,10 @@ export default function AdminCategoriesPage() {
 
             <form onSubmit={handleSaveCategory} className="p-6 space-y-4 text-xs text-gray-700">
               {error && (
-                <div className="p-3 bg-red-50 text-red-700 rounded-lg">{error}</div>
+                <div className="p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0" />
+                  <span>{error}</span>
+                </div>
               )}
 
               <div className="space-y-1">
@@ -252,22 +334,38 @@ export default function AdminCategoriesPage() {
                 <input
                   type="text"
                   required
-                  placeholder="e.g. Fine Perfumes & Fragrances"
+                  placeholder="e.g. Churi & Bangles (কাঁচের চুড়ি)"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   className="w-full px-3.5 py-2.5 rounded-lg border border-gray-300 bg-white font-medium text-gray-900"
                 />
               </div>
 
-              <div className="space-y-1">
-                <label className="font-bold uppercase text-gray-900">Slug (URL friendly)</label>
-                <input
-                  type="text"
-                  placeholder="e.g. fine-perfumes"
-                  value={slug}
-                  onChange={(e) => setSlug(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-lg border border-gray-300 bg-white font-mono text-gray-700"
-                />
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="font-bold uppercase text-gray-900">Department</label>
+                  <select
+                    value={department}
+                    onChange={(e: any) => setDepartment(e.target.value)}
+                    className="w-full px-3.5 py-2.5 rounded-lg border border-gray-300 bg-white font-semibold text-gray-800"
+                  >
+                    <option value="women">Women (মহিলা)</option>
+                    <option value="men">Men (পুরুষ)</option>
+                    <option value="kids">Kids (বাচ্চা)</option>
+                    <option value="all">All / General</option>
+                  </select>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="font-bold uppercase text-gray-900">Slug (URL friendly)</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. women-churi-bangles"
+                    value={slug}
+                    onChange={(e) => setSlug(e.target.value)}
+                    className="w-full px-3.5 py-2.5 rounded-lg border border-gray-300 bg-white font-mono text-gray-700"
+                  />
+                </div>
               </div>
 
               <div className="space-y-1">
@@ -282,21 +380,21 @@ export default function AdminCategoriesPage() {
               </div>
 
               {/* Image upload & URL */}
-              <div className="space-y-2 p-3 bg-gray-50 rounded-xl border">
-                <label className="font-bold uppercase text-gray-900 flex justify-between">
-                  <span>Category Image</span>
-                  {uploadingImage && <span className="text-amber-600 font-normal">Uploading...</span>}
+              <div className="space-y-2 p-3.5 bg-gray-50 rounded-xl border border-gray-200">
+                <label className="font-bold uppercase text-gray-900 flex justify-between items-center">
+                  <span>Category Banner Image</span>
+                  {uploadingImage && <span className="text-amber-600 font-semibold">Processing photo...</span>}
                 </label>
 
                 <div className="flex items-center gap-2">
-                  <label className="px-3 py-2 bg-slate-900 text-white rounded-lg font-bold text-[11px] uppercase cursor-pointer hover:bg-[#C5A059] transition flex items-center gap-1.5">
-                    <UploadCloud className="w-3.5 h-3.5" />
+                  <label className="px-3.5 py-2 bg-slate-900 text-white rounded-lg font-bold text-[11px] uppercase cursor-pointer hover:bg-[#C5A059] transition flex items-center gap-1.5 shadow-sm">
+                    <UploadCloud className="w-4 h-4" />
                     <span>Upload Image</span>
                     <input type="file" accept="image/*" onChange={handleImageUpload} className="hidden" />
                   </label>
                   <input
                     type="url"
-                    placeholder="or paste image URL..."
+                    placeholder="or paste direct image URL..."
                     value={image}
                     onChange={(e) => setImage(e.target.value)}
                     className="flex-1 px-3 py-2 rounded-lg border border-gray-300 bg-white text-xs"
@@ -304,8 +402,16 @@ export default function AdminCategoriesPage() {
                 </div>
 
                 {image && (
-                  <div className="mt-2 w-20 h-14 rounded-lg overflow-hidden border">
+                  <div className="mt-2 relative w-28 h-18 rounded-lg overflow-hidden border border-gray-300 group">
                     <img src={image} alt="Preview" className="w-full h-full object-cover" />
+                    <button
+                      type="button"
+                      onClick={() => setImage('')}
+                      className="absolute top-1 right-1 bg-red-600 text-white p-1 rounded-full opacity-90 hover:opacity-100 transition"
+                      title="Remove image"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
                   </div>
                 )}
               </div>
@@ -330,7 +436,7 @@ export default function AdminCategoriesPage() {
                 </button>
                 <button
                   type="submit"
-                  disabled={saving}
+                  disabled={saving || uploadingImage}
                   className="px-5 py-2 bg-slate-950 hover:bg-[#C5A059] text-white font-bold uppercase rounded-lg shadow disabled:opacity-50"
                 >
                   {saving ? 'Saving...' : editingCategory ? 'Update Category' : 'Create Category'}

@@ -98,6 +98,24 @@ export class Order {
   @Prop({ required: true, default: 'COD' })
   paymentMethod: string; // 'COD' | 'bKash' | 'Nagad'
 
+  @Prop({ required: false, default: 'bKash' })
+  paymentProvider?: string; // 'bKash' | 'Nagad' | 'CashOnDelivery'
+
+  @Prop({ required: true, default: 0 })
+  paidAmount: number; // Advance delivery charge (৳70/৳130) or full amount
+
+  @Prop({ required: true, default: 0 })
+  dueAmount: number; // Remaining amount to collect on delivery
+
+  @Prop({ required: false, default: '' })
+  senderMobile?: string; // bKash/Nagad number used to pay
+
+  @Prop({ required: false, default: '' })
+  transactionId?: string; // TrxID from bKash/Nagad
+
+  @Prop({ required: false, default: false })
+  isAdvancePaid: boolean;
+
   @Prop({ type: [OrderItemSchema], required: true })
   items: OrderItem[];
 

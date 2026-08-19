@@ -4,465 +4,536 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import { useCart } from '../../context/cart-context';
 import InvoiceModal from '../../components/invoice-modal';
+import PaymentGatewayModal from '../../components/payment-gateway-modal';
+import { API_BASE_URL } from '../../utils/api-config';
 import {
+  ShoppingBag,
   ShieldCheck,
   Truck,
-  ShoppingBag,
-  CheckCircle,
-  CreditCard,
+  ArrowRight,
+  User,
   Phone,
   MapPin,
-  User,
-  ArrowRight,
-  Printer,
-  Compass,
+  FileText,
+  AlertCircle,
+  CheckCircle2,
+  Lock,
+  Building,
+  Info,
 } from 'lucide-react';
 
-const BANGLADESH_DISTRICTS = [
-  'Dhaka', 'Chittagong', 'Sylhet', 'Rajshahi', 'Khulna', 'Barisal', 'Rangpur', 'Mymensingh',
-  'Comilla', 'Gazipur', 'Narayanganj', 'Bogra', 'Cox\'s Bazar', 'Jessore', 'Dinajpur', 'Feni',
-  'Tangail', 'Jamalpur', 'Pabna', 'Noakhali', 'Brahmanbaria', 'Kushtia', 'Faridpur', 'Other District'
+const BD_DISTRICTS = [
+  'Dhaka (ঢাকা)',
+  'Chattogram (চট্টগ্রাম)',
+  'Gazipur (গাজীপুর)',
+  'Narayanganj (নারায়ণগঞ্জ)',
+  'Cumilla (কুমিল্লা)',
+  'Sylhet (সিলেট)',
+  'Rajshahi (রাজশাহী)',
+  'Khulna (খুলনা)',
+  'Barishal (বরিশাল)',
+  'Rangpur (রংপুর)',
+  'Mymensingh (ময়মনসিংহ)',
+  'Bogra (বগুড়া)',
+  'Cox\'s Bazar (কক্সবাজার)',
+  'Other District (অন্যান্য জেলা)',
 ];
 
 export default function CheckoutPage() {
-  const { cart, cartSubtotal, clearCart } = useCart();
+  const { cart, cartSubtotal, getSubtotal, clearCart } = useCart();
+  const subtotal = cartSubtotal !== undefined ? cartSubtotal : (typeof getSubtotal === 'function' ? getSubtotal() : 0);
 
+  // Customer Information (Screenshot 2)
+  const [orderFor, setOrderFor] = useState<'Self' | 'Gift'>('Self');
   const [name, setName] = useState('');
   const [mobile, setMobile] = useState('');
+  const [district, setDistrict] = useState('Dhaka (ঢাকা)');
   const [address, setAddress] = useState('');
-  const [district, setDistrict] = useState('Dhaka');
-  const [paymentMethod, setPaymentMethod] = useState<'COD' | 'bKash' | 'Nagad'>('COD');
   const [notes, setNotes] = useState('');
+  const [deliveryMethod, setDeliveryMethod] = useState<'HOME' | 'PICKUP'>('HOME');
 
+  // Payment Options (Screenshot 3): 'COD' (Advance delivery fee) vs 'FULL_MOBILE_BANKING'
+  const [paymentOption, setPaymentOption] = useState<'COD' | 'FULL_MOBILE_BANKING'>('COD');
+
+  // Modals & Process State
+  const [isGatewayOpen, setIsGatewayOpen] = useState(false);
+  const [isInvoiceOpen, setIsInvoiceOpen] = useState(false);
+  const [confirmedOrder, setConfirmedOrder] = useState<any>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
-  const [completedOrder, setCompletedOrder] = useState<any>(null);
-  const [showInvoice, setShowInvoice] = useState(false);
 
   const isDhaka = district.toLowerCase().includes('dhaka');
   const deliveryCharge = isDhaka ? 70 : 130;
-  const grandTotal = cartSubtotal + deliveryCharge;
+  const totalAmount = subtotal + deliveryCharge;
 
-  const handleSubmitOrder = async (e: React.FormEvent) => {
+  // Advance payable now vs Cash Due on delivery
+  const payableNow = paymentOption === 'COD' ? deliveryCharge : totalAmount;
+  const dueOnDelivery = paymentOption === 'COD' ? subtotal : 0;
+
+  // 1. Customer clicks Confirm Order button on checkout page
+  const handleInitiatePayment = (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
 
     if (cart.length === 0) {
-      setError('Your shopping bag is empty.');
+      setError('আপনার শপিং ব্যাগ খালি। অনুগ্রহ করে পণ্য যুক্ত করুন।');
+      return;
+    }
+    if (!name.trim()) {
+      setError('আপনার নাম লিখুন');
+      return;
+    }
+    if (!mobile.trim() || mobile.length < 11) {
+      setError('সঠিক ১১ ডিজিটের মোবাইল নম্বর লিখুন (যেমন: 01XXXXXXXXX)');
+      return;
+    }
+    if (!address.trim()) {
+      setError('আপনার পূর্ণ ডেলিভারি ঠিকানা লিখুন');
       return;
     }
 
-    if (!name.trim() || !mobile.trim() || !address.trim()) {
-      setError('Please provide your complete name, mobile number, and delivery address.');
-      return;
-    }
+    // Open Interactive Payment Gateway Modal
+    setIsGatewayOpen(true);
+  };
 
+  // 2. Gateway completion callback (bKash / Nagad PIN verified or TrxID submitted)
+  const handleGatewaySuccess = async (paymentData: {
+    method: string;
+    provider: string;
+    senderMobile: string;
+    transactionId: string;
+    paidAmount: number;
+  }) => {
+    setIsGatewayOpen(false);
     setSubmitting(true);
+    setError('');
+
+    const payload = {
+      customer: {
+        name: name.trim(),
+        mobile: mobile.trim(),
+        district: district.split(' ')[0],
+        address: address.trim(),
+        orderFor,
+        deliveryMethod,
+      },
+      items: cart.map((item) => ({
+        productId: item.productId,
+        variantSku: item.sku || (item as any).variant?.sku || 'STD',
+        quantity: item.quantity,
+      })),
+      notes: notes.trim(),
+      paymentMethod: paymentOption === 'COD' ? 'COD' : paymentData.provider?.toUpperCase() || 'BKASH',
+      paymentProvider: paymentData.provider || 'bKash',
+      senderMobile: paymentData.senderMobile || mobile,
+      transactionId: paymentData.transactionId || `TRX${Date.now().toString().slice(-6)}`,
+      paidAmount: paymentData.paidAmount,
+      dueAmount: dueOnDelivery,
+      isAdvancePaid: true,
+      deliveryCharge,
+    };
 
     try {
-      const payload = {
-        customerDetails: {
-          name: name.trim(),
-          mobile: mobile.trim(),
-          address: address.trim(),
-          district,
-        },
-        items: cart.map((item) => ({
-          productId: item.productId,
-          sku: item.sku,
-          quantity: item.quantity,
-        })),
-        paymentMethod,
-        deliveryCharge,
-        notes,
-      };
-
-      const res = await fetch('http://localhost:3001/api/orders/checkout', {
+      const res = await fetch(`${API_BASE_URL}/api/orders/checkout`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
 
-      const data = await res.json();
-
       if (!res.ok) {
-        throw new Error(data.message || 'Failed to place order. Please try again.');
+        const errData = await res.json();
+        throw new Error(errData.message || 'Failed to place order');
       }
 
-      setCompletedOrder(data);
+      const orderData = await res.json();
+      setConfirmedOrder(orderData);
       clearCart();
+      setIsInvoiceOpen(true);
     } catch (err: any) {
-      setError(err.message || 'An unexpected error occurred. Please verify stock and try again.');
+      console.error(err);
+      setError(err.message || 'অর্ডার সাবমিট করতে সমস্যা হয়েছে। অনুগ্রহ করে আবার চেষ্টা করুন।');
     } finally {
       setSubmitting(false);
     }
   };
 
-  // If order was successfully placed
-  if (completedOrder) {
+  if (cart.length === 0 && !confirmedOrder) {
     return (
-      <div className="max-w-3xl mx-auto px-4 py-16 text-center space-y-8 animate-fadeIn">
-        <div className="w-20 h-20 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center mx-auto border-2 border-emerald-200 shadow-lg animate-bounce">
-          <CheckCircle className="w-10 h-10" />
+      <div className="max-w-3xl mx-auto px-4 py-20 text-center space-y-4">
+        <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto text-gray-400">
+          <ShoppingBag className="w-8 h-8" />
         </div>
-
-        <div className="space-y-2">
-          <span className="text-xs font-bold uppercase tracking-[0.3em] text-[#C5A059]">
-            Order Confirmed
-          </span>
-          <h1 className="text-3xl sm:text-4xl font-bold font-serif-luxury text-gray-900">
-            Thank You For Your Patronage
-          </h1>
-          <p className="text-sm text-gray-600 max-w-md mx-auto">
-            Your order has been safely placed. We are preparing your pieces in our signature luxury gift packaging.
-          </p>
-        </div>
-
-        {/* Order Details Card */}
-        <div className="bg-white p-6 sm:p-8 rounded-2xl border border-gray-200 shadow-md text-left space-y-4">
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center pb-4 border-b border-gray-100 gap-2">
-            <div>
-              <p className="text-xs text-gray-500 font-medium">Order Reference ID</p>
-              <p className="text-xl font-mono font-bold text-gray-900">{completedOrder.orderId}</p>
-            </div>
-            <div className="text-right">
-              <p className="text-xs text-gray-500">Total Payable</p>
-              <p className="text-xl font-mono font-bold text-[#0F172A]">
-                ৳{completedOrder.totalAmount?.toLocaleString()}
-              </p>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs text-gray-600 pt-2">
-            <div>
-              <p className="font-bold text-gray-900">Recipient:</p>
-              <p>{completedOrder.customerDetails?.name}</p>
-              <p>{completedOrder.customerDetails?.mobile}</p>
-              <p className="mt-1">{completedOrder.customerDetails?.address}, {completedOrder.customerDetails?.district}</p>
-            </div>
-            <div>
-              <p className="font-bold text-gray-900">Payment & Delivery:</p>
-              <p>Method: <span className="font-semibold text-gray-800">{completedOrder.paymentMethod}</span></p>
-              <p>Status: <span className="font-semibold text-amber-600">{completedOrder.status}</span></p>
-              <p className="mt-1 text-emerald-600 font-semibold">Includes Signature AVELORA Bag</p>
-            </div>
-          </div>
-        </div>
-
-        {/* Next Actions */}
-        <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
-          <button
-            onClick={() => setShowInvoice(true)}
-            className="w-full sm:w-auto px-6 py-3.5 bg-white border border-gray-300 text-gray-800 font-bold text-xs uppercase tracking-wider rounded-full hover:bg-gray-50 transition flex items-center justify-center gap-2"
-          >
-            <Printer className="w-4 h-4 text-[#C5A059]" /> View / Print Tax Invoice
-          </button>
-
+        <h2 className="text-2xl font-bold font-serif-luxury text-gray-900">আপনার শপিং ব্যাগ খালি</h2>
+        <p className="text-xs text-gray-500">অর্ডার করতে অনুগ্রহ করে ক্যাটালগ থেকে পছন্দের পণ্য যুক্ত করুন।</p>
+        <div className="pt-4">
           <Link
-            href={`/track-order?orderId=${completedOrder.orderId}`}
-            className="w-full sm:w-auto px-8 py-3.5 bg-slate-900 text-white font-bold text-xs uppercase tracking-widest rounded-full hover:bg-[#C5A059] transition shadow flex items-center justify-center gap-2"
+            href="/products"
+            className="px-6 py-3 bg-slate-900 text-white rounded-full text-xs font-bold uppercase tracking-wider hover:bg-[#C5A059] transition shadow"
           >
-            <Compass className="w-4 h-4" /> Live Order Tracking
+            কালেকশন দেখুন (Browse Collections)
           </Link>
         </div>
-
-        {/* Invoice Modal */}
-        <InvoiceModal
-          order={completedOrder}
-          isOpen={showInvoice}
-          onClose={() => setShowInvoice(false)}
-        />
       </div>
     );
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
-      {/* Header */}
-      <div className="text-center space-y-2 mb-10">
-        <span className="text-[11px] font-bold uppercase tracking-[0.3em] text-[#C5A059]">
-          Secure Checkout
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 animate-fadeIn">
+      {/* Top Header */}
+      <div className="text-center space-y-1.5 mb-8">
+        <span className="text-[10px] font-bold uppercase tracking-[0.25em] text-[#997B21]">
+          Fast & Secure Checkout
         </span>
-        <h1 className="text-3xl sm:text-4xl font-bold font-serif-luxury text-gray-900">
-          Complete Your Order
+        <h1 className="text-2xl sm:text-3xl font-bold font-serif-luxury text-gray-900">
+          কাস্টমার ও ডেলিভারি তথ্য (Order Checkout)
         </h1>
-        <p className="text-xs text-gray-500">Fast one-page checkout • No account registration required</p>
       </div>
 
-      {error && (
-        <div className="max-w-4xl mx-auto mb-8 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-xs sm:text-sm font-medium">
-          {error}
-        </div>
-      )}
+      <form onSubmit={handleInitiatePayment} className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+        {/* ========================================================================= */}
+        {/* LEFT COLUMN: Customer Information & Delivery Method (Matches Screenshot 2) */}
+        {/* ========================================================================= */}
+        <div className="lg:col-span-7 space-y-6">
+          {error && (
+            <div className="p-3.5 bg-red-50 border border-red-200 text-red-700 text-xs rounded-xl flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 flex-shrink-0" />
+              <span>{error}</span>
+            </div>
+          )}
 
-      {cart.length === 0 ? (
-        <div className="max-w-md mx-auto text-center py-16 bg-white rounded-2xl border border-gray-200 p-8 space-y-4">
-          <ShoppingBag className="w-12 h-12 text-[#C5A059] mx-auto" />
-          <h2 className="text-lg font-bold font-serif-luxury text-gray-900">Your Shopping Bag is Empty</h2>
-          <p className="text-xs text-gray-500">Add pieces to your bag before proceeding to checkout.</p>
-          <Link
-            href="/products"
-            className="inline-block px-6 py-3 bg-slate-900 text-white text-xs font-bold uppercase tracking-wider rounded-full hover:bg-[#C5A059] transition"
-          >
-            Explore Catalog
-          </Link>
-        </div>
-      ) : (
-        <form onSubmit={handleSubmitOrder} className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-start">
-          {/* Left Column: Delivery & Payment Details */}
-          <div className="lg:col-span-7 space-y-8">
-            {/* 1. Customer Information */}
-            <div className="bg-white p-6 sm:p-8 rounded-2xl border border-gray-200/80 shadow-sm space-y-5">
-              <div className="flex items-center gap-2 pb-3 border-b border-gray-100">
-                <User className="w-4 h-4 text-[#C5A059]" />
-                <h3 className="text-sm font-bold uppercase tracking-wider text-gray-900">
-                  1. Shipping & Recipient Details
-                </h3>
+          {/* 1. Customer Information Box */}
+          <div className="bg-white p-6 rounded-2xl border border-gray-200/90 shadow-sm space-y-5">
+            <div className="flex items-center gap-2 pb-2 border-b border-gray-100">
+              <User className="w-4 h-4 text-[#997B21]" />
+              <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wide">
+                Customer Information (গ্রাহকের তথ্য)
+              </h3>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {/* Order For */}
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-gray-700">Order For *</label>
+                <select
+                  value={orderFor}
+                  onChange={(e: any) => setOrderFor(e.target.value)}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-gray-300 bg-white text-xs font-semibold text-gray-900 focus:outline-none focus:border-[#C5A059]"
+                >
+                  <option value="Self">Self (নিজের জন্য)</option>
+                  <option value="Gift">Gift (উপহার হিসেবে)</option>
+                </select>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-1">
-                  <label className="block text-xs font-bold text-gray-700 uppercase">
-                    Full Name *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="e.g. Mahfuzur Rahman"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    className="w-full px-3.5 py-2.5 rounded-lg border border-gray-300 focus:outline-none focus:border-[#C5A059] text-xs text-gray-900 bg-gray-50/50"
-                  />
-                </div>
-
-                <div className="space-y-1">
-                  <label className="block text-xs font-bold text-gray-700 uppercase">
-                    Mobile Number *
-                  </label>
-                  <input
-                    type="tel"
-                    required
-                    placeholder="e.g. 01700000000"
-                    value={mobile}
-                    onChange={(e) => setMobile(e.target.value)}
-                    className="w-full px-3.5 py-2.5 rounded-lg border border-gray-300 focus:outline-none focus:border-[#C5A059] text-xs text-gray-900 bg-gray-50/50"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-1">
-                  <label className="block text-xs font-bold text-gray-700 uppercase">
-                    District / Region *
-                  </label>
-                  <select
-                    value={district}
-                    onChange={(e) => setDistrict(e.target.value)}
-                    className="w-full px-3.5 py-2.5 rounded-lg border border-gray-300 focus:outline-none focus:border-[#C5A059] text-xs font-semibold text-gray-900 bg-white"
-                  >
-                    {BANGLADESH_DISTRICTS.map((d) => (
-                      <option key={d} value={d}>
-                        {d} {d.toLowerCase() === 'dhaka' ? '(৳70 Delivery)' : '(৳130 Delivery)'}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="space-y-1">
-                  <label className="block text-xs font-bold text-gray-700 uppercase">
-                    Full Delivery Address *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="House, Road, Area, Landmark"
-                    value={address}
-                    onChange={(e) => setAddress(e.target.value)}
-                    className="w-full px-3.5 py-2.5 rounded-lg border border-gray-300 focus:outline-none focus:border-[#C5A059] text-xs text-gray-900 bg-gray-50/50"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-1 pt-1">
-                <label className="block text-xs font-bold text-gray-700 uppercase">
-                  Order Special Notes (Optional)
-                </label>
-                <textarea
-                  rows={2}
-                  placeholder="Special instructions for delivery or gift notes..."
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  className="w-full px-3.5 py-2 rounded-lg border border-gray-300 focus:outline-none focus:border-[#C5A059] text-xs text-gray-900 bg-gray-50/50"
+              {/* Name */}
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-gray-700">Name (আপনার নাম) *</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Your full name"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-gray-300 bg-white text-xs text-gray-900 focus:outline-none focus:border-[#C5A059]"
                 />
               </div>
             </div>
 
-            {/* 2. Payment Method Selector */}
-            <div className="bg-white p-6 sm:p-8 rounded-2xl border border-gray-200/80 shadow-sm space-y-5">
-              <div className="flex items-center gap-2 pb-3 border-b border-gray-100">
-                <CreditCard className="w-4 h-4 text-[#C5A059]" />
-                <h3 className="text-sm font-bold uppercase tracking-wider text-gray-900">
-                  2. Select Payment Method
-                </h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {/* Phone */}
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-gray-700">Phone (মোবাইল নম্বর) *</label>
+                <input
+                  type="tel"
+                  required
+                  placeholder="01XXXXXXXXX"
+                  value={mobile}
+                  onChange={(e) => setMobile(e.target.value)}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-gray-300 bg-white text-xs font-mono font-medium text-gray-900 focus:outline-none focus:border-[#C5A059]"
+                />
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                {/* Cash On Delivery */}
-                <label
-                  className={`p-4 rounded-xl border-2 cursor-pointer transition-all flex flex-col justify-between ${
-                    paymentMethod === 'COD'
-                      ? 'border-slate-900 bg-slate-900 text-white shadow-md'
-                      : 'border-gray-200 hover:border-gray-400 bg-white text-gray-800'
-                  }`}
+              {/* District */}
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-gray-700">District (জেলা) *</label>
+                <select
+                  value={district}
+                  onChange={(e) => setDistrict(e.target.value)}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-gray-300 bg-white text-xs font-semibold text-gray-900 focus:outline-none focus:border-[#C5A059]"
                 >
-                  <input
-                    type="radio"
-                    name="payment"
-                    value="COD"
-                    checked={paymentMethod === 'COD'}
-                    onChange={() => setPaymentMethod('COD')}
-                    className="sr-only"
-                  />
-                  <div>
-                    <span className="text-xs font-bold uppercase tracking-wider">Cash on Delivery</span>
-                    <p className={`text-[10px] mt-1 ${paymentMethod === 'COD' ? 'text-gray-300' : 'text-gray-500'}`}>
-                      Pay upon delivery after inspection
-                    </p>
-                  </div>
-                  <span className={`text-[10px] font-semibold mt-3 ${paymentMethod === 'COD' ? 'text-[#E6CA85]' : 'text-emerald-600'}`}>
-                    Available Nationwide
-                  </span>
-                </label>
-
-                {/* bKash */}
-                <label
-                  className={`p-4 rounded-xl border-2 cursor-pointer transition-all flex flex-col justify-between ${
-                    paymentMethod === 'bKash'
-                      ? 'border-slate-900 bg-slate-900 text-white shadow-md'
-                      : 'border-gray-200 hover:border-gray-400 bg-white text-gray-800'
-                  }`}
-                >
-                  <input
-                    type="radio"
-                    name="payment"
-                    value="bKash"
-                    checked={paymentMethod === 'bKash'}
-                    onChange={() => setPaymentMethod('bKash')}
-                    className="sr-only"
-                  />
-                  <div>
-                    <span className="text-xs font-bold uppercase tracking-wider">bKash Payment</span>
-                    <p className={`text-[10px] mt-1 ${paymentMethod === 'bKash' ? 'text-gray-300' : 'text-gray-500'}`}>
-                      Direct Mobile Banking
-                    </p>
-                  </div>
-                  <span className={`text-[10px] font-semibold mt-3 ${paymentMethod === 'bKash' ? 'text-[#E6CA85]' : 'text-pink-600'}`}>
-                    Merchant / Send Money
-                  </span>
-                </label>
-
-                {/* Nagad */}
-                <label
-                  className={`p-4 rounded-xl border-2 cursor-pointer transition-all flex flex-col justify-between ${
-                    paymentMethod === 'Nagad'
-                      ? 'border-slate-900 bg-slate-900 text-white shadow-md'
-                      : 'border-gray-200 hover:border-gray-400 bg-white text-gray-800'
-                  }`}
-                >
-                  <input
-                    type="radio"
-                    name="payment"
-                    value="Nagad"
-                    checked={paymentMethod === 'Nagad'}
-                    onChange={() => setPaymentMethod('Nagad')}
-                    className="sr-only"
-                  />
-                  <div>
-                    <span className="text-xs font-bold uppercase tracking-wider">Nagad Payment</span>
-                    <p className={`text-[10px] mt-1 ${paymentMethod === 'Nagad' ? 'text-gray-300' : 'text-gray-500'}`}>
-                      Digital Postal Service
-                    </p>
-                  </div>
-                  <span className={`text-[10px] font-semibold mt-3 ${paymentMethod === 'Nagad' ? 'text-[#E6CA85]' : 'text-orange-600'}`}>
-                    Instant Mobile Pay
-                  </span>
-                </label>
+                  {BD_DISTRICTS.map((d) => (
+                    <option key={d} value={d}>
+                      {d}
+                    </option>
+                  ))}
+                </select>
               </div>
+            </div>
+
+            {/* Full Address */}
+            <div className="space-y-1">
+              <label className="text-xs font-bold text-gray-700">Full Address (পূর্ণ ঠিকানা) *</label>
+              <textarea
+                required
+                rows={2}
+                placeholder="House / Road / Building / Upazilla / Thana"
+                value={address}
+                onChange={(e) => setAddress(e.target.value)}
+                className="w-full px-3.5 py-2 rounded-xl border border-gray-300 bg-white text-xs text-gray-900 focus:outline-none focus:border-[#C5A059]"
+              />
+            </div>
+
+            {/* Order Notes */}
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-gray-500">Order Notes (ঐচ্ছিক)</label>
+              <input
+                type="text"
+                placeholder="Any special delivery instructions..."
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                className="w-full px-3.5 py-2 rounded-xl border border-gray-300 bg-white text-xs text-gray-700 focus:outline-none"
+              />
             </div>
           </div>
 
-          {/* Right Column: Order Summary */}
-          <div className="lg:col-span-5 space-y-6">
-            <div className="bg-white p-6 sm:p-8 rounded-2xl border border-gray-200/80 shadow-md space-y-6">
-              <h3 className="text-sm font-bold uppercase tracking-wider text-gray-900 font-serif-luxury text-base pb-3 border-b border-gray-100">
-                Order Summary ({cart.length} items)
+          {/* 2. Delivery Method Box */}
+          <div className="bg-white p-6 rounded-2xl border border-gray-200/90 shadow-sm space-y-4">
+            <div className="flex items-center gap-2 pb-2 border-b border-gray-100">
+              <Truck className="w-4 h-4 text-[#997B21]" />
+              <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wide">
+                Delivery Method (ডেলিভারি মাধ্যম)
               </h3>
+            </div>
 
-              {/* Items List */}
-              <div className="space-y-4 max-h-80 overflow-y-auto pr-1">
-                {cart.map((item) => (
-                  <div key={item.sku} className="flex items-center gap-3">
+            <div className="grid grid-cols-2 gap-4">
+              <label
+                className={`p-3.5 rounded-xl border-2 cursor-pointer flex items-center gap-3 transition ${
+                  deliveryMethod === 'HOME'
+                    ? 'border-emerald-600 bg-emerald-50/50 text-emerald-950 font-bold'
+                    : 'border-gray-200 hover:border-gray-300 text-gray-700'
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="deliveryMethod"
+                  checked={deliveryMethod === 'HOME'}
+                  onChange={() => setDeliveryMethod('HOME')}
+                  className="w-4 h-4 text-emerald-600 focus:ring-emerald-500"
+                />
+                <span className="text-xs">Home Delivery</span>
+              </label>
+
+              <label
+                className={`p-3.5 rounded-xl border-2 cursor-pointer flex items-center gap-3 transition ${
+                  deliveryMethod === 'PICKUP'
+                    ? 'border-emerald-600 bg-emerald-50/50 text-emerald-950 font-bold'
+                    : 'border-gray-200 hover:border-gray-300 text-gray-700'
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="deliveryMethod"
+                  checked={deliveryMethod === 'PICKUP'}
+                  onChange={() => setDeliveryMethod('PICKUP')}
+                  className="w-4 h-4 text-emerald-600 focus:ring-emerald-500"
+                />
+                <span className="text-xs">Pickup Point</span>
+              </label>
+            </div>
+
+            {/* Courier Notice Info (Matches Screenshot 2) */}
+            <div className="p-3 bg-amber-50/70 border border-amber-200 rounded-xl flex items-start gap-2 text-[11px] text-amber-900">
+              <Info className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
+              <span>
+                শুধুমাত্র জেলা/উপজেলা শহরের ৫ কিলোমিটারের মধ্যে হোম ডেলিভারি করা যাবে।
+              </span>
+            </div>
+          </div>
+
+          {/* 3. Payment Options Selection (Matches Screenshot 3) */}
+          <div className="bg-white p-6 rounded-2xl border border-gray-200/90 shadow-sm space-y-4">
+            <div className="flex items-center gap-2 pb-2 border-b border-gray-100">
+              <ShieldCheck className="w-4 h-4 text-[#997B21]" />
+              <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wide">
+                Payment Options (পেমেন্ট অপশন)
+              </h3>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {/* Option 1: Cash on Delivery with Advance Delivery Fee */}
+              <label
+                className={`p-4 rounded-xl border-2 cursor-pointer transition space-y-2 relative ${
+                  paymentOption === 'COD'
+                    ? 'border-slate-900 bg-slate-50/80 shadow-sm'
+                    : 'border-gray-200 hover:border-gray-300'
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="radio"
+                      name="paymentOption"
+                      checked={paymentOption === 'COD'}
+                      onChange={() => setPaymentOption('COD')}
+                      className="w-4 h-4 text-slate-900"
+                    />
+                    <span className="text-xs font-bold text-gray-900">Cash on Delivery</span>
+                  </div>
+                  <span className="px-2 py-0.5 bg-amber-100 text-amber-900 text-[10px] font-bold rounded">
+                    অগ্রিম ৳{deliveryCharge}
+                  </span>
+                </div>
+                <p className="text-[11px] text-gray-600 pl-6 leading-relaxed">
+                  অর্ডার কনফার্ম করতে শুধু ডেলিভারি চার্জ (৳{deliveryCharge}) বিকাশে/নগদে দিন। বাকি <strong>৳{subtotal.toLocaleString()}</strong> পণ্য পেয়ে পরিশোধ করবেন।
+                </p>
+              </label>
+
+              {/* Option 2: Full Mobile Banking Payment */}
+              <label
+                className={`p-4 rounded-xl border-2 cursor-pointer transition space-y-2 relative ${
+                  paymentOption === 'FULL_MOBILE_BANKING'
+                    ? 'border-slate-900 bg-slate-50/80 shadow-sm'
+                    : 'border-gray-200 hover:border-gray-300'
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="radio"
+                      name="paymentOption"
+                      checked={paymentOption === 'FULL_MOBILE_BANKING'}
+                      onChange={() => setPaymentOption('FULL_MOBILE_BANKING')}
+                      className="w-4 h-4 text-slate-900"
+                    />
+                    <span className="text-xs font-bold text-gray-900">Mobile Banking (Full)</span>
+                  </div>
+                  <span className="px-2 py-0.5 bg-emerald-100 text-emerald-900 text-[10px] font-bold rounded">
+                    ১০০% পরিশোধ
+                  </span>
+                </div>
+                <p className="text-[11px] text-gray-600 pl-6 leading-relaxed">
+                  সম্পূর্ণ টাকা (৳{totalAmount.toLocaleString()}) একবারে বিকাশ/নগদে পরিশোধ করুন। ডেলিভারির সময় কোনো টাকা দিতে হবে না।
+                </p>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        {/* ========================================================================= */}
+        {/* RIGHT COLUMN: Order Summary & Confirm Button */}
+        {/* ========================================================================= */}
+        <div className="lg:col-span-5 space-y-6">
+          <div className="bg-white p-6 rounded-2xl border border-gray-200/90 shadow-sm space-y-5 sticky top-24">
+            <div className="flex items-center justify-between pb-3 border-b border-gray-100">
+              <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wide">
+                Order Summary (অর্ডার সামারি)
+              </h3>
+              <span className="text-xs text-gray-500">{cart.length} pieces</span>
+            </div>
+
+            {/* Cart Items List */}
+            <div className="space-y-3 max-h-60 overflow-y-auto pr-1">
+              {cart.map((item) => {
+                const sku = item.sku || (item as any).variant?.sku || `item-${Math.random()}`;
+                const title = item.name || (item as any).title || 'Product';
+                const color = item.color || (item as any).variant?.color || '';
+                const size = item.size || (item as any).variant?.size || '';
+                const image = item.image || (item as any).images?.[0] || 'https://images.unsplash.com/photo-1584917865442-de89df76afd3?auto=format&fit=crop&w=100&q=80';
+
+                return (
+                  <div key={sku} className="flex items-center gap-3 text-xs">
                     <img
-                      src={item.image}
-                      alt={item.name}
-                      className="w-14 h-16 object-cover rounded-md border border-gray-200 flex-shrink-0"
+                      src={image}
+                      alt={title}
+                      className="w-12 h-14 object-cover rounded-lg border border-gray-200 flex-shrink-0"
                     />
                     <div className="flex-1 min-w-0">
-                      <p className="text-xs font-bold text-gray-900 truncate font-serif-luxury text-sm">{item.name}</p>
-                      {(item.color || item.size) && (
-                        <p className="text-[11px] text-gray-500">
-                          {item.color} {item.color && item.size ? '•' : ''} {item.size}
+                      <p className="font-bold text-gray-900 truncate">{title}</p>
+                      {(color || size) && (
+                        <p className="text-[11px] text-gray-500 font-mono">
+                          {color} {color && size ? '•' : ''} {size}
                         </p>
                       )}
-                      <p className="text-[11px] text-gray-400">Qty: {item.quantity} × ৳{item.price.toLocaleString()}</p>
+                      <p className="text-[11px] text-gray-700 mt-0.5">
+                        Qty: {item.quantity} × ৳{item.price.toLocaleString()}
+                      </p>
                     </div>
-                    <div className="text-right text-xs font-bold text-gray-900 font-mono">
+                    <span className="font-mono font-bold text-gray-900">
                       ৳{(item.price * item.quantity).toLocaleString()}
-                    </div>
+                    </span>
                   </div>
-                ))}
+                );
+              })}
+            </div>
+
+            {/* Price Calculations */}
+            <div className="space-y-2 pt-3 border-t border-gray-100 text-xs">
+              <div className="flex justify-between text-gray-600">
+                <span>পণ্য মূল্য (Bag Subtotal):</span>
+                <span className="font-mono font-semibold">৳{subtotal.toLocaleString()}</span>
               </div>
 
-              {/* Calculation Breakdown */}
-              <div className="space-y-2 pt-4 border-t border-gray-100 text-xs">
-                <div className="flex justify-between text-gray-600">
-                  <span>Bag Subtotal</span>
-                  <span className="font-semibold text-gray-900 font-mono">৳{cartSubtotal.toLocaleString()}</span>
-                </div>
-                <div className="flex justify-between text-gray-600">
-                  <span>Delivery Charge ({district})</span>
-                  <span className="font-semibold text-gray-900 font-mono">৳{deliveryCharge}</span>
-                </div>
-                <div className="flex justify-between text-sm font-bold text-gray-900 pt-3 border-t border-gray-200">
-                  <span>Grand Total</span>
-                  <span className="text-lg text-[#0F172A] font-mono">৳{grandTotal.toLocaleString()}</span>
-                </div>
+              <div className="flex justify-between text-gray-600">
+                <span>ডেলিভারি চার্জ ({isDhaka ? 'ঢাকা শহর' : 'ঢাকার বাইরে'}):</span>
+                <span className="font-mono font-semibold">৳{deliveryCharge}</span>
               </div>
 
-              {/* Submit Button */}
-              <button
-                type="submit"
-                disabled={submitting}
-                className="w-full py-4 bg-[#C5A059] hover:bg-[#b08b3a] text-slate-950 font-bold text-xs uppercase tracking-[0.2em] rounded-xl shadow-lg transition-all flex items-center justify-center gap-2 group disabled:opacity-50"
-              >
-                {submitting ? (
-                  <span>Processing Order...</span>
-                ) : (
-                  <>
-                    <span>Confirm Order (৳{grandTotal.toLocaleString()})</span>
-                    <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
-                  </>
-                )}
-              </button>
-
-              <div className="flex items-center gap-2 text-[11px] text-gray-500 justify-center">
-                <ShieldCheck className="w-4 h-4 text-emerald-600" />
-                <span>256-Bit SSL Encrypted • 100% Genuine Guaranteed</span>
+              <div className="flex justify-between text-sm font-bold text-gray-900 pt-2 border-t">
+                <span>সর্বমোট বিল (Total):</span>
+                <span className="font-mono text-base text-slate-950">৳{totalAmount.toLocaleString()}</span>
               </div>
             </div>
+
+            {/* Advance vs Due Split Box */}
+            <div className="p-4 bg-[#FAF7F0] rounded-xl border border-[#D4AF37]/30 space-y-2 text-xs">
+              <div className="flex justify-between font-bold text-emerald-800">
+                <span>এখন পরিশোধ (Payable Now):</span>
+                <span className="font-mono text-sm">৳{payableNow.toLocaleString()}</span>
+              </div>
+              <div className="flex justify-between font-bold text-amber-900">
+                <span>ডেলিভারির সময় বাকি (Cash on Delivery Due):</span>
+                <span className="font-mono text-sm">৳{dueOnDelivery.toLocaleString()}</span>
+              </div>
+            </div>
+
+            {/* Submit / Confirm Button */}
+            <button
+              type="submit"
+              disabled={submitting}
+              className="w-full py-4 bg-[#C5A059] hover:bg-[#b08b3a] text-slate-950 font-bold text-xs uppercase tracking-[0.15em] rounded-xl transition-all shadow-lg hover:shadow-[#D4AF37]/30 flex items-center justify-center gap-2 group disabled:opacity-50"
+            >
+              <span>
+                {paymentOption === 'COD'
+                  ? `অর্ডার কনফার্ম করুন (অগ্রিম ডেলিভারি চার্জ ৳${deliveryCharge})`
+                  : `অর্ডার কনফার্ম করুন (৳${totalAmount.toLocaleString()} পেমেন্ট)`}
+              </span>
+              <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
+            </button>
+
+            <div className="flex items-center justify-center gap-1.5 text-[10px] text-gray-400 pt-1">
+              <Lock className="w-3 h-3 text-[#C5A059]" />
+              <span>Official SSLCommerz & bKash 256-Bit Encrypted Checkout</span>
+            </div>
           </div>
-        </form>
-      )}
+        </div>
+      </form>
+
+      {/* Interactive Payment Gateway Modal */}
+      <PaymentGatewayModal
+        isOpen={isGatewayOpen}
+        onClose={() => setIsGatewayOpen(false)}
+        amount={payableNow}
+        invoiceId={`INV-${Date.now().toString().slice(-6)}`}
+        customerMobile={mobile}
+        isCODAdvance={paymentOption === 'COD'}
+        onSuccess={handleGatewaySuccess}
+      />
+
+      {/* Invoice Modal */}
+      <InvoiceModal
+        order={confirmedOrder}
+        isOpen={isInvoiceOpen}
+        onClose={() => setIsInvoiceOpen(false)}
+      />
     </div>
   );
 }
