@@ -12,6 +12,12 @@ export class ProductVariant {
   color: string;
 
   @Prop({ required: false, default: '' })
+  colorHex?: string;
+
+  @Prop({ required: false, default: '' })
+  image?: string;
+
+  @Prop({ required: false, default: '' })
   size: string;
 
   @Prop({ required: true, default: 0 })
@@ -29,10 +35,27 @@ export class ProductVariant {
 
 export const ProductVariantSchema = SchemaFactory.createForClass(ProductVariant);
 
+@Schema()
+export class ProductFeature {
+  @Prop({ required: true })
+  title: string;
+
+  @Prop({ required: false, default: '' })
+  subtitle: string;
+
+  @Prop({ required: false, default: 'sparkles' })
+  icon: string;
+}
+
+export const ProductFeatureSchema = SchemaFactory.createForClass(ProductFeature);
+
 @Schema({ timestamps: true })
 export class Product {
   @Prop({ required: true })
   name: string;
+
+  @Prop({ required: false, default: '' })
+  subtitle?: string;
 
   @Prop({ required: true, unique: true, index: true })
   slug: string;
@@ -45,6 +68,21 @@ export class Product {
 
   @Prop({ type: [String], default: [] })
   images: string[];
+
+  @Prop({ required: false, default: 'BEST SELLER' })
+  badge?: string;
+
+  @Prop({ required: false, default: '' })
+  unitBadge?: string;
+
+  @Prop({ required: false, default: 4.8 })
+  rating?: number;
+
+  @Prop({ required: false, default: 189 })
+  reviewsCount?: number;
+
+  @Prop({ type: [ProductFeatureSchema], default: [] })
+  features?: ProductFeature[];
 
   @Prop({ required: true, default: 0 })
   originalPrice: number;
@@ -65,3 +103,4 @@ export class Product {
 export const ProductSchema = SchemaFactory.createForClass(Product);
 
 ProductSchema.index({ name: 'text', description: 'text' });
+

@@ -238,6 +238,8 @@ export class ProductsService {
       payload.variants = payload.variants.map((v: any, index: number) => ({
         sku: v.sku?.trim() || `AVE-${Date.now().toString().slice(-4)}-${index + 1}`,
         color: v.color?.trim() || '',
+        colorHex: v.colorHex?.trim() || '',
+        image: v.image?.trim() || '',
         size: v.size?.trim() || '',
         price: Number(v.price) || Number(payload.salePrice) || Number(payload.originalPrice) || 0,
         costPrice: Number(v.costPrice) || 0,
@@ -249,6 +251,8 @@ export class ProductsService {
         {
           sku: `AVE-${Date.now().toString().slice(-5)}`,
           color: 'Standard',
+          colorHex: '#C5A059',
+          image: payload.images?.[0] || '',
           size: 'Standard',
           price: Number(payload.salePrice) || Number(payload.originalPrice) || 0,
           costPrice: 0,
@@ -310,6 +314,8 @@ export class ProductsService {
       payload.variants = payload.variants.map((v: any, index: number) => ({
         sku: v.sku?.trim() || `AVE-${Date.now().toString().slice(-4)}-${index + 1}`,
         color: v.color?.trim() || '',
+        colorHex: v.colorHex?.trim() || '',
+        image: v.image?.trim() || '',
         size: v.size?.trim() || '',
         price: Number(v.price) || Number(payload.salePrice) || Number(payload.originalPrice) || 0,
         costPrice: Number(v.costPrice) || 0,

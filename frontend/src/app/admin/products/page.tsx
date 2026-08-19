@@ -45,8 +45,13 @@ export default function AdminProductsPage() {
 
   // Form Fields
   const [name, setName] = useState('');
+  const [subtitle, setSubtitle] = useState('');
   const [slug, setSlug] = useState('');
   const [categoryId, setCategoryId] = useState('');
+  const [badge, setBadge] = useState('BEST SELLER');
+  const [unitBadge, setUnitBadge] = useState('');
+  const [rating, setRating] = useState<number>(4.8);
+  const [reviewsCount, setReviewsCount] = useState<number>(256);
   const [description, setDescription] = useState('');
   const [images, setImages] = useState<string[]>([]);
   const [imageInput, setImageInput] = useState('');
@@ -55,18 +60,28 @@ export default function AdminProductsPage() {
   const [salePrice, setSalePrice] = useState<number>(0);
   const [isPublished, setIsPublished] = useState(true);
 
-  // Dynamic Variants
+  // Dynamic 5 Features List (Highlights beside photo)
+  const [features, setFeatures] = useState<Array<{ title: string; subtitle: string }>>([
+    { title: 'Soft & Comfortable', subtitle: 'Gentle on skin and non-irritating' },
+    { title: 'Premium Artisan Quality', subtitle: 'Crafted from finest materials' },
+    { title: 'Lightweight & Breathable', subtitle: 'Designed for effortless all-day wear' },
+    { title: 'Glossy & Elegant Finish', subtitle: 'Flawless look that enhances beauty' },
+    { title: 'Perfect For Every Occasion', subtitle: 'Festivals, parties, weddings & daily styling' },
+  ]);
+
+  // Dynamic Variants (Color Swatches, Size, Price, Stock)
   const [variants, setVariants] = useState<
     Array<{
       sku: string;
       color: string;
+      colorHex: string;
       size: string;
       price: number;
       costPrice: number;
       stock: number;
     }>
   >([
-    { sku: '', color: '', size: '', price: 0, costPrice: 0, stock: 10 },
+    { sku: '', color: 'Olive', colorHex: '#556B2F', size: 'Standard', price: 0, costPrice: 0, stock: 10 },
   ]);
 
   const fetchData = async () => {
@@ -99,8 +114,13 @@ export default function AdminProductsPage() {
   const openCreateModal = () => {
     setEditingProduct(null);
     setName('');
+    setSubtitle('');
     setSlug('');
     setCategoryId(categories[0]?._id || '');
+    setBadge('BEST SELLER');
+    setUnitBadge('');
+    setRating(4.8);
+    setReviewsCount(256);
     setDescription('');
     setImages([]);
     setImageInput('');
@@ -108,7 +128,16 @@ export default function AdminProductsPage() {
     setDiscountPercentage(0);
     setSalePrice(0);
     setIsPublished(true);
-    setVariants([{ sku: `AVE-${Date.now().toString().slice(-5)}`, color: 'Standard', size: 'Standard', price: 0, costPrice: 0, stock: 10 }]);
+    setFeatures([
+      { title: 'Soft & Comfortable', subtitle: 'Gentle on skin and non-irritating' },
+      { title: 'Premium Artisan Quality', subtitle: 'Crafted from finest materials' },
+      { title: 'Lightweight & Breathable', subtitle: 'Designed for effortless all-day wear' },
+      { title: 'Glossy & Elegant Finish', subtitle: 'Flawless look that enhances beauty' },
+      { title: 'Perfect For Every Occasion', subtitle: 'Festivals, parties, weddings & daily styling' },
+    ]);
+    setVariants([
+      { sku: `AVE-${Date.now().toString().slice(-5)}`, color: 'Olive', colorHex: '#556B2F', size: 'Standard', price: 0, costPrice: 0, stock: 10 },
+    ]);
     setError('');
     setIsModalOpen(true);
   };
@@ -116,8 +145,13 @@ export default function AdminProductsPage() {
   const openEditModal = (prod: any) => {
     setEditingProduct(prod);
     setName(prod.name || '');
+    setSubtitle(prod.subtitle || '');
     setSlug(prod.slug || '');
     setCategoryId(prod.categoryId?._id || prod.categoryId || '');
+    setBadge(prod.badge || 'BEST SELLER');
+    setUnitBadge(prod.unitBadge || '');
+    setRating(prod.rating || 4.8);
+    setReviewsCount(prod.reviewsCount || 256);
     setDescription(prod.description || '');
     setImages(prod.images || []);
     setImageInput('');
@@ -125,17 +159,29 @@ export default function AdminProductsPage() {
     setDiscountPercentage(prod.discountPercentage || 0);
     setSalePrice(prod.salePrice || 0);
     setIsPublished(prod.isPublished !== false);
+    if (prod.features && prod.features.length > 0) {
+      setFeatures(prod.features.map((f: any) => ({ title: f.title || '', subtitle: f.subtitle || '' })));
+    } else {
+      setFeatures([
+        { title: 'Soft & Comfortable', subtitle: 'Gentle on skin and non-irritating' },
+        { title: 'Premium Artisan Quality', subtitle: 'Crafted from finest materials' },
+        { title: 'Lightweight & Breathable', subtitle: 'Designed for effortless all-day wear' },
+        { title: 'Glossy & Elegant Finish', subtitle: 'Flawless look that enhances beauty' },
+        { title: 'Perfect For Every Occasion', subtitle: 'Festivals, parties, weddings & daily styling' },
+      ]);
+    }
     setVariants(
       prod.variants?.length > 0
         ? prod.variants.map((v: any) => ({
             sku: v.sku || '',
             color: v.color || '',
+            colorHex: v.colorHex || '#0F172A',
             size: v.size || '',
             price: v.price || prod.salePrice || 0,
             costPrice: v.costPrice || 0,
             stock: v.stockQuantity !== undefined ? v.stockQuantity : (v.stock || 0),
           }))
-        : [{ sku: `AVE-${prod.slug || Date.now().toString().slice(-4)}`, color: 'Standard', size: 'Standard', price: prod.salePrice, costPrice: 0, stock: 10 }],
+        : [{ sku: `AVE-${prod.slug || Date.now().toString().slice(-4)}`, color: 'Olive', colorHex: '#556B2F', size: 'Standard', price: prod.salePrice, costPrice: 0, stock: 10 }],
     );
     setError('');
     setIsModalOpen(true);
@@ -192,12 +238,21 @@ export default function AdminProductsPage() {
     setImages((prev) => prev.filter((_, idx) => idx !== index));
   };
 
+  // Feature Controls
+  const updateFeature = (index: number, field: 'title' | 'subtitle', value: string) => {
+    setFeatures((prev) => {
+      const updated = [...prev];
+      updated[index] = { ...updated[index], [field]: value };
+      return updated;
+    });
+  };
+
   // Variant Controls
   const addVariantRow = () => {
     const skuSuffix = Math.floor(100 + Math.random() * 900);
     setVariants((prev) => [
       ...prev,
-      { sku: `AVE-${skuSuffix}`, color: '', size: '', price: salePrice, costPrice: 0, stock: 10 },
+      { sku: `AVE-${skuSuffix}`, color: '', colorHex: '#0F172A', size: '', price: salePrice, costPrice: 0, stock: 10 },
     ]);
   };
 
@@ -229,8 +284,14 @@ export default function AdminProductsPage() {
 
     const payload = {
       name: name.trim(),
+      subtitle: subtitle.trim(),
       slug: autoSlug,
       categoryId: categoryId && categoryId.trim() !== '' ? categoryId : undefined,
+      badge: badge.trim(),
+      unitBadge: unitBadge.trim(),
+      rating: Number(rating) || 4.8,
+      reviewsCount: Number(reviewsCount) || 256,
+      features: features.filter((f) => f.title.trim() !== ''),
       description: description.trim(),
       images,
       originalPrice: Number(originalPrice) || 0,
@@ -240,6 +301,7 @@ export default function AdminProductsPage() {
       variants: variants.map((v) => ({
         sku: v.sku.trim() || `SKU-${Date.now().toString().slice(-4)}`,
         color: v.color.trim(),
+        colorHex: v.colorHex ? v.colorHex.trim() : '#0F172A',
         size: v.size.trim(),
         price: Number(v.price) || Number(salePrice) || 0,
         costPrice: Number(v.costPrice) || 0,
@@ -505,20 +567,35 @@ export default function AdminProductsPage() {
               )}
 
               {/* Title, Category & Slug */}
+              {/* Title, Subtitle, Category & Badges */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div className="sm:col-span-2 space-y-1">
                   <label className="font-bold uppercase text-gray-900">Product Title *</label>
                   <input
                     type="text"
                     required
-                    placeholder="e.g. AVELORA Silk Georgette Hijab"
+                    placeholder="e.g. Ceri Hijab or Reshmi Churi"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     className="w-full px-3.5 py-2.5 rounded-lg border border-gray-300 focus:outline-none focus:border-[#C5A059] bg-white text-gray-900 font-medium"
                   />
                 </div>
 
-                <div className="space-y-1.5">
+                <div className="space-y-1">
+                  <label className="font-bold uppercase text-gray-900">Subtitle / Variant Tag</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Olive or 24 Pcs Set"
+                    value={subtitle}
+                    onChange={(e) => setSubtitle(e.target.value)}
+                    className="w-full px-3.5 py-2.5 rounded-lg border border-gray-300 focus:outline-none focus:border-[#C5A059] bg-white text-gray-900 font-medium"
+                  />
+                </div>
+              </div>
+
+              {/* Category, Badge, Unit Badge & Rating */}
+              <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+                <div className="sm:col-span-2 space-y-1.5">
                   <div className="flex items-center justify-between">
                     <label className="font-bold uppercase text-gray-900">
                       Category (প্রোডাক্টের ক্যাটাগরি) *
@@ -583,7 +660,7 @@ export default function AdminProductsPage() {
                   {categoryId && (
                     <div className="pt-0.5">
                       <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded">
-                        ✓ Selected Category: {
+                        ✓ Selected: {
                           categories.find((c) => c._id === categoryId || c.slug === categoryId)?.name ||
                           PRESET_CATEGORIES.find((c) => c.slug === categoryId)?.name ||
                           categoryId
@@ -591,6 +668,63 @@ export default function AdminProductsPage() {
                       </span>
                     </div>
                   )}
+                </div>
+
+                <div className="space-y-1">
+                  <label className="font-bold uppercase text-gray-900">Showcase Badge</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. BEST SELLER"
+                    value={badge}
+                    onChange={(e) => setBadge(e.target.value)}
+                    className="w-full px-3.5 py-2.5 rounded-lg border border-gray-300 bg-white font-medium"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="font-bold uppercase text-gray-900">Unit Badge (Top-Right)</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. 24 PCS"
+                    value={unitBadge}
+                    onChange={(e) => setUnitBadge(e.target.value)}
+                    className="w-full px-3.5 py-2.5 rounded-lg border border-gray-300 bg-white font-medium"
+                  />
+                </div>
+              </div>
+
+              {/* 5 Dynamic Feature Highlights (ছবি পাশের ৫টি পয়েন্ট) */}
+              <div className="space-y-3 p-4 bg-[#F8F9FA] rounded-xl border border-gray-200">
+                <label className="font-bold uppercase text-gray-900 flex items-center justify-between">
+                  <span>Product Highlight Features (ছবি পাশের ৫টি বিশেষ বৈশিষ্ট্য)</span>
+                  <span className="text-[10px] text-gray-400 font-normal">Customer screen visual list</span>
+                </label>
+
+                <div className="space-y-2.5">
+                  {features.map((feat, idx) => (
+                    <div key={idx} className="grid grid-cols-1 sm:grid-cols-2 gap-2 bg-white p-2.5 rounded-lg border border-gray-200 shadow-2xs">
+                      <div>
+                        <span className="text-[10px] text-gray-500 font-bold uppercase">Point #{idx + 1} Title</span>
+                        <input
+                          type="text"
+                          placeholder="e.g. Soft & Comfortable"
+                          value={feat.title}
+                          onChange={(e) => updateFeature(idx, 'title', e.target.value)}
+                          className="w-full px-2.5 py-1.5 rounded border border-gray-300 bg-white text-xs font-semibold"
+                        />
+                      </div>
+                      <div>
+                        <span className="text-[10px] text-gray-500 font-bold uppercase">Point #{idx + 1} Subtitle</span>
+                        <input
+                          type="text"
+                          placeholder="e.g. Gentle on skin and non-irritating"
+                          value={feat.subtitle}
+                          onChange={(e) => updateFeature(idx, 'subtitle', e.target.value)}
+                          className="w-full px-2.5 py-1.5 rounded border border-gray-300 bg-white text-xs"
+                        />
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
 
@@ -730,31 +864,45 @@ export default function AdminProductsPage() {
                   </button>
                 </div>
 
-                <div className="space-y-2">
+                <div className="space-y-2.5">
                   {variants.map((v, idx) => (
-                    <div key={idx} className="grid grid-cols-6 gap-2 items-center bg-gray-50 p-2.5 rounded-lg border border-gray-200">
-                      <div>
-                        <span className="text-[10px] text-gray-400 uppercase font-semibold">Color</span>
-                        <input
-                          type="text"
-                          placeholder="e.g. Red"
-                          value={v.color}
-                          onChange={(e) => updateVariant(idx, 'color', e.target.value)}
-                          className="w-full px-2 py-1.5 rounded border border-gray-300 bg-white text-xs"
-                        />
+                    <div key={idx} className="grid grid-cols-2 sm:grid-cols-7 gap-2 items-center bg-gray-50 p-3 rounded-xl border border-gray-200 shadow-2xs">
+                      {/* Color Name */}
+                      <div className="sm:col-span-2 space-y-0.5">
+                        <span className="text-[10px] text-gray-500 font-bold uppercase">Color Name & Swatch</span>
+                        <div className="flex items-center gap-1.5">
+                          <input
+                            type="color"
+                            value={v.colorHex || '#556B2F'}
+                            onChange={(e) => updateVariant(idx, 'colorHex', e.target.value)}
+                            className="w-7 h-7 rounded-full border border-gray-300 cursor-pointer p-0.5 bg-white flex-shrink-0"
+                            title="Choose swatch color"
+                          />
+                          <input
+                            type="text"
+                            placeholder="e.g. Olive"
+                            value={v.color}
+                            onChange={(e) => updateVariant(idx, 'color', e.target.value)}
+                            className="w-full px-2 py-1.5 rounded border border-gray-300 bg-white text-xs font-semibold"
+                          />
+                        </div>
                       </div>
-                      <div>
-                        <span className="text-[10px] text-gray-400 uppercase font-semibold">Size</span>
+
+                      {/* Size */}
+                      <div className="space-y-0.5">
+                        <span className="text-[10px] text-gray-500 font-bold uppercase">Size</span>
                         <input
                           type="text"
-                          placeholder="e.g. M / 2.6"
+                          placeholder="e.g. Standard"
                           value={v.size}
                           onChange={(e) => updateVariant(idx, 'size', e.target.value)}
                           className="w-full px-2 py-1.5 rounded border border-gray-300 bg-white text-xs"
                         />
                       </div>
-                      <div>
-                        <span className="text-[10px] text-gray-400 uppercase font-semibold">SKU *</span>
+
+                      {/* SKU */}
+                      <div className="space-y-0.5">
+                        <span className="text-[10px] text-gray-500 font-bold uppercase">SKU *</span>
                         <input
                           type="text"
                           required
@@ -763,17 +911,21 @@ export default function AdminProductsPage() {
                           className="w-full px-2 py-1.5 rounded border border-gray-300 bg-white font-mono text-xs"
                         />
                       </div>
-                      <div>
-                        <span className="text-[10px] text-gray-400 uppercase font-semibold">Selling ৳</span>
+
+                      {/* Selling Price */}
+                      <div className="space-y-0.5">
+                        <span className="text-[10px] text-gray-500 font-bold uppercase">Selling ৳</span>
                         <input
                           type="number"
                           value={v.price}
                           onChange={(e) => updateVariant(idx, 'price', Number(e.target.value))}
-                          className="w-full px-2 py-1.5 rounded border border-gray-300 bg-white font-mono text-xs"
+                          className="w-full px-2 py-1.5 rounded border border-gray-300 bg-white font-mono text-xs font-bold"
                         />
                       </div>
-                      <div>
-                        <span className="text-[10px] text-gray-400 uppercase font-semibold">Cost Price (COGS)</span>
+
+                      {/* Cost Price */}
+                      <div className="space-y-0.5">
+                        <span className="text-[10px] text-gray-500 font-bold uppercase">Cost ৳</span>
                         <input
                           type="number"
                           value={v.costPrice}
@@ -781,14 +933,16 @@ export default function AdminProductsPage() {
                           className="w-full px-2 py-1.5 rounded border border-gray-300 bg-white font-mono text-xs"
                         />
                       </div>
-                      <div className="flex items-center gap-2">
+
+                      {/* Stock Quantity & Delete */}
+                      <div className="flex items-center gap-2 space-y-0.5">
                         <div className="flex-1">
-                          <span className="text-[10px] text-gray-400 uppercase font-semibold">Stock Quantity</span>
+                          <span className="text-[10px] text-gray-500 font-bold uppercase">Stock</span>
                           <input
                             type="number"
                             value={v.stock}
                             onChange={(e) => updateVariant(idx, 'stock', Number(e.target.value))}
-                            className="w-full px-2 py-1.5 rounded border border-gray-300 bg-white font-mono text-xs"
+                            className="w-full px-2 py-1.5 rounded border border-gray-300 bg-white font-mono text-xs font-bold text-emerald-700"
                           />
                         </div>
                         {variants.length > 1 && (
