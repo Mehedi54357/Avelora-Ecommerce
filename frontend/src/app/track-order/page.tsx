@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import Link from 'next/link';
 import InvoiceModal from '../../components/invoice-modal';
 import { API_BASE_URL } from '../../utils/api-config';
 import {
@@ -14,6 +15,8 @@ import {
   Phone,
   Hash,
   Lock,
+  ArrowLeft,
+  ChevronRight,
 } from 'lucide-react';
 
 const ORDER_STEPS = [
@@ -98,7 +101,26 @@ export default function TrackOrderPage() {
   const isReturned = order?.status === 'RETURNED' || order?.status === 'RETURN_REQUESTED';
 
   return (
-    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12 space-y-10">
+    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+      {/* Breadcrumbs & Quick Back Navigation */}
+      <div className="flex flex-wrap items-center justify-between gap-4 bg-white px-5 py-3 rounded-2xl border border-gray-200/80 shadow-sm text-xs">
+        <nav className="flex items-center gap-2 text-gray-500 font-medium py-1">
+          <Link href="/" className="hover:text-[#C5A059] transition text-gray-700 font-semibold">
+            Home
+          </Link>
+          <ChevronRight className="w-3.5 h-3.5 text-gray-400" />
+          <span className="text-gray-900 font-bold">Track Order</span>
+        </nav>
+
+        <Link
+          href="/"
+          className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold text-xs transition"
+        >
+          <ArrowLeft className="w-3.5 h-3.5" />
+          <span>Back to Home</span>
+        </Link>
+      </div>
+
       {/* Header */}
       <div className="text-center space-y-3">
         <div className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-[#D4AF37]/10 text-[#997B21] text-[10px] font-bold uppercase tracking-widest border border-[#D4AF37]/30">

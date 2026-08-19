@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useCart } from '../../../context/cart-context';
 import BadgeStrip from '../../../components/badge-strip';
@@ -16,6 +17,8 @@ import {
   Minus,
   Sparkles,
   ArrowRight,
+  ArrowLeft,
+  ChevronRight,
   Zap,
 } from 'lucide-react';
 
@@ -141,13 +144,57 @@ export default function ProductDetailPage() {
   return (
     <div className="space-y-16 py-10">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Breadcrumb */}
-        <div className="text-xs text-gray-500 mb-8 flex items-center gap-2">
-          <button onClick={() => router.push('/')} className="hover:text-gray-900">Home</button>
-          <span>/</span>
-          <button onClick={() => router.push('/products')} className="hover:text-gray-900">Collections</button>
-          <span>/</span>
-          <span className="text-gray-900 font-medium">{product.name}</span>
+        {/* Breadcrumb & Quick Back Navigation */}
+        <div className="flex flex-wrap items-center justify-between gap-4 bg-white px-5 py-3 rounded-2xl border border-gray-200/80 shadow-sm text-xs mb-8">
+          <nav className="flex items-center gap-2 text-gray-500 font-medium overflow-x-auto scrollbar-none py-1">
+            <Link href="/" className="hover:text-[#C5A059] transition text-gray-700 font-semibold">
+              Home
+            </Link>
+            <ChevronRight className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
+            <Link href="/products" className="hover:text-[#C5A059] transition text-gray-700 font-semibold">
+              All Catalog
+            </Link>
+            {product.categoryId?.department && (
+              <>
+                <ChevronRight className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
+                <Link
+                  href={`/products?department=${product.categoryId.department}`}
+                  className="hover:text-[#C5A059] transition text-gray-700 font-semibold capitalize"
+                >
+                  {product.categoryId.department}
+                </Link>
+              </>
+            )}
+            {product.categoryId?.slug && (
+              <>
+                <ChevronRight className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
+                <Link
+                  href={`/products?category=${product.categoryId.slug}`}
+                  className="hover:text-[#C5A059] transition text-gray-700 font-semibold"
+                >
+                  {product.categoryId.name}
+                </Link>
+              </>
+            )}
+            <ChevronRight className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
+            <span className="text-[#997B21] font-bold truncate max-w-[200px]">{product.name}</span>
+          </nav>
+
+          <button
+            onClick={() => {
+              if (product.categoryId?.slug) {
+                router.push(`/products?category=${product.categoryId.slug}`);
+              } else if (product.categoryId?.department) {
+                router.push(`/products?department=${product.categoryId.department}`);
+              } else {
+                router.push('/products');
+              }
+            }}
+            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold text-xs transition"
+          >
+            <ArrowLeft className="w-3.5 h-3.5" />
+            <span>Back to Collection</span>
+          </button>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 xl:gap-16 items-start">

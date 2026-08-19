@@ -1,9 +1,10 @@
 'use client';
 
 import React, { useState, useEffect, Suspense } from 'react';
+import Link from 'next/link';
 import { useSearchParams, useRouter } from 'next/navigation';
 import ProductCard from '../../components/product-card';
-import { Search, Filter, SlidersHorizontal, Sparkles, X, RotateCcw } from 'lucide-react';
+import { Search, Filter, SlidersHorizontal, Sparkles, X, RotateCcw, ChevronRight, ArrowLeft } from 'lucide-react';
 import { API_BASE_URL } from '../../utils/api-config';
 
 const DEPARTMENTS = [
@@ -162,7 +163,72 @@ function ProductsCatalogContent() {
     : 'THE HAUTE LUXURY COLLECTION';
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-8">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+      {/* 0. Elegant Breadcrumb & Quick Back Navigation Bar */}
+      <div className="flex flex-wrap items-center justify-between gap-4 bg-white px-5 py-3 rounded-2xl border border-gray-200/80 shadow-sm text-xs">
+        <nav className="flex items-center gap-2 text-gray-500 font-medium overflow-x-auto scrollbar-none py-1">
+          <Link
+            href="/"
+            className="flex items-center gap-1 hover:text-[#C5A059] transition text-gray-700 font-semibold"
+          >
+            <span>Home</span>
+          </Link>
+          <ChevronRight className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
+          <button
+            onClick={handleResetFilters}
+            className={`hover:text-[#C5A059] transition ${
+              !selectedDepartment && !selectedCategory ? 'text-gray-900 font-bold' : ''
+            }`}
+          >
+            All Catalog
+          </button>
+
+          {selectedDepartment && (
+            <>
+              <ChevronRight className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
+              <button
+                onClick={() => handleDepartmentChange(selectedDepartment)}
+                className={`hover:text-[#C5A059] transition capitalize ${
+                  !selectedCategory ? 'text-gray-900 font-bold' : ''
+                }`}
+              >
+                {selectedDepartment}
+              </button>
+            </>
+          )}
+
+          {selectedCategory && (
+            <>
+              <ChevronRight className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
+              <span className="text-[#997B21] font-bold truncate max-w-[200px]">
+                {activeCategoryObj?.name || selectedCategory}
+              </span>
+            </>
+          )}
+        </nav>
+
+        {/* Action Buttons: Back to Home & Back to Department */}
+        <div className="flex items-center gap-2">
+          {selectedCategory ? (
+            <button
+              onClick={() => handleDepartmentChange(selectedDepartment || '')}
+              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold text-xs transition"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" />
+              <span>Back to {selectedDepartment ? `${selectedDepartment}` : 'All Catalog'}</span>
+            </button>
+          ) : (
+            <Link
+              href="/"
+              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold text-xs transition"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" />
+              <span>Back to Home</span>
+            </Link>
+          )}
+        </div>
+      </div>
+
       {/* Header Banner */}
       <div className="text-center space-y-3 py-10 bg-[#0B0F19] text-white rounded-3xl border border-[#D4AF37]/20 relative overflow-hidden px-4">
         <div className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-white/10 text-[#E6CA85] text-[10px] font-bold uppercase tracking-widest border border-[#D4AF37]/30">

@@ -11,6 +11,8 @@ import {
   ShieldCheck,
   Truck,
   ArrowRight,
+  ArrowLeft,
+  ChevronRight,
   User,
   Phone,
   MapPin,
@@ -178,7 +180,30 @@ export default function CheckoutPage() {
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 animate-fadeIn">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 animate-fadeIn space-y-6">
+      {/* Breadcrumbs & Quick Back Navigation */}
+      <div className="flex flex-wrap items-center justify-between gap-4 bg-white px-5 py-3 rounded-2xl border border-gray-200/80 shadow-sm text-xs">
+        <nav className="flex items-center gap-2 text-gray-500 font-medium py-1">
+          <Link href="/" className="hover:text-[#C5A059] transition text-gray-700 font-semibold">
+            Home
+          </Link>
+          <ChevronRight className="w-3.5 h-3.5 text-gray-400" />
+          <Link href="/products" className="hover:text-[#C5A059] transition text-gray-700 font-semibold">
+            Collections
+          </Link>
+          <ChevronRight className="w-3.5 h-3.5 text-gray-400" />
+          <span className="text-gray-900 font-bold">Checkout</span>
+        </nav>
+
+        <Link
+          href="/products"
+          className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold text-xs transition"
+        >
+          <ArrowLeft className="w-3.5 h-3.5" />
+          <span>Back to Shopping</span>
+        </Link>
+      </div>
+
       {/* Top Header */}
       <div className="text-center space-y-1.5 mb-8">
         <span className="text-[10px] font-bold uppercase tracking-[0.25em] text-[#997B21]">
