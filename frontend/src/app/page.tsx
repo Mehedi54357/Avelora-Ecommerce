@@ -56,12 +56,12 @@ export default async function HomePage() {
       {/* 1. Hero Section with Aarong-Grade Luxury Visual */}
       <section className="relative min-h-[85vh] flex items-center justify-center bg-[#090D16] text-white overflow-hidden">
         <div
-          className="absolute inset-0 bg-cover bg-center opacity-30 mix-blend-luminosity scale-105 transform duration-1000 ease-out"
+          className="absolute inset-0 bg-cover bg-[center_15%] opacity-45 mix-blend-luminosity transform duration-1000 ease-out"
           style={{
             backgroundImage: `url('https://images.unsplash.com/photo-1583391733956-3750e0ff4e8b?auto=format&fit=crop&w=2000&q=85')`,
           }}
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-[#090D16] via-[#090D16]/70 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-t from-[#090D16] via-[#090D16]/60 to-black/30" />
 
         <div className="relative z-10 max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center space-y-6 py-20">
           <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/10 backdrop-blur-md border border-[#D4AF37]/30 text-[#E6CA85] text-xs font-semibold uppercase tracking-[0.25em]">
