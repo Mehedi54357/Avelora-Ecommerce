@@ -6,6 +6,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { useCart } from '../../../context/cart-context';
 import { API_BASE_URL } from '../../../utils/api-config';
 import {
+  ShoppingCart,
   ShoppingBag,
   Heart,
   Truck,
@@ -340,9 +341,9 @@ export default function ProductDetailPage() {
             <button
               onClick={() => setIsCartOpen(true)}
               className="p-2 text-gray-700 hover:text-black rounded-full hover:bg-gray-100 transition relative"
-              title="View Bag"
+              title="View Cart"
             >
-              <ShoppingBag className="w-5 h-5" />
+              <ShoppingCart className="w-5 h-5" />
               {totalItems > 0 && (
                 <span className="absolute top-1 right-1 w-4 h-4 bg-[#C5A059] text-slate-950 font-bold text-[9px] rounded-full flex items-center justify-center shadow">
                   {totalItems}
@@ -616,11 +617,11 @@ export default function ProductDetailPage() {
                 >
                   {added ? (
                     <>
-                      <Check className="w-4 h-4" /> Added to Bag
+                      <Check className="w-4 h-4" /> Added to Cart
                     </>
                   ) : (
                     <>
-                      <ShoppingBag className="w-4 h-4" /> ADD TO CART
+                      <ShoppingCart className="w-4 h-4" /> ADD TO CART
                     </>
                   )}
                 </button>

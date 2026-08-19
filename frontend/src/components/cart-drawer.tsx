@@ -3,7 +3,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { useCart } from '../context/cart-context';
-import { X, Trash2, Plus, Minus, ShoppingBag, ArrowRight, ShieldCheck } from 'lucide-react';
+import { X, Trash2, Plus, Minus, ShoppingCart, ArrowRight, ShieldCheck } from 'lucide-react';
 
 export default function CartDrawer() {
   const { cart, isCartOpen, setIsCartOpen, removeItem, updateQuantity, cartSubtotal, cartCount } = useCart();
@@ -23,9 +23,9 @@ export default function CartDrawer() {
           {/* Drawer Header */}
           <div className="p-6 border-b border-gray-100 flex items-center justify-between bg-[#FAFAF8]">
             <div className="flex items-center gap-2">
-              <ShoppingBag className="w-5 h-5 text-[#C5A059]" />
+              <ShoppingCart className="w-5 h-5 text-[#C5A059]" />
               <h2 className="text-lg font-bold uppercase tracking-wider text-gray-900 font-serif-luxury">
-                Your Shopping Bag
+                Your Shopping Cart
               </h2>
               <span className="bg-[#C5A059]/15 text-[#997B21] text-xs font-semibold px-2.5 py-0.5 rounded-full">
                 {cartCount}
@@ -34,7 +34,7 @@ export default function CartDrawer() {
             <button
               onClick={() => setIsCartOpen(false)}
               className="p-2 text-gray-400 hover:text-gray-700 rounded-full hover:bg-gray-100 transition"
-              aria-label="Close Shopping Bag"
+              aria-label="Close Shopping Cart"
             >
               <X className="w-5 h-5" />
             </button>
@@ -45,10 +45,10 @@ export default function CartDrawer() {
             {cart.length === 0 ? (
               <div className="h-full flex flex-col items-center justify-center text-center py-12">
                 <div className="w-16 h-16 rounded-full bg-[#FAFAF8] border border-[#D4AF37]/20 flex items-center justify-center text-[#C5A059] mb-4">
-                  <ShoppingBag className="w-8 h-8" />
+                  <ShoppingCart className="w-8 h-8" />
                 </div>
                 <h3 className="text-base font-semibold uppercase tracking-wider text-gray-800 mb-1">
-                  Your bag is empty
+                  Your cart is empty
                 </h3>
                 <p className="text-xs text-gray-500 max-w-xs mb-6">
                   Explore our luxury collection of handcrafted bags, perfumes, watches, and accessories.

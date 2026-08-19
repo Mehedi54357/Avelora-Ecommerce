@@ -4,7 +4,45 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useCart } from '../context/cart-context';
-import { ShoppingBag, Zap, Check } from 'lucide-react';
+import { ShoppingCart, Zap, Check, Plus, Minus } from 'lucide-react';
+
+// Color name to hex map helper
+const COLOR_MAP: Record<string, string> = {
+  black: '#0F172A',
+  kalo: '#0F172A',
+  white: '#FFFFFF',
+  shada: '#FFFFFF',
+  beige: '#E8D8C8',
+  nude: '#CDB49B',
+  olive: '#556B2F',
+  olivegreen: '#556B2F',
+  'dusty pink': '#E08B9B',
+  pink: '#EC4899',
+  gulabi: '#EC4899',
+  maroon: '#58111A',
+  red: '#DC2626',
+  lal: '#DC2626',
+  'navy blue': '#1B2A4A',
+  navy: '#1B2A4A',
+  blue: '#2563EB',
+  neel: '#2563EB',
+  grey: '#64748B',
+  gray: '#64748B',
+  purple: '#6B21A8',
+  beguni: '#6B21A8',
+  gold: '#C5A059',
+  golden: '#C5A059',
+  sonali: '#C5A059',
+  orange: '#EA580C',
+  komola: '#EA580C',
+  yellow: '#EAB308',
+  holud: '#EAB308',
+  green: '#16A34A',
+  shobuj: '#16A34A',
+  cyan: '#06B6D4',
+  magenta: '#D946EF',
+  brown: '#78350F',
+};
 
 interface ProductCardProps {
   product: {
@@ -15,10 +53,12 @@ interface ProductCardProps {
     originalPrice: number;
     discountPercentage?: number;
     salePrice: number;
+    badge?: string;
     categoryId?: { name: string; slug: string } | any;
     variants: Array<{
       sku: string;
       color?: string;
+      colorHex?: string;
       size?: string;
       price: number;
       stockQuantity?: number;
@@ -31,12 +71,14 @@ export default function ProductCard({ product }: ProductCardProps) {
   const router = useRouter();
   const { addItem, clearCart } = useCart();
   const [selectedVariantIndex, setSelectedVariantIndex] = useState(0);
+  const [quantity, setQuantity] = useState(1);
   const [isHovered, setIsHovered] = useState(false);
   const [added, setAdded] = useState(false);
 
   const selectedVariant = product.variants?.[selectedVariantIndex] || {
     sku: `SKU-${product.slug}`,
     color: '',
+    colorHex: '#0F172A',
     size: '',
     price: product.salePrice,
     stockQuantity: 10,
@@ -64,7 +106,7 @@ export default function ProductCard({ product }: ProductCardProps) {
       size: selectedVariant.size,
       price: currentPrice,
       originalPrice: product.originalPrice,
-      quantity: 1,
+      quantity,
       maxStock: variantStock,
     });
 
@@ -87,12 +129,15 @@ export default function ProductCard({ product }: ProductCardProps) {
       size: selectedVariant.size,
       price: currentPrice,
       originalPrice: product.originalPrice,
-      quantity: 1,
+      quantity,
       maxStock: variantStock,
     });
 
     router.push('/checkout');
   };
+
+  // Extract color swatches
+  const colorList = (product.variants || []).filter((v) => v.color && v.color.trim() !== '');
 
   return (
     <div
@@ -110,10 +155,14 @@ export default function ProductCard({ product }: ProductCardProps) {
           />
         </Link>
 
-        {/* Discount Badge */}
+        {/* Discount / Best Seller Badge */}
         {product.discountPercentage && product.discountPercentage > 0 ? (
           <div className="absolute top-3 left-3 bg-[#0B0F19] text-[#E6CA85] text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full border border-[#D4AF37]/30 shadow-sm">
             {product.discountPercentage}% OFF
+          </div>
+        ) : product.badge ? (
+          <div className="absolute top-3 left-3 bg-[#4A5D23] text-[#F4F1EA] text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-md shadow-sm">
+            {product.badge}
           </div>
         ) : null}
 
@@ -140,29 +189,54 @@ export default function ProductCard({ product }: ProductCardProps) {
           </Link>
         </div>
 
-        {/* Variants Pill Bar if available */}
-        {product.variants && product.variants.length > 1 && (
-          <div className="flex items-center gap-1.5 flex-wrap pt-0.5">
-            {product.variants.slice(0, 4).map((variant, idx) => (
-              <button
-                key={variant.sku}
-                onClick={(e) => {
-                  e.preventDefault();
-                  setSelectedVariantIndex(idx);
-                }}
-                className={`text-[10px] px-2 py-0.5 rounded border font-medium transition ${
-                  selectedVariantIndex === idx
-                    ? 'border-slate-900 bg-slate-900 text-white'
-                    : 'border-gray-200 text-gray-600 hover:border-gray-400 bg-gray-50'
-                }`}
-              >
-                {variant.color || variant.size || `Opt ${idx + 1}`}
-              </button>
-            ))}
+        {/* Round Color Swatches (Matches Exact Requirement) */}
+        {colorList.length > 0 && (
+          <div className="space-y-1 pt-0.5">
+            <div className="flex items-center justify-between text-[11px]">
+              <span className="text-gray-500 font-medium">
+                Color: <strong className="text-gray-900 font-bold">{selectedVariant.color || 'Standard'}</strong>
+              </span>
+              {colorList.length > 6 && (
+                <Link href={`/products/${product.slug}`} className="text-[10px] text-[#997B21] font-bold hover:underline">
+                  +{colorList.length - 6} More
+                </Link>
+              )}
+            </div>
+            <div className="flex items-center gap-1.5 flex-wrap">
+              {colorList.slice(0, 8).map((variant, idx) => {
+                const isSelected = selectedVariantIndex === idx;
+                const lower = (variant.color || '').toLowerCase().trim();
+                const hexColor = variant.colorHex || COLOR_MAP[lower] || '#0F172A';
+                const isWhite = hexColor.toUpperCase() === '#FFFFFF' || hexColor.toLowerCase() === '#fff';
+
+                return (
+                  <button
+                    key={variant.sku || idx}
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setSelectedVariantIndex(idx);
+                    }}
+                    className={`w-5 h-5 rounded-full transition-all flex items-center justify-center border shadow-2xs ${
+                      isSelected
+                        ? 'ring-2 ring-slate-900 ring-offset-1 scale-110 border-white'
+                        : 'hover:scale-110 border-gray-300'
+                    }`}
+                    style={{ backgroundColor: hexColor }}
+                    title={variant.color}
+                  >
+                    {isSelected && (
+                      <Check className={`w-3 h-3 ${isWhite ? 'text-black' : 'text-white'}`} />
+                    )}
+                  </button>
+                );
+              })}
+            </div>
           </div>
         )}
 
-        {/* Pricing */}
+        {/* Pricing & Stock */}
         <div className="flex items-baseline justify-between pt-1 border-t border-gray-100">
           <div className="flex items-baseline gap-2">
             <span className="text-base font-bold text-gray-900 font-serif-luxury">
@@ -179,17 +253,49 @@ export default function ProductCard({ product }: ProductCardProps) {
           </span>
         </div>
 
-        {/* Action Buttons: Buy Now & Add to Bag */}
+        {/* Quantity Selector: [ - ] 1 [ + ] */}
+        <div className="flex items-center justify-between gap-2 pt-0.5">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500">Qty</span>
+          <div className="flex items-center border border-gray-200 rounded-lg bg-gray-50 h-8 w-24 shadow-2xs">
+            <button
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setQuantity(Math.max(1, quantity - 1));
+              }}
+              disabled={isOutOfStock || quantity <= 1}
+              className="px-2 h-full hover:bg-gray-200 text-gray-600 transition flex items-center justify-center disabled:opacity-40"
+            >
+              <Minus className="w-3 h-3" />
+            </button>
+            <span className="flex-1 text-center text-xs font-bold text-gray-900">{quantity}</span>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setQuantity(Math.min(variantStock, quantity + 1));
+              }}
+              disabled={isOutOfStock || quantity >= variantStock}
+              className="px-2 h-full hover:bg-gray-200 text-gray-600 transition flex items-center justify-center disabled:opacity-40"
+            >
+              <Plus className="w-3 h-3" />
+            </button>
+          </div>
+        </div>
+
+        {/* Action Buttons: ADD TO CART & BUY NOW */}
         <div className="grid grid-cols-2 gap-2 pt-1">
           <button
             onClick={handleQuickAdd}
             disabled={isOutOfStock}
-            className={`py-2 px-2 rounded-xl text-[11px] font-bold uppercase tracking-wider flex items-center justify-center gap-1 transition-all ${
+            className={`py-2 px-2 rounded-xl text-[11px] font-bold uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all ${
               added
                 ? 'bg-emerald-600 text-white'
                 : isOutOfStock
                 ? 'bg-gray-100 text-gray-400 cursor-not-allowed border'
-                : 'bg-white border border-gray-300 hover:border-slate-900 text-gray-800'
+                : 'bg-white border-2 border-slate-900 hover:bg-slate-900 hover:text-white text-gray-900'
             }`}
           >
             {added ? (
@@ -198,7 +304,7 @@ export default function ProductCard({ product }: ProductCardProps) {
               </>
             ) : (
               <>
-                <ShoppingBag className="w-3.5 h-3.5" /> Add to Bag
+                <ShoppingCart className="w-3.5 h-3.5" /> ADD TO CART
               </>
             )}
           </button>
@@ -209,11 +315,11 @@ export default function ProductCard({ product }: ProductCardProps) {
             className={`py-2 px-2 rounded-xl text-[11px] font-bold uppercase tracking-wider flex items-center justify-center gap-1 transition-all shadow-sm ${
               isOutOfStock
                 ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                : 'bg-slate-950 hover:bg-[#C5A059] text-white hover:text-slate-950'
+                : 'bg-[#C5A059] hover:bg-[#b08b3a] text-slate-950 font-bold shadow'
             }`}
           >
             <Zap className="w-3.5 h-3.5 fill-current" />
-            <span>Buy Now</span>
+            <span>BUY NOW</span>
           </button>
         </div>
       </div>

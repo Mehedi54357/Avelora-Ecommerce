@@ -351,15 +351,20 @@ export default function AdminProductsPage() {
       discountPercentage: Number(discountPercentage) || 0,
       salePrice: Number(salePrice) || Number(originalPrice) || 0,
       isPublished,
-      variants: variants.map((v) => ({
-        sku: v.sku.trim() || `SKU-${Date.now().toString().slice(-4)}`,
-        color: v.color.trim(),
-        colorHex: v.colorHex ? v.colorHex.trim() : '#0F172A',
-        size: v.size.trim(),
-        price: Number(v.price) || Number(salePrice) || 0,
-        costPrice: Number(v.costPrice) || 0,
-        stockQuantity: Number(v.stock) || 0,
-      })),
+      variants: variants.map((v) => {
+        const colorName = v.color.trim();
+        const lower = colorName.toLowerCase();
+        const mappedHex = PRESET_COLORS.find((p) => p.name.toLowerCase() === lower)?.hex || '#0F172A';
+        return {
+          sku: v.sku.trim() || `SKU-${Date.now().toString().slice(-4)}`,
+          color: colorName,
+          colorHex: v.colorHex && v.colorHex.trim() !== '' ? v.colorHex.trim() : mappedHex,
+          size: v.size.trim(),
+          price: Number(v.price) || Number(salePrice) || 0,
+          costPrice: Number(v.costPrice) || 0,
+          stockQuantity: Number(v.stock) || 0,
+        };
+      }),
     };
 
     try {
