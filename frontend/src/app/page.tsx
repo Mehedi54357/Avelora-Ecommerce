@@ -59,7 +59,7 @@ export default async function HomePage() {
           src="https://images.unsplash.com/photo-1583391733956-3750e0ff4e8b?auto=format&fit=crop&w=2000&q=90"
           alt="AVELORA Luxury Haute Heritage"
           className="absolute inset-0 w-full h-full object-cover opacity-50 mix-blend-luminosity select-none pointer-events-none"
-          style={{ objectPosition: '50% 65%' }}
+          style={{ objectPosition: '50% 44%' }}
         />
         {/* Cinematic Vignette Overlay */}
         <div className="absolute inset-0 bg-gradient-to-t from-[#090D16] via-[#090D16]/50 to-black/30 pointer-events-none" />
