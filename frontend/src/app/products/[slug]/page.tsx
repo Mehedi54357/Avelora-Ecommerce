@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useCart } from '../../../context/cart-context';
@@ -25,9 +25,14 @@ import {
   Maximize2,
   Tag,
   Feather,
-  Headphones,
-  Users,
+  Layers,
+  Wind,
+  Waves,
+  CheckCircle2,
   Award,
+  Crown,
+  Users,
+  Headphones,
   X,
   Share2,
 } from 'lucide-react';
@@ -70,6 +75,46 @@ const COLOR_MAP: Record<string, string> = {
   brown: '#78350F',
 };
 
+// Helper to render distinct icon for each feature highlight
+function FeatureIcon({ iconName, index }: { iconName?: string; index: number }) {
+  const icon = (iconName || '').toLowerCase().trim();
+
+  // Match icon from explicit name or fallback based on position/theme
+  if (icon === 'feather' || icon === 'leaf' || icon === 'heart' || icon === 'soft') {
+    return <Feather className="w-4 h-4 text-gray-700" />;
+  }
+  if (icon === 'layers' || icon === 'fabric' || icon === 'quality' || icon === 'material') {
+    return <Layers className="w-4 h-4 text-gray-700" />;
+  }
+  if (icon === 'wind' || icon === 'breathable' || icon === 'air' || icon === 'lightweight') {
+    return <Wind className="w-4 h-4 text-gray-700" />;
+  }
+  if (icon === 'waves' || icon === 'drape' || icon === 'flow' || icon === 'finish' || icon === 'glossy') {
+    return <Waves className="w-4 h-4 text-gray-700" />;
+  }
+  if (icon === 'check' || icon === 'checkcircle' || icon === 'style' || icon === 'occasion' || icon === 'star') {
+    return <CheckCircle2 className="w-4 h-4 text-gray-700" />;
+  }
+  if (icon === 'award' || icon === 'crown' || icon === 'shield') {
+    return <Award className="w-4 h-4 text-gray-700" />;
+  }
+
+  // Fallback pattern matching 5 reference slots if icon string isn't specified
+  switch (index % 5) {
+    case 0:
+      return <Feather className="w-4 h-4 text-gray-700" />; // Soft & Comfortable
+    case 1:
+      return <Layers className="w-4 h-4 text-gray-700" />;  // Premium Fabric
+    case 2:
+      return <Wind className="w-4 h-4 text-gray-700" />;    // Lightweight & Breathable
+    case 3:
+      return <Waves className="w-4 h-4 text-gray-700" />;   // Elegant Drape
+    case 4:
+    default:
+      return <CheckCircle2 className="w-4 h-4 text-gray-700" />; // Easy to Style
+  }
+}
+
 export default function ProductDetailPage() {
   const params = useParams();
   const router = useRouter();
@@ -84,6 +129,8 @@ export default function ProductDetailPage() {
   const [added, setAdded] = useState(false);
   const [isZoomOpen, setIsZoomOpen] = useState(false);
   const [isWishlisted, setIsWishlisted] = useState(false);
+
+  const thumbnailContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!slug) return;
@@ -115,7 +162,7 @@ export default function ProductDetailPage() {
 
   const selectedVariant = product?.variants?.[selectedVariantIndex] || {
     sku: `SKU-${product?.slug || 'AVE'}`,
-    color: 'Standard',
+    color: 'Olive',
     size: 'Standard',
     price: product?.salePrice || product?.originalPrice || 0,
     stockQuantity: 10,
@@ -146,7 +193,7 @@ export default function ProductDetailPage() {
     });
   }, [product]);
 
-  // Dynamic Highlight Features (Matches the 5-item card from screenshots)
+  // Dynamic 5 Feature Points with Distinct Icons
   const featuresList = useMemo(() => {
     if (product?.features && product.features.length > 0) {
       return product.features;
@@ -157,40 +204,40 @@ export default function ProductDetailPage() {
 
     if (catName.includes('hijab')) {
       return [
-        { title: 'Soft & Comfortable', subtitle: 'Gentle on skin and non-irritating', icon: 'feather' },
-        { title: 'Premium Ceri Fabric', subtitle: 'High quality Turkish georgette material', icon: 'sparkles' },
-        { title: 'Lightweight & Breathable', subtitle: 'All day comfort in every season', icon: 'feather' },
-        { title: 'Elegant Drape', subtitle: 'Perfect fall, flow & luxury hold', icon: 'award' },
-        { title: 'Easy to Style', subtitle: 'Hijab friendly pin-secure fabric', icon: 'sparkles' },
+        { title: 'Soft & Comfortable', subtitle: 'Gentle on skin', icon: 'feather' },
+        { title: 'Premium Ceri Fabric', subtitle: 'High quality material', icon: 'layers' },
+        { title: 'Lightweight & Breathable', subtitle: 'All day comfort', icon: 'wind' },
+        { title: 'Elegant Drape', subtitle: 'Perfect fall & flow', icon: 'waves' },
+        { title: 'Easy to Style', subtitle: 'Hijab friendly fabric', icon: 'check' },
       ];
     }
 
     if (catName.includes('churi') || catName.includes('bangle') || catName.includes('jewel')) {
       return [
-        { title: 'High Quality Silk Thread', subtitle: 'Premium quality artisan silk thread bangles', icon: 'sparkles' },
-        { title: 'Lightweight & Comfortable', subtitle: 'Easy to wear all day long without weight', icon: 'feather' },
-        { title: 'Glossy & Attractive Finish', subtitle: 'Shiny heritage look that enhances beauty', icon: 'sparkles' },
-        { title: 'Durable & Long Lasting', subtitle: 'Strong craftsmanship and color fast finish', icon: 'award' },
-        { title: 'Perfect For Every Occasion', subtitle: 'Festivals, weddings, parties & daily wear', icon: 'sparkles' },
+        { title: 'Soft & Comfortable', subtitle: 'Gentle on skin and non-irritating', icon: 'feather' },
+        { title: 'Premium Artisan Quality', subtitle: 'Crafted from finest materials', icon: 'layers' },
+        { title: 'Lightweight & Breathable', subtitle: 'Designed for effortless all-day wear', icon: 'wind' },
+        { title: 'Glossy & Elegant Finish', subtitle: 'Flawless look that enhances beauty', icon: 'waves' },
+        { title: 'Perfect For Every Occasion', subtitle: 'Festivals, parties, weddings & daily styling', icon: 'check' },
       ];
     }
 
     if (dept === 'men') {
       return [
-        { title: '100% Genuine Full-Grain Leather', subtitle: 'Handcrafted artisan premium finish', icon: 'award' },
+        { title: '100% Genuine Leather', subtitle: 'Handcrafted artisan premium finish', icon: 'award' },
         { title: 'Orthopedic Cushioned Insole', subtitle: 'Supreme all-day step comfort', icon: 'feather' },
-        { title: 'Anti-Skid Rubber Outsole', subtitle: 'Maximum traction and road grip', icon: 'shield' },
-        { title: 'Breathable Leather Lining', subtitle: 'Prevents moisture and odor buildup', icon: 'sparkles' },
-        { title: 'Bespoke Luxury Packaging', subtitle: 'Includes protective dust bag & shoe horn', icon: 'award' },
+        { title: 'Anti-Skid Rubber Outsole', subtitle: 'Maximum traction and road grip', icon: 'layers' },
+        { title: 'Breathable Leather Lining', subtitle: 'Prevents moisture and odor buildup', icon: 'wind' },
+        { title: 'Bespoke Luxury Packaging', subtitle: 'Includes protective dust bag & shoe horn', icon: 'crown' },
       ];
     }
 
     return [
-      { title: 'Handcrafted Artisan Quality', subtitle: 'Exquisitely created using the finest materials', icon: 'award' },
-      { title: 'Lightweight & Comfortable', subtitle: 'Designed for effortless all-day luxury wear', icon: 'feather' },
-      { title: 'Glossy & Flawless Finish', subtitle: 'Premium detailing that stands the test of time', icon: 'sparkles' },
-      { title: 'Tested For Maximum Durability', subtitle: 'Long lasting color fastness and strength', icon: 'shield' },
-      { title: 'Signature Gift Packaging', subtitle: 'Comes in bespoke luxury packaging box', icon: 'award' },
+      { title: 'Soft & Comfortable', subtitle: 'Gentle on skin and non-irritating', icon: 'feather' },
+      { title: 'Premium Artisan Quality', subtitle: 'Crafted from finest materials', icon: 'layers' },
+      { title: 'Lightweight & Breathable', subtitle: 'Designed for effortless all-day wear', icon: 'wind' },
+      { title: 'Glossy & Elegant Finish', subtitle: 'Flawless look that enhances beauty', icon: 'waves' },
+      { title: 'Perfect For Every Occasion', subtitle: 'Festivals, parties, weddings & daily styling', icon: 'check' },
     ];
   }, [product]);
 
@@ -244,10 +291,16 @@ export default function ProductDetailPage() {
 
   const handlePrevThumbnail = () => {
     setSelectedImageIndex((prev) => (prev > 0 ? prev - 1 : images.length - 1));
+    if (thumbnailContainerRef.current) {
+      thumbnailContainerRef.current.scrollBy({ left: -80, behavior: 'smooth' });
+    }
   };
 
   const handleNextThumbnail = () => {
     setSelectedImageIndex((prev) => (prev < images.length - 1 ? prev + 1 : 0));
+    if (thumbnailContainerRef.current) {
+      thumbnailContainerRef.current.scrollBy({ left: 80, behavior: 'smooth' });
+    }
   };
 
   if (loading) {
@@ -286,16 +339,40 @@ export default function ProductDetailPage() {
   }
 
   const badgeText = product.badge || 'BEST SELLER';
-  const unitBadgeText = product.unitBadge || (selectedVariant.size && selectedVariant.size !== 'Standard' ? selectedVariant.size : '');
   const ratingValue = product.rating || 4.8;
   const reviewsCount = product.reviewsCount || 256;
-  const subtitleText = product.subtitle || selectedVariant.color || (product.categoryId?.name ? `${product.categoryId.name}` : '');
+  const selectedColorName = selectedVariant.color || product.subtitle || 'Olive';
 
   return (
-    <div className="bg-white min-h-screen">
-      {/* 1. App Bar / Header (Matches Screenshot 1 & 2) */}
-      <div className="border-b border-gray-100 sticky top-0 bg-white/95 backdrop-blur-md z-30 shadow-xs">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
+    <div className="bg-white min-h-screen pb-16">
+      {/* 1. Elegant Breadcrumb & Quick Back Navigation Bar */}
+      <div className="border-b border-gray-100 bg-[#FAFAF8]/80 backdrop-blur-sm">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between text-xs">
+          <nav className="flex items-center gap-2 text-gray-500 font-medium overflow-x-auto scrollbar-none py-1">
+            <Link href="/" className="hover:text-[#C5A059] transition text-gray-700 font-semibold flex items-center gap-1">
+              Home
+            </Link>
+            <ChevronRight className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
+            <Link href="/products" className="hover:text-[#C5A059] transition text-gray-700 font-semibold">
+              All Catalog
+            </Link>
+            {product.categoryId?.name && (
+              <>
+                <ChevronRight className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
+                <Link
+                  href={`/products?category=${product.categoryId.slug || ''}`}
+                  className="hover:text-[#C5A059] transition text-gray-700 font-semibold"
+                >
+                  {product.categoryId.name}
+                </Link>
+              </>
+            )}
+            <ChevronRight className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
+            <span className="text-[#997B21] font-bold truncate max-w-[200px]">
+              {product.name}
+            </span>
+          </nav>
+
           <button
             onClick={() => {
               if (product.categoryId?.slug) {
@@ -306,85 +383,34 @@ export default function ProductDetailPage() {
                 router.push('/products');
               }
             }}
-            className="p-2 -ml-2 text-gray-700 hover:text-black rounded-full hover:bg-gray-100 transition"
-            title="Go Back"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white hover:bg-gray-100 text-gray-700 font-semibold border border-gray-200 shadow-2xs transition flex-shrink-0 ml-2"
           >
-            <ArrowLeft className="w-5 h-5" />
+            <ArrowLeft className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Back to</span>
+            <span>{product.categoryId?.name || 'Catalog'}</span>
           </button>
-
-          {/* Centered Luxury Logo */}
-          <Link href="/" className="flex flex-col items-center group">
-            <span className="font-serif-luxury font-bold text-xl sm:text-2xl tracking-[0.25em] text-[#0F172A] group-hover:text-[#C5A059] transition">
-              AVELORA
-            </span>
-            <span className="text-[7px] sm:text-[8px] uppercase tracking-[0.35em] text-[#C5A059] font-bold -mt-0.5">
-              MODESTY. ELEGANCE. YOU.
-            </span>
-          </Link>
-
-          {/* Right Action Icons */}
-          <div className="flex items-center gap-2 sm:gap-3">
-            <Link
-              href="/products"
-              className="p-2 text-gray-700 hover:text-black rounded-full hover:bg-gray-100 transition"
-              title="Search Catalog"
-            >
-              <Search className="w-5 h-5" />
-            </Link>
-            <button
-              onClick={() => setIsWishlisted(!isWishlisted)}
-              className="p-2 text-gray-700 hover:text-black rounded-full hover:bg-gray-100 transition"
-              title="Add to Wishlist"
-            >
-              <Heart className={`w-5 h-5 ${isWishlisted ? 'fill-red-500 text-red-500' : ''}`} />
-            </button>
-            <button
-              onClick={() => setIsCartOpen(true)}
-              className="p-2 text-gray-700 hover:text-black rounded-full hover:bg-gray-100 transition relative"
-              title="View Cart"
-            >
-              <ShoppingCart className="w-5 h-5" />
-              {totalItems > 0 && (
-                <span className="absolute top-1 right-1 w-4 h-4 bg-[#C5A059] text-slate-950 font-bold text-[9px] rounded-full flex items-center justify-center shadow">
-                  {totalItems}
-                </span>
-              )}
-            </button>
-          </div>
         </div>
       </div>
 
       {/* 2. Main Product Showcase Container */}
-      <main className="max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-10 space-y-10">
+      <main className="max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-10 space-y-12">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-start">
           {/* ========================================================================= */}
-          {/* LEFT COLUMN: Main Gallery, Badges, Zoom, and Thumbnails                   */}
+          {/* LEFT COLUMN: Main Gallery Image + Thumbnail Carousel                      */}
           {/* ========================================================================= */}
           <div className="lg:col-span-6 space-y-4">
             {/* Primary Main Image Frame */}
-            <div className="relative aspect-[4/5] rounded-3xl overflow-hidden bg-gray-50 border border-gray-200/90 shadow-md group">
+            <div className="relative aspect-[4/5] max-h-[620px] rounded-3xl overflow-hidden bg-gray-50 border border-gray-200/90 shadow-md group">
               <img
                 src={images[selectedImageIndex] || images[0]}
                 alt={product.name}
                 className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
               />
 
-              {/* Top-Left: BEST SELLER Badge (Screenshot 1 & 2) */}
+              {/* Top-Left: BEST SELLER Badge */}
               {badgeText && (
                 <div className="absolute top-4 left-4 bg-[#4A5D23] text-[#F4F1EA] text-[10px] sm:text-xs font-bold uppercase tracking-wider px-3.5 py-1.5 rounded-lg shadow-md border border-[#607930]">
                   {badgeText}
-                </div>
-              )}
-
-              {/* Top-Right: Unit Badge (e.g. 24 PCS circular gold badge in Screenshot 2) */}
-              {unitBadgeText && (
-                <div className="absolute top-4 right-4 w-14 h-14 rounded-full bg-black/85 border-2 border-[#D4AF37]/80 text-[#E6CA85] flex flex-col items-center justify-center text-center shadow-lg backdrop-blur-xs">
-                  <span className="text-sm font-bold font-serif-luxury leading-none">
-                    {unitBadgeText.split(' ')[0]}
-                  </span>
-                  <span className="text-[8px] uppercase tracking-wider text-gray-300 font-semibold leading-none mt-0.5">
-                    {unitBadgeText.split(' ').slice(1).join(' ') || 'PCS'}
-                  </span>
                 </div>
               )}
 
@@ -398,27 +424,30 @@ export default function ProductDetailPage() {
               </button>
             </div>
 
-            {/* Thumbnail Slider Strip (Matches Screenshot 1 & 2) */}
+            {/* Thumbnail Slider Strip (Matches Image 5 with < and > arrows) */}
             {images.length > 1 && (
               <div className="flex items-center gap-2 pt-1">
                 <button
                   onClick={handlePrevThumbnail}
-                  className="p-2 rounded-full hover:bg-gray-100 text-gray-600 transition flex-shrink-0"
+                  className="p-2 rounded-full hover:bg-gray-100 text-gray-700 transition flex-shrink-0 border border-gray-200"
                   title="Previous image"
                 >
                   <ChevronLeft className="w-4 h-4" />
                 </button>
 
-                <div className="flex items-center gap-3 overflow-x-auto scrollbar-none py-1 flex-1">
+                <div
+                  ref={thumbnailContainerRef}
+                  className="flex items-center gap-2.5 overflow-x-auto scrollbar-none py-1 flex-1 scroll-smooth"
+                >
                   {images.map((img: string, idx: number) => {
                     const isSelected = selectedImageIndex === idx;
                     return (
                       <button
                         key={idx}
                         onClick={() => setSelectedImageIndex(idx)}
-                        className={`relative w-16 h-20 sm:w-18 sm:h-22 rounded-xl overflow-hidden border-2 transition-all flex-shrink-0 ${
+                        className={`relative w-16 h-16 sm:w-20 sm:h-20 rounded-xl overflow-hidden border-2 transition-all flex-shrink-0 ${
                           isSelected
-                            ? 'border-slate-900 shadow-md scale-105'
+                            ? 'border-slate-900 ring-2 ring-slate-900/20 shadow-md scale-105'
                             : 'border-gray-200 hover:border-gray-400 opacity-70 hover:opacity-100'
                         }`}
                       >
@@ -430,7 +459,7 @@ export default function ProductDetailPage() {
 
                 <button
                   onClick={handleNextThumbnail}
-                  className="p-2 rounded-full hover:bg-gray-100 text-gray-600 transition flex-shrink-0"
+                  className="p-2 rounded-full hover:bg-gray-100 text-gray-700 transition flex-shrink-0 border border-gray-200"
                   title="Next image"
                 >
                   <ChevronRight className="w-4 h-4" />
@@ -440,20 +469,19 @@ export default function ProductDetailPage() {
           </div>
 
           {/* ========================================================================= */}
-          {/* RIGHT COLUMN: Title, Reviews, Price, Dynamic 5 Features List              */}
+          {/* RIGHT COLUMN: Title, Reviews, Price, Dynamic 5 Features with Icons       */}
           {/* ========================================================================= */}
-          <div className="lg:col-span-6 space-y-6">
+          <div className="lg:col-span-6 space-y-5 sm:space-y-6">
             {/* Header Details */}
-            <div className="space-y-1.5">
+            <div className="space-y-1">
               <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold font-serif-luxury text-gray-900 leading-tight">
                 {product.name}
               </h1>
 
-              {subtitleText && (
-                <p className="text-base sm:text-lg font-medium text-gray-600">
-                  {subtitleText}
-                </p>
-              )}
+              {/* Subtitle / Color */}
+              <p className="text-base sm:text-lg font-medium text-gray-600">
+                {selectedColorName}
+              </p>
 
               {/* Star Rating & Reviews */}
               <div className="flex items-center gap-2 pt-1">
@@ -467,8 +495,8 @@ export default function ProductDetailPage() {
               </div>
             </div>
 
-            {/* Price Row */}
-            <div className="space-y-1.5 py-1">
+            {/* Price & Promo */}
+            <div className="space-y-2">
               <div className="flex items-baseline gap-3">
                 <span className="text-3xl sm:text-4xl font-bold font-serif-luxury text-gray-900">
                   ৳{currentPrice.toLocaleString()}
@@ -480,7 +508,7 @@ export default function ProductDetailPage() {
                 )}
               </div>
 
-              {/* Free Delivery Promo Bar (Screenshot 2) */}
+              {/* Free Delivery Promo Bar */}
               <div className="flex items-center gap-2 text-xs font-semibold text-emerald-800 bg-emerald-50 px-3 py-1.5 rounded-lg border border-emerald-200/80 w-fit">
                 <Tag className="w-3.5 h-3.5 text-emerald-600" />
                 <span>
@@ -489,7 +517,7 @@ export default function ProductDetailPage() {
               </div>
 
               {/* Stock Status */}
-              <div className="text-xs font-semibold text-gray-600 pt-1">
+              <div className="text-xs font-semibold text-gray-600 pt-0.5">
                 Stock:{' '}
                 <span className={isOutOfStock ? 'text-red-600 font-bold' : 'text-emerald-700 font-bold'}>
                   {isOutOfStock ? 'Out of Stock' : 'In Stock'}
@@ -499,12 +527,12 @@ export default function ProductDetailPage() {
 
             <div className="w-full h-px bg-gray-200" />
 
-            {/* Dynamic 5 Feature Points (Matches Screenshot 1 & 2) */}
-            <div className="space-y-3.5 py-1">
+            {/* Dynamic 5 Feature Points with Distinct Icons (Matches Image 5) */}
+            <div className="space-y-4 py-1">
               {featuresList.map((feature: any, index: number) => (
                 <div key={index} className="flex items-start gap-3.5">
-                  <div className="w-9 h-9 rounded-full bg-gray-100 border border-gray-200 flex items-center justify-center text-gray-700 flex-shrink-0 mt-0.5 shadow-2xs">
-                    <Feather className="w-4 h-4 text-[#C5A059]" />
+                  <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-gray-100/90 border border-gray-200/90 flex items-center justify-center text-gray-700 flex-shrink-0 mt-0.5 shadow-2xs">
+                    <FeatureIcon iconName={feature.icon} index={index} />
                   </div>
                   <div>
                     <h4 className="text-xs sm:text-sm font-bold text-gray-900">{feature.title}</h4>
@@ -516,21 +544,20 @@ export default function ProductDetailPage() {
 
             <div className="w-full h-px bg-gray-200" />
 
-            {/* Color Swatches Palette (Matches COLOR / CHOOSE COLOR) */}
+            {/* Color Swatches Palette */}
             {colorVariants.length > 0 && (
               <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <label className="text-xs font-bold uppercase tracking-wider text-gray-900">
-                    COLOR:{' '}
-                    <span className="font-semibold text-gray-600 font-sans">
-                      {selectedVariant.color || 'Standard'}
-                    </span>
-                  </label>
-                </div>
+                <label className="text-xs font-bold uppercase tracking-wider text-gray-900 block">
+                  COLOR:{' '}
+                  <span className="font-semibold text-gray-600 font-sans uppercase">
+                    {selectedVariant.color || 'Standard'}
+                  </span>
+                </label>
 
                 <div className="flex flex-wrap items-center gap-2.5">
                   {colorVariants.map((c: any) => {
                     const isSelected = selectedVariantIndex === c.index;
+                    const isWhite = c.hex === '#FFFFFF' || c.hex?.toLowerCase() === '#fff';
                     return (
                       <button
                         key={c.sku || c.index}
@@ -545,20 +572,23 @@ export default function ProductDetailPage() {
                       >
                         {isSelected && (
                           <Check
-                            className={`w-4 h-4 ${
-                              c.hex === '#FFFFFF' || c.hex.toLowerCase() === '#fff' ? 'text-black' : 'text-white'
-                            }`}
+                            className={`w-4 h-4 ${isWhite ? 'text-black' : 'text-white'}`}
                           />
                         )}
                       </button>
                     );
                   })}
+                  {colorVariants.length > 8 && (
+                    <span className="text-xs text-gray-500 font-semibold pl-1">
+                      + More
+                    </span>
+                  )}
                 </div>
               </div>
             )}
 
-            {/* Quantity Selector & Trust Badges Strip (Matches Screenshot 1 & 2) */}
-            <div className="space-y-4 pt-2">
+            {/* Quantity Selector & 3 Horizontal Trust Badges */}
+            <div className="space-y-4 pt-1">
               <div className="flex flex-col sm:flex-row sm:items-center gap-4">
                 {/* Quantity */}
                 <div className="space-y-1">
@@ -582,7 +612,7 @@ export default function ProductDetailPage() {
                   </div>
                 </div>
 
-                {/* 3 Horizontal Trust Badges Strip (Screenshot 1 & 2) */}
+                {/* 3 Horizontal Trust Badges */}
                 <div className="flex-1 bg-gray-50/90 rounded-2xl border border-gray-200/80 p-2.5 sm:p-3 grid grid-cols-3 gap-2 text-center text-[10px] sm:text-[11px] text-gray-700">
                   <div className="flex flex-col items-center justify-center border-r border-gray-200/80 pr-1">
                     <RotateCcw className="w-3.5 h-3.5 text-gray-600 mb-0.5" />
@@ -602,7 +632,7 @@ export default function ProductDetailPage() {
                 </div>
               </div>
 
-              {/* Action Buttons: ADD TO CART and BUY NOW (Matches Screenshot 1 & 2) */}
+              {/* Action Buttons: ADD TO CART and BUY NOW */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 pt-2">
                 <button
                   onClick={handleAddToCart}
@@ -643,7 +673,7 @@ export default function ProductDetailPage() {
           </div>
         </div>
 
-        {/* 3. Bottom Dark Luxury Trust Banner (Matches Screenshot 1 & 2) */}
+        {/* 3. Bottom Dark Luxury Trust Banner (Matches Image 5) */}
         <div className="bg-slate-950 text-white rounded-3xl p-6 sm:p-8 border border-gray-800 shadow-xl grid grid-cols-2 lg:grid-cols-4 gap-6 text-center">
           <div className="space-y-1.5 flex flex-col items-center">
             <Users className="w-6 h-6 text-[#C5A059]" />

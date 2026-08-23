@@ -82,12 +82,12 @@ export default function AdminProductsPage() {
   const [isPublished, setIsPublished] = useState(true);
 
   // Dynamic 5 Features List (Highlights beside photo)
-  const [features, setFeatures] = useState<Array<{ title: string; subtitle: string }>>([
-    { title: 'Soft & Comfortable', subtitle: 'Gentle on skin and non-irritating' },
-    { title: 'Premium Artisan Quality', subtitle: 'Crafted from finest materials' },
-    { title: 'Lightweight & Breathable', subtitle: 'Designed for effortless all-day wear' },
-    { title: 'Glossy & Elegant Finish', subtitle: 'Flawless look that enhances beauty' },
-    { title: 'Perfect For Every Occasion', subtitle: 'Festivals, parties, weddings & daily styling' },
+  const [features, setFeatures] = useState<Array<{ title: string; subtitle: string; icon: string }>>([
+    { title: 'Soft & Comfortable', subtitle: 'Gentle on skin and non-irritating', icon: 'feather' },
+    { title: 'Premium Artisan Quality', subtitle: 'Crafted from finest materials', icon: 'layers' },
+    { title: 'Lightweight & Breathable', subtitle: 'Designed for effortless all-day wear', icon: 'wind' },
+    { title: 'Glossy & Elegant Finish', subtitle: 'Flawless look that enhances beauty', icon: 'waves' },
+    { title: 'Perfect For Every Occasion', subtitle: 'Festivals, parties, weddings & daily styling', icon: 'check' },
   ]);
 
   // Dynamic Variants (Color Swatches, Size, Price, Stock)
@@ -150,11 +150,11 @@ export default function AdminProductsPage() {
     setSalePrice(0);
     setIsPublished(true);
     setFeatures([
-      { title: 'Soft & Comfortable', subtitle: 'Gentle on skin and non-irritating' },
-      { title: 'Premium Artisan Quality', subtitle: 'Crafted from finest materials' },
-      { title: 'Lightweight & Breathable', subtitle: 'Designed for effortless all-day wear' },
-      { title: 'Glossy & Elegant Finish', subtitle: 'Flawless look that enhances beauty' },
-      { title: 'Perfect For Every Occasion', subtitle: 'Festivals, parties, weddings & daily styling' },
+      { title: 'Soft & Comfortable', subtitle: 'Gentle on skin and non-irritating', icon: 'feather' },
+      { title: 'Premium Artisan Quality', subtitle: 'Crafted from finest materials', icon: 'layers' },
+      { title: 'Lightweight & Breathable', subtitle: 'Designed for effortless all-day wear', icon: 'wind' },
+      { title: 'Glossy & Elegant Finish', subtitle: 'Flawless look that enhances beauty', icon: 'waves' },
+      { title: 'Perfect For Every Occasion', subtitle: 'Festivals, parties, weddings & daily styling', icon: 'check' },
     ]);
     setVariants([
       { sku: `AVE-${Date.now().toString().slice(-5)}`, color: 'Olive', colorHex: '#556B2F', size: 'Standard', price: 0, costPrice: 0, stock: 10 },
@@ -181,14 +181,18 @@ export default function AdminProductsPage() {
     setSalePrice(prod.salePrice || 0);
     setIsPublished(prod.isPublished !== false);
     if (prod.features && prod.features.length > 0) {
-      setFeatures(prod.features.map((f: any) => ({ title: f.title || '', subtitle: f.subtitle || '' })));
+      setFeatures(prod.features.map((f: any) => ({
+        title: f.title || '',
+        subtitle: f.subtitle || '',
+        icon: f.icon || 'feather'
+      })));
     } else {
       setFeatures([
-        { title: 'Soft & Comfortable', subtitle: 'Gentle on skin and non-irritating' },
-        { title: 'Premium Artisan Quality', subtitle: 'Crafted from finest materials' },
-        { title: 'Lightweight & Breathable', subtitle: 'Designed for effortless all-day wear' },
-        { title: 'Glossy & Elegant Finish', subtitle: 'Flawless look that enhances beauty' },
-        { title: 'Perfect For Every Occasion', subtitle: 'Festivals, parties, weddings & daily styling' },
+        { title: 'Soft & Comfortable', subtitle: 'Gentle on skin and non-irritating', icon: 'feather' },
+        { title: 'Premium Artisan Quality', subtitle: 'Crafted from finest materials', icon: 'layers' },
+        { title: 'Lightweight & Breathable', subtitle: 'Designed for effortless all-day wear', icon: 'wind' },
+        { title: 'Glossy & Elegant Finish', subtitle: 'Flawless look that enhances beauty', icon: 'waves' },
+        { title: 'Perfect For Every Occasion', subtitle: 'Festivals, parties, weddings & daily styling', icon: 'check' },
       ]);
     }
     setVariants(
@@ -259,12 +263,40 @@ export default function AdminProductsPage() {
   };
 
   // Feature Controls
-  const updateFeature = (index: number, field: 'title' | 'subtitle', value: string) => {
+  const updateFeature = (index: number, field: 'title' | 'subtitle' | 'icon', value: string) => {
     setFeatures((prev) => {
       const updated = [...prev];
       updated[index] = { ...updated[index], [field]: value };
       return updated;
     });
+  };
+
+  const applyFeaturePreset = (type: 'hijab' | 'churi' | 'men') => {
+    if (type === 'hijab') {
+      setFeatures([
+        { title: 'Soft & Comfortable', subtitle: 'Gentle on skin', icon: 'feather' },
+        { title: 'Premium Ceri Fabric', subtitle: 'High quality material', icon: 'layers' },
+        { title: 'Lightweight & Breathable', subtitle: 'All day comfort', icon: 'wind' },
+        { title: 'Elegant Drape', subtitle: 'Perfect fall & flow', icon: 'waves' },
+        { title: 'Easy to Style', subtitle: 'Hijab friendly fabric', icon: 'check' },
+      ]);
+    } else if (type === 'churi') {
+      setFeatures([
+        { title: 'Soft & Comfortable', subtitle: 'Gentle on skin and non-irritating', icon: 'feather' },
+        { title: 'Premium Artisan Quality', subtitle: 'Crafted from finest materials', icon: 'layers' },
+        { title: 'Lightweight & Breathable', subtitle: 'Designed for effortless all-day wear', icon: 'wind' },
+        { title: 'Glossy & Elegant Finish', subtitle: 'Flawless look that enhances beauty', icon: 'waves' },
+        { title: 'Perfect For Every Occasion', subtitle: 'Festivals, parties, weddings & daily styling', icon: 'check' },
+      ]);
+    } else if (type === 'men') {
+      setFeatures([
+        { title: '100% Genuine Leather', subtitle: 'Handcrafted artisan premium finish', icon: 'award' },
+        { title: 'Orthopedic Cushioned Insole', subtitle: 'Supreme all-day step comfort', icon: 'feather' },
+        { title: 'Anti-Skid Rubber Outsole', subtitle: 'Maximum traction and road grip', icon: 'layers' },
+        { title: 'Breathable Leather Lining', subtitle: 'Prevents moisture and odor buildup', icon: 'wind' },
+        { title: 'Bespoke Luxury Packaging', subtitle: 'Includes protective dust bag & shoe horn', icon: 'crown' },
+      ]);
+    }
   };
 
   // Variant Controls
@@ -749,18 +781,67 @@ export default function AdminProductsPage() {
                 </div>
               </div>
 
-              {/* 5 Dynamic Feature Highlights (ছবি পাশের ৫টি পয়েন্ট) */}
+              {/* 5 Dynamic Feature Highlights (ছবি পাশের ৫টি পয়েন্ট ও আইকন) */}
               <div className="space-y-3 p-4 bg-[#F8F9FA] rounded-xl border border-gray-200">
-                <label className="font-bold uppercase text-gray-900 flex items-center justify-between">
-                  <span>Product Highlight Features (ছবি পাশের ৫টি বিশেষ বৈশিষ্ট্য)</span>
-                  <span className="text-[10px] text-gray-400 font-normal">Customer screen visual list</span>
-                </label>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <div>
+                    <label className="font-bold uppercase text-gray-900 block">
+                      Product Highlight Features (ছবি পাশের ৫টি বিশেষ বৈশিষ্ট্য)
+                    </label>
+                    <span className="text-[10px] text-gray-500">Visual bullet points shown under stock on product page</span>
+                  </div>
+
+                  {/* 1-Click Feature Presets */}
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="text-[10px] text-gray-400 font-bold uppercase">Presets:</span>
+                    <button
+                      type="button"
+                      onClick={() => applyFeaturePreset('hijab')}
+                      className="px-2 py-1 bg-white hover:bg-gray-100 border border-gray-300 rounded text-[10px] font-semibold text-gray-700 shadow-2xs"
+                    >
+                      Hijab
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => applyFeaturePreset('churi')}
+                      className="px-2 py-1 bg-white hover:bg-gray-100 border border-gray-300 rounded text-[10px] font-semibold text-gray-700 shadow-2xs"
+                    >
+                      Churi / Jewellery
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => applyFeaturePreset('men')}
+                      className="px-2 py-1 bg-white hover:bg-gray-100 border border-gray-300 rounded text-[10px] font-semibold text-gray-700 shadow-2xs"
+                    >
+                      Men / Shoes
+                    </button>
+                  </div>
+                </div>
 
                 <div className="space-y-2.5">
                   {features.map((feat, idx) => (
-                    <div key={idx} className="grid grid-cols-1 sm:grid-cols-2 gap-2 bg-white p-2.5 rounded-lg border border-gray-200 shadow-2xs">
-                      <div>
-                        <span className="text-[10px] text-gray-500 font-bold uppercase">Point #{idx + 1} Title</span>
+                    <div key={idx} className="grid grid-cols-1 sm:grid-cols-12 gap-2 bg-white p-2.5 rounded-lg border border-gray-200 shadow-2xs items-end">
+                      <div className="sm:col-span-3">
+                        <span className="text-[10px] text-gray-500 font-bold uppercase">Icon #{idx + 1}</span>
+                        <select
+                          value={feat.icon || 'feather'}
+                          onChange={(e) => updateFeature(idx, 'icon', e.target.value)}
+                          className="w-full px-2 py-1.5 rounded border border-gray-300 bg-white text-xs font-medium"
+                        >
+                          <option value="feather">Feather (Soft/Skin) 🪶</option>
+                          <option value="layers">Layers (Fabric/Quality) 🥞</option>
+                          <option value="wind">Wind (Lightweight/Air) 💨</option>
+                          <option value="waves">Waves (Drape/Finish) 🌊</option>
+                          <option value="check">Check (Style/Occasion) ✔️</option>
+                          <option value="award">Award (Handcrafted) 🏆</option>
+                          <option value="crown">Crown (Royal Luxury) 👑</option>
+                          <option value="shield">Shield (Durable) 🛡️</option>
+                          <option value="heart">Heart (Comfort) ❤️</option>
+                          <option value="sparkles">Sparkles (Glossy) ✨</option>
+                        </select>
+                      </div>
+                      <div className="sm:col-span-4">
+                        <span className="text-[10px] text-gray-500 font-bold uppercase">Title</span>
                         <input
                           type="text"
                           placeholder="e.g. Soft & Comfortable"
@@ -769,8 +850,8 @@ export default function AdminProductsPage() {
                           className="w-full px-2.5 py-1.5 rounded border border-gray-300 bg-white text-xs font-semibold"
                         />
                       </div>
-                      <div>
-                        <span className="text-[10px] text-gray-500 font-bold uppercase">Point #{idx + 1} Subtitle</span>
+                      <div className="sm:col-span-5">
+                        <span className="text-[10px] text-gray-500 font-bold uppercase">Subtitle / Description</span>
                         <input
                           type="text"
                           placeholder="e.g. Gentle on skin and non-irritating"
