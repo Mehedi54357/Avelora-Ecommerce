@@ -343,8 +343,40 @@ export default function ProductDetailPage() {
   const reviewsCount = product.reviewsCount || 256;
   const selectedColorName = selectedVariant.color || product.subtitle || 'Olive';
 
+  const productJsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'Product',
+    name: product.name,
+    image: images,
+    description: product.description || product.subtitle || `${product.name} - Luxury Modest Fashion by AVELORA`,
+    sku: selectedVariant.sku,
+    brand: {
+      '@type': 'Brand',
+      name: 'AVELORA',
+    },
+    offers: {
+      '@type': 'Offer',
+      priceCurrency: 'BDT',
+      price: currentPrice,
+      availability: availableStock > 0 ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
+      seller: {
+        '@type': 'Organization',
+        name: 'AVELORA',
+      },
+    },
+    aggregateRating: {
+      '@type': 'AggregateRating',
+      ratingValue: ratingValue,
+      reviewCount: reviewsCount,
+    },
+  };
+
   return (
     <div className="bg-white min-h-screen pb-16">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(productJsonLd) }}
+      />
       {/* 1. Elegant Breadcrumb & Quick Back Navigation Bar */}
       <div className="border-b border-gray-100 bg-[#FAFAF8]/80 backdrop-blur-sm">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between text-xs">

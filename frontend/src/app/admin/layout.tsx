@@ -17,6 +17,7 @@ import {
   X,
   ShieldCheck,
   Loader2,
+  QrCode,
 } from 'lucide-react';
 import { API_BASE_URL, authFetch } from '../../utils/api-config';
 
@@ -32,6 +33,7 @@ const ALL_ADMIN_NAV: AdminNavItem[] = [
   { name: 'Products & Variants', href: '/admin/products', icon: ShoppingBag, roles: ['SUPER_ADMIN', 'ADMIN', 'MANAGER'] },
   { name: 'Categories', href: '/admin/categories', icon: Layers, roles: ['SUPER_ADMIN', 'ADMIN', 'MANAGER'] },
   { name: 'Orders Management', href: '/admin/orders', icon: Package, roles: ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'STAFF'] },
+  { name: 'QR Scanner', href: '/admin/scan', icon: QrCode, roles: ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'STAFF'] },
   { name: 'Inventory & Logs', href: '/admin/inventory', icon: Boxes, roles: ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'STAFF'] },
   { name: 'Finance & Expenses', href: '/admin/finance', icon: DollarSign, roles: ['SUPER_ADMIN', 'ADMIN'] },
   { name: 'Customer Directory', href: '/admin/customers', icon: Users, roles: ['SUPER_ADMIN', 'ADMIN', 'MANAGER'] },

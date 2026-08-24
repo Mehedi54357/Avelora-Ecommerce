@@ -24,37 +24,32 @@ import {
   Info,
 } from 'lucide-react';
 
-const BD_DISTRICTS = [
-  'Dhaka (ঢাকা)',
-  'Chattogram (চট্টগ্রাম)',
-  'Gazipur (গাজীপুর)',
-  'Narayanganj (নারায়ণগঞ্জ)',
-  'Cumilla (কুমিল্লা)',
-  'Sylhet (সিলেট)',
-  'Rajshahi (রাজশাহী)',
-  'Khulna (খুলনা)',
-  'Barishal (বরিশাল)',
-  'Rangpur (রংপুর)',
-  'Mymensingh (ময়মনসিংহ)',
-  'Bogra (বগুড়া)',
-  'Cox\'s Bazar (কক্সবাজার)',
-  'Other District (অন্যান্য জেলা)',
-];
+import {
+  BANGLADESH_DIVISIONS,
+  DivisionOption,
+  DistrictOption,
+  UpazilaOption,
+} from '../../utils/bangladesh-geo-data';
 
 export default function CheckoutPage() {
   const { cart, cartSubtotal, getSubtotal, clearCart } = useCart();
   const subtotal = cartSubtotal !== undefined ? cartSubtotal : (typeof getSubtotal === 'function' ? getSubtotal() : 0);
 
-  // Customer Information (Screenshot 2)
+  // Customer Information
   const [orderFor, setOrderFor] = useState<'Self' | 'Gift'>('Self');
   const [name, setName] = useState('');
   const [mobile, setMobile] = useState('');
-  const [district, setDistrict] = useState('Dhaka (ঢাকা)');
-  const [address, setAddress] = useState('');
+  
+  // Cascading Address Selector: Division -> District -> Upazila -> Detailed Address
+  const [selectedDivisionId, setSelectedDivisionId] = useState<string>('dhaka');
+  const [selectedDistrictId, setSelectedDistrictId] = useState<string>('dhaka');
+  const [selectedUpazilaId, setSelectedUpazilaId] = useState<string>('mohakhali');
+  const [detailedAddress, setDetailedAddress] = useState<string>('');
+  
   const [notes, setNotes] = useState('');
   const [deliveryMethod, setDeliveryMethod] = useState<'HOME' | 'PICKUP'>('HOME');
 
-  // Payment Options (Screenshot 3): 'COD' (Advance delivery fee) vs 'FULL_MOBILE_BANKING'
+  // Payment Options: 'COD' (Advance delivery fee) vs 'FULL_MOBILE_BANKING'
   const [paymentOption, setPaymentOption] = useState<'COD' | 'FULL_MOBILE_BANKING'>('COD');
 
   // Modals & Process State
@@ -64,13 +59,93 @@ export default function CheckoutPage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
-  const isDhaka = district.toLowerCase().includes('dhaka');
-  const deliveryCharge = isDhaka ? 70 : 130;
-  const totalAmount = subtotal + deliveryCharge;
+  // Coupon State
+  const [couponCode, setCouponCode] = useState('');
+  const [couponDiscount, setCouponDiscount] = useState(0);
+  const [couponDescription, setCouponDescription] = useState('');
+  const [couponError, setCouponError] = useState('');
+  const [couponApplied, setCouponApplied] = useState(false);
+  const [applyingCoupon, setApplyingCoupon] = useState(false);
+
+  // Derived Objects from Geo Data
+  const currentDivision =
+    BANGLADESH_DIVISIONS.find((d) => d.id === selectedDivisionId) || BANGLADESH_DIVISIONS[0];
+  const availableDistricts = currentDivision.districts;
+  const currentDistrict =
+    availableDistricts.find((d) => d.id === selectedDistrictId) || availableDistricts[0] || BANGLADESH_DIVISIONS[0].districts[0];
+  const availableUpazilas = currentDistrict.upazilas || [];
+  const currentUpazila =
+    availableUpazilas.find((u) => u.id === selectedUpazilaId) || availableUpazilas[0] || { id: 'sadar', name: 'Sadar', bnName: 'সদর' };
+
+  // Handlers for Cascading dropdowns
+  const handleDivisionChange = (divId: string) => {
+    setSelectedDivisionId(divId);
+    const divObj = BANGLADESH_DIVISIONS.find((d) => d.id === divId) || BANGLADESH_DIVISIONS[0];
+    const firstDist = divObj.districts[0];
+    if (firstDist) {
+      setSelectedDistrictId(firstDist.id);
+      if (firstDist.upazilas && firstDist.upazilas.length > 0) {
+        setSelectedUpazilaId(firstDist.upazilas[0].id);
+      }
+    }
+  };
+
+  const handleDistrictChange = (distId: string) => {
+    setSelectedDistrictId(distId);
+    const distObj = availableDistricts.find((d) => d.id === distId);
+    if (distObj && distObj.upazilas && distObj.upazilas.length > 0) {
+      setSelectedUpazilaId(distObj.upazilas[0].id);
+    }
+  };
+
+  const isDhakaCity = selectedDistrictId === 'dhaka';
+  const deliveryCharge = isDhakaCity ? 70 : 130;
+  const totalAmount = Math.max(0, subtotal - couponDiscount + deliveryCharge);
 
   // Advance payable now vs Cash Due on delivery
   const payableNow = paymentOption === 'COD' ? deliveryCharge : totalAmount;
-  const dueOnDelivery = paymentOption === 'COD' ? subtotal : 0;
+  const dueOnDelivery = paymentOption === 'COD' ? Math.max(0, subtotal - couponDiscount) : 0;
+
+  const handleApplyCoupon = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!couponCode.trim()) return;
+
+    setApplyingCoupon(true);
+    setCouponError('');
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/coupons/validate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          code: couponCode.trim().toUpperCase(),
+          subtotal,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.message || 'Invalid coupon code');
+      }
+
+      setCouponDiscount(data.discountAmount || 0);
+      setCouponDescription(data.description || 'Coupon Applied');
+      setCouponApplied(true);
+    } catch (err: any) {
+      setCouponError(err.message || 'Failed to apply coupon');
+      setCouponDiscount(0);
+      setCouponApplied(false);
+    } finally {
+      setApplyingCoupon(false);
+    }
+  };
+
+  const handleRemoveCoupon = () => {
+    setCouponCode('');
+    setCouponDiscount(0);
+    setCouponDescription('');
+    setCouponError('');
+    setCouponApplied(false);
+  };
 
   // 1. Customer clicks Confirm Order button on checkout page
   const handleInitiatePayment = (e: React.FormEvent) => {
@@ -89,8 +164,8 @@ export default function CheckoutPage() {
       setError('সঠিক ১১ ডিজিটের মোবাইল নম্বর লিখুন (যেমন: 01XXXXXXXXX)');
       return;
     }
-    if (!address.trim()) {
-      setError('আপনার পূর্ণ ডেলিভারি ঠিকানা লিখুন');
+    if (!detailedAddress.trim()) {
+      setError('আপনার বিস্তারিত বাড়ি / রোড / এরিয়া ঠিকানা লিখুন');
       return;
     }
 
@@ -110,29 +185,31 @@ export default function CheckoutPage() {
     setSubmitting(true);
     setError('');
 
+    const formattedFullAddress = `${detailedAddress.trim()}, ${currentUpazila.bnName} (${currentUpazila.name}), ${currentDistrict.bnName} (${currentDistrict.name}), ${currentDivision.bnName}`.replace(/^,\s*/, '');
+
     const payload = {
-      customer: {
+      customerDetails: {
         name: name.trim(),
         mobile: mobile.trim(),
-        district: district.split(' ')[0],
-        address: address.trim(),
-        orderFor,
-        deliveryMethod,
+        altMobile: '',
+        division: currentDivision.name,
+        district: currentDistrict.name,
+        upazila: currentUpazila.name,
+        address: formattedFullAddress,
       },
       items: cart.map((item) => ({
         productId: item.productId,
-        variantSku: item.sku || (item as any).variant?.sku || 'STD',
+        sku: item.sku || (item as any).variant?.sku || 'STD',
         quantity: item.quantity,
       })),
       notes: notes.trim(),
+      couponCode: couponApplied ? couponCode.trim().toUpperCase() : undefined,
       paymentMethod: paymentOption === 'COD' ? 'COD' : paymentData.provider?.toUpperCase() || 'BKASH',
       paymentProvider: paymentData.provider || 'bKash',
       senderMobile: paymentData.senderMobile || mobile,
       transactionId: paymentData.transactionId || `TRX${Date.now().toString().slice(-6)}`,
       paidAmount: paymentData.paidAmount,
       dueAmount: dueOnDelivery,
-      isAdvancePaid: true,
-      deliveryCharge,
     };
 
     try {
@@ -276,34 +353,96 @@ export default function CheckoutPage() {
                   className="w-full px-3.5 py-2.5 rounded-xl border border-gray-300 bg-white text-xs font-mono font-medium text-gray-900 focus:outline-none focus:border-[#C5A059]"
                 />
               </div>
+            </div>
 
-              {/* District */}
+            {/* Cascading 8 Divisions -> 64 Districts -> Upazilas */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 pt-1">
+              {/* 1. Division Dropdown */}
               <div className="space-y-1">
-                <label className="text-xs font-bold text-gray-700">District (জেলা) *</label>
+                <label className="text-xs font-bold text-gray-700 flex items-center justify-between">
+                  <span>Division (বিভাগ) *</span>
+                  <span className="text-[10px] text-gray-400 font-normal">8 Divisions</span>
+                </label>
                 <select
-                  value={district}
-                  onChange={(e) => setDistrict(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-gray-300 bg-white text-xs font-semibold text-gray-900 focus:outline-none focus:border-[#C5A059]"
+                  value={selectedDivisionId}
+                  onChange={(e) => handleDivisionChange(e.target.value)}
+                  className="w-full px-3 py-2.5 rounded-xl border border-gray-300 bg-white text-xs font-semibold text-gray-900 focus:outline-none focus:border-[#C5A059]"
                 >
-                  {BD_DISTRICTS.map((d) => (
-                    <option key={d} value={d}>
-                      {d}
+                  {BANGLADESH_DIVISIONS.map((div) => (
+                    <option key={div.id} value={div.id}>
+                      {div.bnName} ({div.name})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* 2. District Dropdown */}
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-gray-700 flex items-center justify-between">
+                  <span>District (জেলা) *</span>
+                  <span className="text-[10px] text-gray-400 font-normal">64 Districts</span>
+                </label>
+                <select
+                  value={selectedDistrictId}
+                  onChange={(e) => handleDistrictChange(e.target.value)}
+                  className="w-full px-3 py-2.5 rounded-xl border border-gray-300 bg-white text-xs font-semibold text-gray-900 focus:outline-none focus:border-[#C5A059]"
+                >
+                  {availableDistricts.map((dist) => (
+                    <option key={dist.id} value={dist.id}>
+                      {dist.bnName} ({dist.name})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* 3. Upazila / Thana Dropdown */}
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-gray-700 flex items-center justify-between">
+                  <span>Thana / Upazila (থানা) *</span>
+                  <span className="text-[10px] text-gray-400 font-normal">{availableUpazilas.length} Thanas</span>
+                </label>
+                <select
+                  value={selectedUpazilaId}
+                  onChange={(e) => setSelectedUpazilaId(e.target.value)}
+                  className="w-full px-3 py-2.5 rounded-xl border border-gray-300 bg-white text-xs font-semibold text-gray-900 focus:outline-none focus:border-[#C5A059]"
+                >
+                  {availableUpazilas.map((upa) => (
+                    <option key={upa.id} value={upa.id}>
+                      {upa.bnName} ({upa.name})
                     </option>
                   ))}
                 </select>
               </div>
             </div>
 
-            {/* Full Address */}
+            {/* Delivery Charge Indicator Badge */}
+            <div className="p-2.5 bg-gray-50 rounded-xl border border-gray-200/80 flex items-center justify-between text-xs">
+              <div className="flex items-center gap-2">
+                <Truck className="w-4 h-4 text-[#997B21]" />
+                <span className="text-gray-700">
+                  ডেলিভারি লোকেশন:{' '}
+                  <strong className="text-gray-900 font-semibold">
+                    {currentDistrict.bnName}, {currentDivision.bnName}
+                  </strong>
+                </span>
+              </div>
+              <span className="font-bold font-mono px-2 py-0.5 bg-white border border-gray-200 rounded-md text-emerald-800">
+                ডেলিভারি চার্জ: ৳{deliveryCharge} ({isDhakaCity ? 'ঢাকা সিটি' : 'ঢাকার বাইরে'})
+              </span>
+            </div>
+
+            {/* Detailed Street Address */}
             <div className="space-y-1">
-              <label className="text-xs font-bold text-gray-700">Full Address (পূর্ণ ঠিকানা) *</label>
+              <label className="text-xs font-bold text-gray-700">
+                Detailed Address (বাড়ি নং / ফ্ল্যাট / রোড / এরিয়া / হোল্ডিং নং) *
+              </label>
               <textarea
                 required
                 rows={2}
-                placeholder="House / Road / Building / Upazilla / Thana"
-                value={address}
-                onChange={(e) => setAddress(e.target.value)}
-                className="w-full px-3.5 py-2 rounded-xl border border-gray-300 bg-white text-xs text-gray-900 focus:outline-none focus:border-[#C5A059]"
+                placeholder="যেমন: বাড়ি #১২, রোড #৪, ব্লক #সি, রয়েল ফিলিং স্টেশন সংলগ্ন..."
+                value={detailedAddress}
+                onChange={(e) => setDetailedAddress(e.target.value)}
+                className="w-full px-3.5 py-2.5 rounded-xl border border-gray-300 bg-white text-xs text-gray-900 focus:outline-none focus:border-[#C5A059]"
               />
             </div>
 
@@ -490,6 +629,46 @@ export default function CheckoutPage() {
               })}
             </div>
 
+            {/* Coupon Code Input */}
+            <div className="pt-2 border-t border-gray-100">
+              {!couponApplied ? (
+                <div className="space-y-1.5">
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      placeholder="Coupon Code (যেমন: EID20)"
+                      value={couponCode}
+                      onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
+                      className="flex-1 px-3 py-2 rounded-xl border border-gray-300 text-xs font-mono uppercase focus:outline-none focus:border-[#C5A059]"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleApplyCoupon}
+                      disabled={!couponCode.trim() || applyingCoupon}
+                      className="px-4 py-2 bg-slate-900 hover:bg-[#C5A059] text-white font-bold text-xs uppercase tracking-wider rounded-xl transition disabled:opacity-50"
+                    >
+                      {applyingCoupon ? '...' : 'Apply'}
+                    </button>
+                  </div>
+                  {couponError && <p className="text-[11px] text-red-500">{couponError}</p>}
+                </div>
+              ) : (
+                <div className="flex items-center justify-between p-2.5 rounded-xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-900">
+                  <div>
+                    <span className="font-mono font-bold">{couponCode}</span>
+                    <span className="text-[11px] text-emerald-700 ml-1.5">({couponDescription})</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleRemoveCoupon}
+                    className="text-red-500 hover:text-red-700 font-bold text-xs underline ml-2"
+                  >
+                    Remove
+                  </button>
+                </div>
+              )}
+            </div>
+
             {/* Price Calculations */}
             <div className="space-y-2 pt-3 border-t border-gray-100 text-xs">
               <div className="flex justify-between text-gray-600">
@@ -497,8 +676,15 @@ export default function CheckoutPage() {
                 <span className="font-mono font-semibold">৳{subtotal.toLocaleString()}</span>
               </div>
 
+              {couponDiscount > 0 && (
+                <div className="flex justify-between text-emerald-700 font-semibold">
+                  <span>কুপন ডিসকাউন্ট (Coupon Discount):</span>
+                  <span className="font-mono">-৳{couponDiscount.toLocaleString()}</span>
+                </div>
+              )}
+
               <div className="flex justify-between text-gray-600">
-                <span>ডেলিভারি চার্জ ({isDhaka ? 'ঢাকা শহর' : 'ঢাকার বাইরে'}):</span>
+                <span>ডেলিভারি চার্জ ({isDhakaCity ? 'ঢাকা শহর' : 'ঢাকার বাইরে'}):</span>
                 <span className="font-mono font-semibold">৳{deliveryCharge}</span>
               </div>
 

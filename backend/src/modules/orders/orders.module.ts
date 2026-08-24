@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { OrdersService } from './orders.service';
 import { OrdersController } from './orders.controller';
@@ -7,6 +7,8 @@ import { Product, ProductSchema } from '../../schemas/product.schema';
 import { Customer, CustomerSchema } from '../../schemas/customer.schema';
 import { Payment, PaymentSchema } from '../../schemas/payment.schema';
 import { InventoryModule } from '../inventory/inventory.module';
+import { CouponsModule } from '../coupons/coupons.module';
+import { SettingsModule } from '../settings/settings.module';
 import { AuthModule } from '../auth/auth.module';
 
 @Module({
@@ -18,10 +20,12 @@ import { AuthModule } from '../auth/auth.module';
       { name: Payment.name, schema: PaymentSchema },
     ]),
     InventoryModule,
+    CouponsModule,
+    SettingsModule,
     AuthModule,
   ],
-  controllers: [OrdersController],
   providers: [OrdersService],
+  controllers: [OrdersController],
   exports: [OrdersService],
 })
 export class OrdersModule {}

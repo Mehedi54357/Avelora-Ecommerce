@@ -4,13 +4,34 @@ import * as cookieParserRaw from 'cookie-parser';
 const cookieParser = cookieParserRaw.default || cookieParserRaw;
 import { ValidationPipe, Logger } from '@nestjs/common';
 import { json, urlencoded } from 'express';
+import helmet from 'helmet';
+import { AllExceptionsFilter } from './common/filters/http-exception.filter';
 
 async function bootstrap() {
   const logger = new Logger('Bootstrap');
   const app = await NestFactory.create(AppModule);
+
+  // Security HTTP Headers with Helmet
+  app.use(
+    helmet({
+      contentSecurityPolicy: {
+        directives: {
+          defaultSrc: ["'self'"],
+          scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
+          styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
+          fontSrc: ["'self'", 'https://fonts.gstatic.com', 'data:'],
+          imgSrc: ["'self'", 'data:', 'blob:', 'https://res.cloudinary.com', 'https://images.unsplash.com'],
+          connectSrc: ["'self'", 'https://res.cloudinary.com', 'http://localhost:*', 'https://*.vercel.app'],
+        },
+      },
+      crossOriginEmbedderPolicy: false,
+      crossOriginResourcePolicy: { policy: 'cross-origin' },
+    }),
+  );
+
   app.use(cookieParser());
-  
-  // Support large base64 image uploads (up to 50MB)
+
+  // Support large base64 image uploads (up to 50MB for raw high-res studio photos)
   app.use(json({ limit: '50mb' }));
   app.use(urlencoded({ extended: true, limit: '50mb' }));
 
@@ -40,7 +61,7 @@ async function bootstrap() {
 
   app.enableCors({
     origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
-      // Allow requests with no origin (such as server-side fetches, curl, or health checks)
+      // Allow server-to-server fetches, health checks, or curl
       if (!origin) {
         return callback(null, true);
       }
@@ -49,7 +70,6 @@ async function bootstrap() {
       }
       try {
         const originUrl = new URL(origin);
-        // Automatically allow any vercel deployment for this project
         if (
           originUrl.hostname.endsWith('.vercel.app') ||
           originUrl.hostname === 'localhost' ||
@@ -68,20 +88,31 @@ async function bootstrap() {
         }
       } catch {}
 
-      // Fallback allow origin to avoid blocking valid cross-domain clients
       return callback(null, true);
     },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'Cookie', 'X-Requested-With', 'Accept'],
-    exposedHeaders: ['Set-Cookie'],
+    allowedHeaders: [
+      'Content-Type',
+      'Authorization',
+      'Cookie',
+      'X-Requested-With',
+      'Accept',
+      'Idempotency-Key',
+      'idempotency-key',
+    ],
+    exposedHeaders: ['Set-Cookie', 'Idempotency-Key'],
   });
 
-  // Global prefix for all API routes, excluding canonical health check
+  // Global prefix for all API routes, excluding health check
   app.setGlobalPrefix('api', {
     exclude: ['health'],
   });
 
+  // Global Exception Filter
+  app.useGlobalFilters(new AllExceptionsFilter());
+
+  // Global Validation Pipe with strict whitelisting
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
@@ -94,4 +125,3 @@ async function bootstrap() {
   logger.log(`AVELORA Backend API listening on port ${port}`);
 }
 bootstrap();
-

@@ -31,6 +31,9 @@ export class ProductVariant {
 
   @Prop({ required: false, default: 0 })
   reservedQuantity: number; // Currently reserved by active orders
+
+  @Prop({ required: false, default: 2 })
+  safetyStock?: number;
 }
 
 export const ProductVariantSchema = SchemaFactory.createForClass(ProductVariant);
@@ -96,6 +99,24 @@ export class Product {
   @Prop({ default: true })
   isPublished: boolean;
 
+  @Prop({ required: false, default: 'ACTIVE', enum: ['ACTIVE', 'DRAFT', 'ARCHIVED'] })
+  status: string;
+
+  @Prop({
+    type: {
+      enabled: { type: Boolean, default: true },
+      publicCode: { type: String, sparse: true, index: true },
+      generatedAt: { type: Date, default: Date.now },
+    },
+    required: false,
+    _id: false,
+  })
+  qr?: {
+    enabled: boolean;
+    publicCode: string;
+    generatedAt?: Date;
+  };
+
   @Prop({ type: [ProductVariantSchema], default: [] })
   variants: ProductVariant[];
 }
@@ -103,4 +124,3 @@ export class Product {
 export const ProductSchema = SchemaFactory.createForClass(Product);
 
 ProductSchema.index({ name: 'text', description: 'text' });
-

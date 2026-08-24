@@ -13,6 +13,11 @@ import {
   Check,
   AlertCircle,
   RefreshCw,
+  QrCode,
+  Download,
+  Printer,
+  ExternalLink,
+  Loader2,
 } from 'lucide-react';
 import { compressImage } from '../../../utils/image-compressor';
 import { API_BASE_URL, authFetch } from '../../../utils/api-config';
@@ -63,6 +68,13 @@ export default function AdminProductsPage() {
   const [saving, setSaving] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
   const [error, setError] = useState('');
+
+  // QR Modal State
+  const [qrModalOpen, setQrModalOpen] = useState(false);
+  const [qrProduct, setQrProduct] = useState<any>(null);
+  const [qrDataUrl, setQrDataUrl] = useState<string>('');
+  const [qrPublicCode, setQrPublicCode] = useState<string>('');
+  const [loadingQr, setLoadingQr] = useState(false);
 
   // Form Fields
   const [name, setName] = useState('');
@@ -425,6 +437,29 @@ export default function AdminProductsPage() {
     }
   };
 
+  const handleOpenQrModal = async (prod: any) => {
+    setQrProduct(prod);
+    setQrDataUrl('');
+    setQrPublicCode(prod.qr?.publicCode || '');
+    setLoadingQr(true);
+    setQrModalOpen(true);
+
+    try {
+      const res = await authFetch(`${API_BASE_URL}/api/admin/qr/products/${prod._id}`, {
+        method: 'POST',
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setQrDataUrl(data.qrDataUrl || '');
+        setQrPublicCode(data.publicCode || '');
+      }
+    } catch (e) {
+      console.error('Error generating QR:', e);
+    } finally {
+      setLoadingQr(false);
+    }
+  };
+
   const handleDelete = async (id: string, name: string) => {
     if (!confirm(`Are you sure you want to delete "${name}"?`)) return;
 
@@ -601,6 +636,13 @@ export default function AdminProductsPage() {
                         </span>
                       </td>
                       <td className="py-3.5 px-4 text-right space-x-2">
+                        <button
+                          onClick={() => handleOpenQrModal(prod)}
+                          className="p-1.5 text-gray-500 hover:text-[#C5A059] hover:bg-[#C5A059]/10 rounded transition"
+                          title="Generate & Print QR Code"
+                        >
+                          <QrCode className="w-4 h-4 text-[#C5A059]" />
+                        </button>
                         <button
                           onClick={() => openEditModal(prod)}
                           className="p-1.5 text-gray-600 hover:text-slate-900 hover:bg-gray-100 rounded transition"
@@ -1166,6 +1208,77 @@ export default function AdminProductsPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Product QR Code Preview & Label Printing Modal */}
+      {qrModalOpen && qrProduct && (
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden border border-gray-200 p-6 space-y-5">
+            <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+              <div>
+                <span className="text-[10px] font-bold uppercase tracking-widest text-[#997B21]">
+                  Stable Catalog QR Code
+                </span>
+                <h3 className="text-base font-bold font-serif-luxury text-gray-900">
+                  {qrProduct.name}
+                </h3>
+              </div>
+              <button
+                onClick={() => setQrModalOpen(false)}
+                className="p-1.5 text-gray-400 hover:text-gray-800 rounded-full"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {loadingQr ? (
+              <div className="py-12 text-center text-gray-400">
+                <Loader2 className="w-8 h-8 animate-spin mx-auto text-[#C5A059]" />
+                <p className="text-xs mt-2">Generating Secure Vector QR...</p>
+              </div>
+            ) : (
+              <div className="space-y-4 text-center">
+                {qrDataUrl && (
+                  <div className="p-4 bg-white border-2 border-dashed border-[#C5A059]/40 rounded-2xl inline-block shadow-sm">
+                    <img src={qrDataUrl} alt="Product QR Code" className="w-48 h-48 mx-auto" />
+                    <div className="mt-2 text-center">
+                      <span className="font-mono text-xs font-bold text-slate-900 bg-gray-100 px-3 py-1 rounded-full border">
+                        {qrPublicCode || 'PRD-XXXX'}
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                <div className="text-xs text-gray-500 space-y-1">
+                  <p className="font-semibold text-gray-800">
+                    Deep Link: <span className="font-mono text-[#997B21]">/q/p/{qrPublicCode}</span>
+                  </p>
+                  <p className="text-[11px]">
+                    This QR code points to a permanent code and will never break even if the product title or URL slug is modified in the future.
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 pt-2">
+                  <a
+                    href={qrDataUrl}
+                    download={`avelora-qr-${qrPublicCode || 'product'}.png`}
+                    className="py-2.5 px-3 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-800 font-bold text-xs uppercase tracking-wider transition flex items-center justify-center gap-1.5"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    <span>Download PNG</span>
+                  </a>
+                  <button
+                    onClick={() => window.print()}
+                    className="py-2.5 px-3 rounded-xl bg-slate-950 hover:bg-[#C5A059] text-white font-bold text-xs uppercase tracking-wider transition flex items-center justify-center gap-1.5 shadow"
+                  >
+                    <Printer className="w-3.5 h-3.5" />
+                    <span>Print Label</span>
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}

@@ -57,14 +57,10 @@ export default function TrackOrderPage() {
     setError('');
 
     try {
-      const res = await fetch(`${API_BASE_URL}/api/orders/track`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          orderId: targetOrderId.trim(),
-          mobile: targetMobile.trim(),
-        }),
-      });
+      const res = await fetch(
+        `${API_BASE_URL}/api/orders/track?orderId=${encodeURIComponent(targetOrderId.trim())}&mobile=${encodeURIComponent(targetMobile.trim())}`,
+        { cache: 'no-store' },
+      );
 
       const data = await res.json();
 

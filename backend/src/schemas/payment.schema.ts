@@ -26,6 +26,9 @@ export class Payment {
 
   @Prop({ required: false })
   paidAt?: Date;
+
+  @Prop({ default: 0 })
+  refundedAmount?: number;
 }
 
 export const PaymentSchema = SchemaFactory.createForClass(Payment);

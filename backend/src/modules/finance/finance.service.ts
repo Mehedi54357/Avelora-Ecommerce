@@ -38,23 +38,29 @@ export class FinanceService {
     return { success: true };
   }
 
+  // Authoritative Management Accounting Engine (Realized Basis)
   async getFinancialAnalytics() {
     const [allOrders, allExpenses] = await Promise.all([
       this.orderModel.find().exec(),
       this.expenseModel.find().exec(),
     ]);
 
-    // 1. Delivered / Fulfilled Orders (Realized Basis)
+    // 1. Delivered / Fulfilled Orders (Realized Revenue Basis)
     const deliveredOrders = allOrders.filter((o) => o.status === OrderStatus.DELIVERED);
 
-    // 2. Active Pipeline Orders (Pending, Confirmed, Processing, Shipped)
+    // 2. Active Pipeline Orders (Pending, Confirmed, Processing, Packed, Shipped)
     const pipelineOrders = allOrders.filter(
       (o) =>
         o.status === OrderStatus.PENDING ||
         o.status === OrderStatus.CONFIRMED ||
         o.status === OrderStatus.PROCESSING ||
+        o.status === OrderStatus.PACKED ||
         o.status === OrderStatus.SHIPPED,
     );
+
+    // 3. Cancelled & Returned
+    const cancelledOrders = allOrders.filter((o) => o.status === OrderStatus.CANCELLED);
+    const returnedOrders = allOrders.filter((o) => o.status === OrderStatus.RETURNED);
 
     let deliveredRevenue = 0;
     let deliveredSubtotal = 0;
@@ -63,7 +69,7 @@ export class FinanceService {
 
     for (const order of deliveredOrders) {
       deliveredRevenue += order.totalAmount || 0;
-      deliveredSubtotal += order.subtotal || 0;
+      deliveredSubtotal += (order.subtotal || 0) - (order.couponDiscount || 0);
       deliveredDeliveryCharge += order.deliveryCharge || 0;
 
       for (const item of order.items) {
@@ -71,7 +77,7 @@ export class FinanceService {
       }
     }
 
-    // Pipeline Revenue (Orders awaiting fulfillment)
+    // Pipeline Revenue (Pending fulfillment)
     let pipelineRevenue = 0;
     for (const order of pipelineOrders) {
       pipelineRevenue += order.totalAmount || 0;
@@ -99,7 +105,7 @@ export class FinanceService {
       orderStatusCounts[order.status] = (orderStatusCounts[order.status] || 0) + 1;
     }
 
-    // 7-day daily activity
+    // 7-day daily sales activity
     const last7DaysMap: Record<string, { date: string; sales: number; orders: number; grossProfit: number }> = {};
     const today = new Date();
 
@@ -126,7 +132,7 @@ export class FinanceService {
         for (const item of order.items) {
           orderCogs += (item.costPrice || 0) * (item.quantity || 1);
         }
-        last7DaysMap[orderDate].grossProfit += (order.subtotal || 0) - orderCogs;
+        last7DaysMap[orderDate].grossProfit += ((order.subtotal || 0) - (order.couponDiscount || 0)) - orderCogs;
       }
     }
 
@@ -135,7 +141,8 @@ export class FinanceService {
         totalOrders: allOrders.length,
         deliveredOrdersCount: deliveredOrders.length,
         pipelineOrdersCount: pipelineOrders.length,
-        cancelledOrdersCount: orderStatusCounts[OrderStatus.CANCELLED] || 0,
+        cancelledOrdersCount: cancelledOrders.length,
+        returnedOrdersCount: returnedOrders.length,
         // Realized Metrics
         realizedRevenue: deliveredRevenue,
         deliveredSubtotal,

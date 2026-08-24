@@ -64,6 +64,18 @@ export class AuthController {
     return { message: 'Logged out successfully' };
   }
 
+  @Post('refresh')
+  async refresh(@Body() body: { refreshToken: string }) {
+    return this.authService.refreshToken(body?.refreshToken);
+  }
+
+  @UseGuards(AuthGuard)
+  @Post('change-password')
+  async changePassword(@Req() req: any, @Body() body: any) {
+    const userId = req.user.sub;
+    return this.authService.changePassword(userId, body.currentPassword, body.newPassword);
+  }
+
   @UseGuards(AuthGuard)
   @Get('me')
   getProfile(@Req() req: any) {

@@ -18,6 +18,10 @@ import {
   ShieldCheck,
   Check,
   Smartphone,
+  QrCode,
+  Download,
+  History,
+  Loader2,
 } from 'lucide-react';
 
 const STATUS_OPTIONS = [
@@ -44,6 +48,30 @@ export default function AdminOrdersPage() {
   const [showInvoiceModal, setShowInvoiceModal] = useState(false);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
 
+  // QR Modal State
+  const [showQrModal, setShowQrModal] = useState(false);
+  const [qrDataUrl, setQrDataUrl] = useState('');
+  const [qrPayload, setQrPayload] = useState('');
+  const [loadingQr, setLoadingQr] = useState(false);
+
+  // Timeline Modal State
+  const [showTimelineModal, setShowTimelineModal] = useState(false);
+
+  // Courier Modal State
+  const [showCourierModal, setShowCourierModal] = useState(false);
+  const [courierProvider, setCourierProvider] = useState('Steadfast');
+  const [consignmentId, setConsignmentId] = useState('');
+  const [trackingUrl, setTrackingUrl] = useState('');
+  const [courierCharge, setCourierCharge] = useState(0);
+  const [savingCourier, setSavingCourier] = useState(false);
+
+  // Return Modal State
+  const [showReturnModal, setShowReturnModal] = useState(false);
+  const [returnReason, setReturnReason] = useState('Customer Changed Mind');
+  const [refundAmount, setRefundAmount] = useState(0);
+  const [restockInventory, setRestockInventory] = useState(true);
+  const [processingReturn, setProcessingReturn] = useState(false);
+
   const fetchOrders = async () => {
     setLoading(true);
     try {
@@ -67,22 +95,97 @@ export default function AdminOrdersPage() {
     fetchOrders();
   }, [statusFilter, search]);
 
-  const handleStatusChange = async (orderId: string, newStatus: string) => {
-    setUpdatingId(orderId);
+  const handleStatusChange = async (id: string, newStatus: string) => {
+    setUpdatingId(id);
     try {
-      const res = await authFetch(`${API_BASE_URL}/api/admin/orders/${orderId}/status`, {
-        method: 'PUT',
+      const res = await authFetch(`${API_BASE_URL}/api/admin/orders/${id}/status`, {
+        method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: newStatus }),
       });
-
       if (res.ok) {
         fetchOrders();
       }
     } catch (e) {
-      console.error('Error updating status', e);
+      console.error(e);
     } finally {
       setUpdatingId(null);
+    }
+  };
+
+  const handleGenerateQr = async (order: any) => {
+    setSelectedOrder(order);
+    setQrDataUrl('');
+    setQrPayload('');
+    setLoadingQr(true);
+    setShowQrModal(true);
+
+    try {
+      const res = await authFetch(`${API_BASE_URL}/api/admin/qr/orders/${order._id}/fulfillment`, {
+        method: 'POST',
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setQrDataUrl(data.qrDataUrl);
+        setQrPayload(data.payload);
+      }
+    } catch (e) {
+      console.error('Error generating fulfillment QR:', e);
+    } finally {
+      setLoadingQr(false);
+    }
+  };
+
+  const handleSaveCourier = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedOrder || !consignmentId.trim()) return;
+
+    setSavingCourier(true);
+    try {
+      const res = await authFetch(`${API_BASE_URL}/api/admin/orders/${selectedOrder._id}/courier`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          provider: courierProvider,
+          consignmentId: consignmentId.trim(),
+          trackingUrl: trackingUrl.trim(),
+          charge: Number(courierCharge) || 0,
+        }),
+      });
+      if (res.ok) {
+        setShowCourierModal(false);
+        fetchOrders();
+      }
+    } catch (e) {
+      console.error('Error updating courier details:', e);
+    } finally {
+      setSavingCourier(false);
+    }
+  };
+
+  const handleProcessReturnSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedOrder) return;
+
+    setProcessingReturn(true);
+    try {
+      const res = await authFetch(`${API_BASE_URL}/api/admin/orders/${selectedOrder._id}/return`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          reason: returnReason,
+          refundAmount: Number(refundAmount) || 0,
+          restocked: restockInventory,
+        }),
+      });
+      if (res.ok) {
+        setShowReturnModal(false);
+        fetchOrders();
+      }
+    } catch (e) {
+      console.error('Error processing return:', e);
+    } finally {
+      setProcessingReturn(false);
     }
   };
 
@@ -271,7 +374,24 @@ export default function AdminOrdersPage() {
                         </select>
                       </td>
 
-                      <td className="py-3.5 px-4 text-right space-x-2">
+                      <td className="py-3.5 px-4 text-right space-x-1.5 whitespace-nowrap">
+                        <button
+                          onClick={() => handleGenerateQr(order)}
+                          className="p-1.5 text-gray-600 hover:text-[#997B21] hover:bg-[#D4AF37]/10 rounded transition"
+                          title="Generate Fulfillment QR Label"
+                        >
+                          <QrCode className="w-4 h-4 text-[#997B21]" />
+                        </button>
+                        <button
+                          onClick={() => {
+                            setSelectedOrder(order);
+                            setShowTimelineModal(true);
+                          }}
+                          className="p-1.5 text-gray-500 hover:text-slate-950 hover:bg-gray-100 rounded transition"
+                          title="View Order Timeline & History"
+                        >
+                          <History className="w-4 h-4" />
+                        </button>
                         <button
                           onClick={() => {
                             setSelectedOrder(order);
@@ -394,6 +514,121 @@ export default function AdminOrdersPage() {
                   </p>
                 )}
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Order Fulfillment QR Label Modal */}
+      {showQrModal && selectedOrder && (
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-sm rounded-2xl shadow-2xl overflow-hidden border border-gray-200 p-6 space-y-4 text-center">
+            <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+              <div>
+                <span className="text-[10px] font-bold uppercase tracking-widest text-[#997B21]">
+                  Fulfillment QR Label
+                </span>
+                <h3 className="text-base font-bold font-serif-luxury text-gray-900">
+                  {selectedOrder.orderId}
+                </h3>
+              </div>
+              <button
+                onClick={() => setShowQrModal(false)}
+                className="p-1.5 text-gray-400 hover:text-gray-800 rounded-full"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {loadingQr ? (
+              <div className="py-12 text-center text-gray-400">
+                <Loader2 className="w-8 h-8 animate-spin mx-auto text-[#C5A059]" />
+                <p className="text-xs mt-2">Issuing Hashed One-Time QR Token...</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {qrDataUrl && (
+                  <div className="p-4 bg-white border-2 border-dashed border-[#C5A059]/40 rounded-2xl inline-block shadow-sm">
+                    <img src={qrDataUrl} alt="Order QR Label" className="w-48 h-48 mx-auto" />
+                    <div className="mt-2 text-center space-y-0.5">
+                      <p className="font-mono text-xs font-bold text-slate-900">{selectedOrder.orderId}</p>
+                      <p className="text-[11px] text-gray-600 font-semibold">{selectedOrder.customerDetails?.name}</p>
+                      <p className="text-[10px] text-gray-400">{selectedOrder.customerDetails?.district} Division</p>
+                    </div>
+                  </div>
+                )}
+
+                <div className="text-[11px] text-gray-500 bg-gray-50 p-2.5 rounded-xl border">
+                  <span>Due on Delivery: </span>
+                  <strong className="text-slate-900 font-mono">
+                    ৳{selectedOrder.dueAmount > 0 ? selectedOrder.dueAmount : selectedOrder.totalAmount}
+                  </strong>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 pt-1">
+                  <a
+                    href={qrDataUrl}
+                    download={`label-${selectedOrder.orderId}.png`}
+                    className="py-2.5 px-3 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-800 font-bold text-xs uppercase tracking-wider transition flex items-center justify-center gap-1.5"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    <span>Download</span>
+                  </a>
+                  <button
+                    onClick={() => window.print()}
+                    className="py-2.5 px-3 rounded-xl bg-slate-950 hover:bg-[#C5A059] text-white font-bold text-xs uppercase tracking-wider transition flex items-center justify-center gap-1.5 shadow"
+                  >
+                    <Printer className="w-3.5 h-3.5" />
+                    <span>Print Label</span>
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Order Timeline Modal */}
+      {showTimelineModal && selectedOrder && (
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden border border-gray-200 p-6 space-y-4">
+            <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+              <div>
+                <span className="text-[10px] font-bold uppercase tracking-widest text-[#997B21]">
+                  Immutable Timeline & Audit
+                </span>
+                <h3 className="text-base font-bold font-serif-luxury text-gray-900">
+                  Order #{selectedOrder.orderId}
+                </h3>
+              </div>
+              <button
+                onClick={() => setShowTimelineModal(false)}
+                className="p-1.5 text-gray-400 hover:text-gray-800 rounded-full"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-3 py-2 max-h-72 overflow-y-auto pr-1">
+              {(!selectedOrder.timeline || selectedOrder.timeline.length === 0) ? (
+                <p className="text-xs text-gray-400 text-center py-4">No timeline events recorded.</p>
+              ) : (
+                selectedOrder.timeline.map((entry: any, index: number) => (
+                  <div key={index} className="flex items-start gap-3 text-xs">
+                    <div className="w-2 h-2 rounded-full bg-[#C5A059] mt-1.5 shrink-0" />
+                    <div className="space-y-0.5 flex-1">
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-gray-900">{entry.status}</span>
+                        <span className="text-[10px] text-gray-400 font-mono">
+                          {new Date(entry.at).toLocaleDateString()} {new Date(entry.at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                      </div>
+                      <p className="text-gray-600 text-[11px]">{entry.note || 'Status updated'}</p>
+                      <p className="text-[10px] text-gray-400">Actor: {entry.actor || 'SYSTEM'}</p>
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
           </div>
         </div>

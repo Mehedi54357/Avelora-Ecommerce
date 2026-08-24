@@ -32,16 +32,18 @@ export default function Footer() {
             </p>
 
             <div className="pt-2 text-xs space-y-2 text-gray-400">
-              <div className="flex items-center gap-2">
-                <MapPin className="w-3.5 h-3.5 text-[#C5A059]" />
-                <span>Gulshan 2, Dhaka 1212, Bangladesh</span>
+              <div className="flex items-start gap-2">
+                <MapPin className="w-3.5 h-3.5 text-[#C5A059] flex-shrink-0 mt-0.5" />
+                <span>Dhaka Mohakhali Royal Filling Station, Jam Jam Tower, 5th Building, 6th Floor</span>
               </div>
               <div className="flex items-center gap-2">
-                <Phone className="w-3.5 h-3.5 text-[#C5A059]" />
-                <span>+880 1700-AVELORA (+880 1700-000000)</span>
+                <Phone className="w-3.5 h-3.5 text-[#C5A059] flex-shrink-0" />
+                <a href="tel:01313508345" className="hover:text-[#C5A059] transition font-mono">
+                  +880 1313-508345 (01313508345)
+                </a>
               </div>
               <div className="flex items-center gap-2">
-                <Mail className="w-3.5 h-3.5 text-[#C5A059]" />
+                <Mail className="w-3.5 h-3.5 text-[#C5A059] flex-shrink-0" />
                 <span>concierge@avelora.com</span>
               </div>
             </div>
