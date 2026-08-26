@@ -16,7 +16,7 @@ import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { UserRole } from '../../schemas/user.schema';
 
-@Controller('api/admin/purchases')
+@Controller('admin/purchases')
 @UseGuards(AuthGuard, RolesGuard)
 export class PurchasesController {
   constructor(private readonly purchasesService: PurchasesService) {}

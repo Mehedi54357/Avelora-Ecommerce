@@ -17,7 +17,7 @@ import { Roles } from '../auth/roles.decorator';
 import { UserRole } from '../../schemas/user.schema';
 import type { Response } from 'express';
 
-@Controller('api/admin/finance')
+@Controller('admin/finance')
 @UseGuards(AuthGuard, RolesGuard)
 export class FinanceController {
   constructor(private readonly financeService: FinanceService) {}

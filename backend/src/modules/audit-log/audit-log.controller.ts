@@ -5,7 +5,7 @@ import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { UserRole } from '../../schemas/user.schema';
 
-@Controller('api/admin/audit-logs')
+@Controller('admin/audit-logs')
 @UseGuards(AuthGuard, RolesGuard)
 export class AuditLogController {
   constructor(private readonly auditLogService: AuditLogService) {}

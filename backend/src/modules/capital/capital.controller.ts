@@ -15,7 +15,7 @@ import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { UserRole } from '../../schemas/user.schema';
 
-@Controller('api/admin/capital')
+@Controller('admin/capital')
 @UseGuards(AuthGuard, RolesGuard)
 export class CapitalController {
   constructor(private readonly capitalService: CapitalService) {}

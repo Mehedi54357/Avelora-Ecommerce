@@ -13,7 +13,7 @@ import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { UserRole } from '../../schemas/user.schema';
 
-@Controller('api/admin/courier')
+@Controller('admin/courier')
 @UseGuards(AuthGuard, RolesGuard)
 export class CourierController {
   constructor(private readonly pathaoService: PathaoService) {}
