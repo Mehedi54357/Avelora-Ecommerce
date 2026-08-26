@@ -95,31 +95,49 @@ export class PathaoService {
     const creds = await this.getCredentials();
     if (!creds.clientId || !creds.clientSecret || !creds.username || !creds.password) {
       throw new BadRequestException(
-        'Pathao Merchant credentials (PATHAO_CLIENT_ID, PATHAO_CLIENT_SECRET, PATHAO_USERNAME, PATHAO_PASSWORD) are not configured in system settings.',
+        'Pathao Merchant credentials (Client ID, Client Secret, Username/Email, Password) are missing or incomplete.',
       );
     }
 
     const baseUrl = await this.getBaseUrl();
     const url = `${baseUrl}/aladdin/api/v1/issue-token`;
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Accept: 'application/json',
-      },
-      body: JSON.stringify({
-        client_id: creds.clientId,
-        client_secret: creds.clientSecret,
-        username: creds.username,
-        password: creds.password,
-        grant_type: 'password',
-      }),
-    });
 
-    const data = await res.json();
+    let res: any;
+    try {
+      res = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+        },
+        body: JSON.stringify({
+          client_id: creds.clientId,
+          client_secret: creds.clientSecret,
+          username: creds.username,
+          password: creds.password,
+          grant_type: 'password',
+        }),
+      });
+    } catch (netErr: any) {
+      this.logger.error(`Pathao issue-token network error: ${netErr.message}`);
+      throw new BadRequestException(`Unable to reach Pathao server (${url}): ${netErr.message}`);
+    }
+
+    let data: any = {};
+    try {
+      data = await res.json();
+    } catch (parseErr) {
+      throw new BadRequestException(`Invalid response from Pathao API (HTTP ${res?.status || 'Unknown'})`);
+    }
+
     if (!res.ok || !data.access_token) {
       this.logger.error(`Pathao issue-token error: ${JSON.stringify(data)}`);
-      throw new BadRequestException(data.message || 'Failed to authenticate with Pathao Merchant API');
+      const errorMsg =
+        data.error_description ||
+        data.message ||
+        data.error ||
+        (data.errors ? JSON.stringify(data.errors) : `HTTP ${res.status} Authentication Failed`);
+      throw new BadRequestException(errorMsg);
     }
 
     const expiresAt = new Date(Date.now() + (data.expires_in || 3600) * 1000);
@@ -705,19 +723,38 @@ export class PathaoService {
     if (payload.defaultStoreId !== undefined) settings.pathaoDefaultStoreId = payload.defaultStoreId;
     if (payload.defaultStoreName !== undefined) settings.pathaoDefaultStoreName = payload.defaultStoreName;
 
-    // Reset token so new token is requested with fresh credentials
+    // 1. SAVE TO DATABASE FIRST
+    await settings.save();
+
+    // 2. Invalidate old cached token
     await this.tokenModel.deleteOne({ key: 'primary' }).exec();
 
-    // Verify authentication immediately
+    // 3. Test token issuing with newly saved credentials
+    let tokenError = null;
     try {
       await this.issueNewToken();
       settings.pathaoLastSyncAt = new Date();
-    } catch (e: any) {
       await settings.save();
-      throw new BadRequestException(`Credentials saved, but authentication test failed: ${e.message}`);
+    } catch (e: any) {
+      tokenError = e.message;
+      this.logger.error(`Pathao issueNewToken verification error: ${e.message}`);
     }
 
-    await settings.save();
+    if (tokenError) {
+      throw new BadRequestException(`Pathao Authentication Failed: ${tokenError}. Please double-check your Merchant Email, Password, Client ID, and Client Secret.`);
+    }
+
+    // 4. Try auto-fetching stores
+    try {
+      const stores = await this.getStores();
+      if (stores && stores.length > 0 && !settings.pathaoDefaultStoreId) {
+        settings.pathaoDefaultStoreId = stores[0].store_id;
+        settings.pathaoDefaultStoreName = stores[0].store_name;
+        await settings.save();
+      }
+    } catch (storeErr: any) {
+      this.logger.warn(`Could not fetch stores after token issue: ${storeErr.message}`);
+    }
 
     await this.auditLogService.logAction({
       action: 'UPDATE_PATHAO_CONFIG',

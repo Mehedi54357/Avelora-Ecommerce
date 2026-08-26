@@ -64,6 +64,7 @@ export default function AdminSettingsPage() {
   const [syncingStores, setSyncingStores] = useState(false);
   const [pathaoStatus, setPathaoStatus] = useState<any>(null);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [modalError, setModalError] = useState<string | null>(null);
   const [savingCreds, setSavingCreds] = useState(false);
 
   // Credential Edit Form Inputs
@@ -209,6 +210,7 @@ export default function AdminSettingsPage() {
   const handleSaveCredentials = async (e: React.FormEvent) => {
     e.preventDefault();
     setSavingCreds(true);
+    setModalError(null);
     setPathaoStatus(null);
     try {
       const res = await authFetch(`${API_BASE_URL}/api/admin/courier/pathao/config`, {
@@ -223,24 +225,22 @@ export default function AdminSettingsPage() {
           message: 'Pathao Merchant credentials updated and verified successfully!',
         });
         setShowEditModal(false);
-        setCredForm({
-          username: '',
-          password: '',
-          clientId: '',
-          clientSecret: '',
-          sandbox: false,
-        });
+        setModalError(null);
         fetchPathaoConfig();
       } else {
+        const errMsg = data.message || 'Failed to authenticate credentials with Pathao. Please check email/password and Client ID/Secret.';
+        setModalError(errMsg);
         setPathaoStatus({
           success: false,
-          message: data.message || 'Failed to authenticate credentials with Pathao.',
+          message: errMsg,
         });
       }
     } catch (e: any) {
+      const errMsg = e.message || 'Failed to save credentials';
+      setModalError(errMsg);
       setPathaoStatus({
         success: false,
-        message: e.message || 'Failed to save credentials',
+        message: errMsg,
       });
     } finally {
       setSavingCreds(false);
@@ -831,6 +831,16 @@ export default function AdminSettingsPage() {
                   />
                 </div>
               </div>
+
+              {modalError && (
+                <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-800 flex items-start gap-2 animate-fadeIn">
+                  <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5 text-rose-600" />
+                  <div>
+                    <p className="font-bold">Authentication Error</p>
+                    <p className="text-[11px] mt-0.5">{modalError}</p>
+                  </div>
+                </div>
+              )}
 
               <div className="p-3 bg-amber-50 rounded-xl border border-amber-200 text-amber-900 text-[11px] leading-relaxed">
                 <p>
