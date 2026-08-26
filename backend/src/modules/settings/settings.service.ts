@@ -20,8 +20,8 @@ export class SettingsService implements OnModuleInit {
     if (!existing) {
       await this.settingsModel.create({
         storeName: 'AVELORA',
-        supportEmail: 'support@avelora.com',
-        supportPhone: '+880 1800-AVELORA',
+        supportEmail: 'aveloraelegance@gmail.com',
+        supportPhone: '+8801353786336',
         storeAddress: 'Dhaka, Bangladesh',
         orderPrefix: 'AVE',
         invoicePrefix: 'INV',

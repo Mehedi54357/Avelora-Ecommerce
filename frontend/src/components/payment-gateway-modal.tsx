@@ -138,7 +138,7 @@ export default function PaymentGatewayModal({
   };
 
   const handleCopy = () => {
-    navigator.clipboard.writeText('01313508345');
+    navigator.clipboard.writeText('01353786336');
     setCopiedNumber(true);
     setTimeout(() => setCopiedNumber(false), 2000);
   };
@@ -573,7 +573,7 @@ export default function PaymentGatewayModal({
                     <div className="flex items-center justify-between">
                       <div>
                         <span className="text-[10px] font-bold uppercase text-[#997B21]">Official bKash / Nagad Number:</span>
-                        <p className="text-base font-mono font-bold text-slate-950 mt-0.5">01313-508345</p>
+                        <p className="text-base font-mono font-bold text-slate-950 mt-0.5">01353-786336</p>
                       </div>
                       <button
                         type="button"

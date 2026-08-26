@@ -56,7 +56,7 @@ export default function InvoiceModal({ order, isOpen, onClose }: InvoiceModalPro
               <p className="text-[10px] tracking-[0.3em] text-[#C5A059] uppercase font-semibold">
                 Elegance in every choice
               </p>
-              <p className="text-xs text-gray-500 mt-2">www.avelora.com • concierge@avelora.com • Hotline: +880 1313-508345</p>
+              <p className="text-xs text-gray-500 mt-2">www.avelora.com • aveloraelegance@gmail.com • Hotline: +880 1353-786336 (01353786336)</p>
               <p className="text-xs text-gray-500">Dhaka Mohakhali Royal Filling Station, Jam Jam Tower, 5th Building, 6th Floor</p>
             </div>
 

@@ -8,10 +8,10 @@ export class Settings {
   @Prop({ required: true, default: 'AVELORA' })
   storeName: string;
 
-  @Prop({ required: false, default: 'support@avelora.com' })
+  @Prop({ required: false, default: 'aveloraelegance@gmail.com' })
   supportEmail: string;
 
-  @Prop({ required: false, default: '+880 1800-AVELORA' })
+  @Prop({ required: false, default: '+8801353786336' })
   supportPhone: string;
 
   @Prop({ required: false, default: 'Dhaka, Bangladesh' })

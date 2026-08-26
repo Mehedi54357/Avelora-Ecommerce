@@ -29,6 +29,8 @@ import {
   DivisionOption,
   DistrictOption,
   UpazilaOption,
+  UnionOption,
+  getUnionsForUpazila,
 } from '../../utils/bangladesh-geo-data';
 
 export default function CheckoutPage() {
@@ -40,10 +42,12 @@ export default function CheckoutPage() {
   const [name, setName] = useState('');
   const [mobile, setMobile] = useState('');
   
-  // Cascading Address Selector: Division -> District -> Upazila -> Detailed Address
+  // Cascading Address Selector: Division (8) -> District (64) -> Upazila / Thana -> Union / Ward
   const [selectedDivisionId, setSelectedDivisionId] = useState<string>('dhaka');
   const [selectedDistrictId, setSelectedDistrictId] = useState<string>('dhaka');
   const [selectedUpazilaId, setSelectedUpazilaId] = useState<string>('mohakhali');
+  const [selectedUnionId, setSelectedUnionId] = useState<string>('sadar-ward');
+  const [customUnionName, setCustomUnionName] = useState<string>('');
   const [detailedAddress, setDetailedAddress] = useState<string>('');
   
   const [notes, setNotes] = useState('');
@@ -76,8 +80,12 @@ export default function CheckoutPage() {
   const availableUpazilas = currentDistrict.upazilas || [];
   const currentUpazila =
     availableUpazilas.find((u) => u.id === selectedUpazilaId) || availableUpazilas[0] || { id: 'sadar', name: 'Sadar', bnName: 'সদর' };
+  
+  const availableUnions = getUnionsForUpazila(currentUpazila);
+  const currentUnion =
+    availableUnions.find((u) => u.id === selectedUnionId) || availableUnions[0];
 
-  // Handlers for Cascading dropdowns
+  // Cascading Handlers
   const handleDivisionChange = (divId: string) => {
     setSelectedDivisionId(divId);
     const divObj = BANGLADESH_DIVISIONS.find((d) => d.id === divId) || BANGLADESH_DIVISIONS[0];
@@ -85,7 +93,12 @@ export default function CheckoutPage() {
     if (firstDist) {
       setSelectedDistrictId(firstDist.id);
       if (firstDist.upazilas && firstDist.upazilas.length > 0) {
-        setSelectedUpazilaId(firstDist.upazilas[0].id);
+        const firstUpa = firstDist.upazilas[0];
+        setSelectedUpazilaId(firstUpa.id);
+        const unions = getUnionsForUpazila(firstUpa);
+        if (unions.length > 0) {
+          setSelectedUnionId(unions[0].id);
+        }
       }
     }
   };
@@ -94,7 +107,21 @@ export default function CheckoutPage() {
     setSelectedDistrictId(distId);
     const distObj = availableDistricts.find((d) => d.id === distId);
     if (distObj && distObj.upazilas && distObj.upazilas.length > 0) {
-      setSelectedUpazilaId(distObj.upazilas[0].id);
+      const firstUpa = distObj.upazilas[0];
+      setSelectedUpazilaId(firstUpa.id);
+      const unions = getUnionsForUpazila(firstUpa);
+      if (unions.length > 0) {
+        setSelectedUnionId(unions[0].id);
+      }
+    }
+  };
+
+  const handleUpazilaChange = (upaId: string) => {
+    setSelectedUpazilaId(upaId);
+    const upaObj = availableUpazilas.find((u) => u.id === upaId);
+    const unions = getUnionsForUpazila(upaObj);
+    if (unions.length > 0) {
+      setSelectedUnionId(unions[0].id);
     }
   };
 
@@ -185,7 +212,11 @@ export default function CheckoutPage() {
     setSubmitting(true);
     setError('');
 
-    const formattedFullAddress = `${detailedAddress.trim()}, ${currentUpazila.bnName} (${currentUpazila.name}), ${currentDistrict.bnName} (${currentDistrict.name}), ${currentDivision.bnName}`.replace(/^,\s*/, '');
+    const unionDisplayName = selectedUnionId === 'custom' && customUnionName.trim()
+      ? customUnionName.trim()
+      : (currentUnion?.bnName || currentUnion?.name || '');
+
+    const formattedFullAddress = `${detailedAddress.trim()}${unionDisplayName ? `, ${unionDisplayName}` : ''}, ${currentUpazila.bnName} (${currentUpazila.name}), ${currentDistrict.bnName} (${currentDistrict.name}), ${currentDivision.bnName}`.replace(/^,\s*/, '');
 
     const payload = {
       customerDetails: {
@@ -195,6 +226,7 @@ export default function CheckoutPage() {
         division: currentDivision.name,
         district: currentDistrict.name,
         upazila: currentUpazila.name,
+        union: unionDisplayName,
         address: formattedFullAddress,
       },
       items: cart.map((item) => ({
@@ -355,8 +387,8 @@ export default function CheckoutPage() {
               </div>
             </div>
 
-            {/* Cascading 8 Divisions -> 64 Districts -> Upazilas */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 pt-1">
+            {/* Cascading 8 Divisions -> 64 Districts -> Upazilas -> Unions */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 pt-1">
               {/* 1. Division Dropdown */}
               <div className="space-y-1">
                 <label className="text-xs font-bold text-gray-700 flex items-center justify-between">
@@ -403,7 +435,7 @@ export default function CheckoutPage() {
                 </label>
                 <select
                   value={selectedUpazilaId}
-                  onChange={(e) => setSelectedUpazilaId(e.target.value)}
+                  onChange={(e) => handleUpazilaChange(e.target.value)}
                   className="w-full px-3 py-2.5 rounded-xl border border-gray-300 bg-white text-xs font-semibold text-gray-900 focus:outline-none focus:border-[#C5A059]"
                 >
                   {availableUpazilas.map((upa) => (
@@ -413,7 +445,42 @@ export default function CheckoutPage() {
                   ))}
                 </select>
               </div>
+
+              {/* 4. Union / Ward / Area Dropdown */}
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-gray-700 flex items-center justify-between">
+                  <span>Union / Ward (ইউনিয়ন) *</span>
+                  <span className="text-[10px] text-gray-400 font-normal">{availableUnions.length} Areas</span>
+                </label>
+                <select
+                  value={selectedUnionId}
+                  onChange={(e) => setSelectedUnionId(e.target.value)}
+                  className="w-full px-3 py-2.5 rounded-xl border border-gray-300 bg-white text-xs font-semibold text-gray-900 focus:outline-none focus:border-[#C5A059]"
+                >
+                  {availableUnions.map((union) => (
+                    <option key={union.id} value={union.id}>
+                      {union.bnName} ({union.name})
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
+
+            {/* Custom Union / Ward / Village Input if selected 'custom' */}
+            {selectedUnionId === 'custom' && (
+              <div className="space-y-1 animate-fadeIn">
+                <label className="text-xs font-bold text-[#997B21]">
+                  আপনার ইউনিয়ন / ওয়ার্ড / গ্রামের নাম লিখুন *
+                </label>
+                <input
+                  type="text"
+                  placeholder="যেমন: ৩নং ফতেহপুর ইউনিয়ন বা ওয়ার্ড #৫..."
+                  value={customUnionName}
+                  onChange={(e) => setCustomUnionName(e.target.value)}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-[#C5A059] bg-amber-50/30 text-xs font-medium text-gray-900 focus:outline-none"
+                />
+              </div>
+            )}
 
             {/* Delivery Charge Indicator Badge */}
             <div className="p-2.5 bg-gray-50 rounded-xl border border-gray-200/80 flex items-center justify-between text-xs">

@@ -95,6 +95,9 @@ export class CustomerDetailsSnapshot {
 
   @Prop({ required: false, default: '' })
   upazila?: string;
+
+  @Prop({ required: false, default: '' })
+  union?: string;
 }
 
 export const CustomerDetailsSnapshotSchema = SchemaFactory.createForClass(CustomerDetailsSnapshot);

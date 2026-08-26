@@ -3,10 +3,17 @@
  * 8 Divisions -> 64 Districts -> Upazilas / Thanas
  */
 
+export interface UnionOption {
+  id: string;
+  name: string;
+  bnName: string;
+}
+
 export interface UpazilaOption {
   id: string;
   name: string;
   bnName: string;
+  unions?: UnionOption[];
 }
 
 export interface DistrictOption {
@@ -22,6 +29,23 @@ export interface DivisionOption {
   name: string;
   bnName: string;
   districts: DistrictOption[];
+}
+
+export function getUnionsForUpazila(upazila?: UpazilaOption): UnionOption[] {
+  if (upazila?.unions && upazila.unions.length > 0) {
+    return upazila.unions;
+  }
+  const upaName = upazila?.name || 'Sadar';
+  const upaBn = upazila?.bnName || 'সদর';
+  return [
+    { id: 'sadar-ward', name: `${upaName} Sadar / Pourashava`, bnName: `${upaBn} পৌরসভা / সদর এলাকা` },
+    { id: 'union-01', name: `${upaName} Union 01`, bnName: `${upaBn} ১নং ইউনিয়ন পরিষদ` },
+    { id: 'union-02', name: `${upaName} Union 02`, bnName: `${upaBn} ২নং ইউনিয়ন পরিষদ` },
+    { id: 'union-03', name: `${upaName} Union 03`, bnName: `${upaBn} ৩নং ইউনিয়ন পরিষদ` },
+    { id: 'union-04', name: `${upaName} Union 04`, bnName: `${upaBn} ৪নং ইউনিয়ন পরিষদ` },
+    { id: 'union-05', name: `${upaName} Union 05`, bnName: `${upaBn} ৫নং ইউনিয়ন পরিষদ` },
+    { id: 'custom', name: 'Other Union / Ward', bnName: 'অন্যান্য ইউনিয়ন / ওয়ার্ড' },
+  ];
 }
 
 export const BANGLADESH_DIVISIONS: DivisionOption[] = [

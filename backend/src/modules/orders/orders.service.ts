@@ -48,6 +48,7 @@ export class OrdersService {
       division?: string;
       district: string;
       upazila?: string;
+      union?: string;
     };
     items: Array<{ productId: string; sku: string; quantity: number }>;
     paymentMethod?: string;
@@ -222,6 +223,7 @@ export class OrdersService {
         division: data.customerDetails.division || 'Dhaka',
         district: data.customerDetails.district || 'Dhaka',
         upazila: data.customerDetails.upazila || '',
+        union: data.customerDetails.union || '',
       },
       status: OrderStatus.PENDING,
       paymentStatus: isAdvancePaid && paidAmount >= totalAmount ? PaymentStatus.PAID : (isAdvancePaid ? PaymentStatus.PENDING : PaymentStatus.UNPAID),
