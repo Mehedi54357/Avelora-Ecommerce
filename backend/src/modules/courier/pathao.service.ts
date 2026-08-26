@@ -193,25 +193,43 @@ export class PathaoService {
   }
 
   /**
-   * Fetch City List (Country 1 = Bangladesh)
+   * Fetch City List (Endpoint: /aladdin/api/v1/city-list)
    */
   async getCities() {
     const token = await this.getValidAccessToken();
-    const url = `${this.getBaseUrl()}/aladdin/api/v1/countries/1/city-list`;
+    const url = `${this.getBaseUrl()}/aladdin/api/v1/city-list`;
 
-    const res = await fetch(url, {
+    try {
+      const res = await fetch(url, {
+        method: 'GET',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          Accept: 'application/json',
+        },
+      });
+
+      const data = await res.json();
+      if (res.ok && data.data) {
+        return data.data?.data || data.data || [];
+      }
+    } catch (e: any) {
+      this.logger.warn(`Failed /city-list, trying fallback country city-list: ${e.message}`);
+    }
+
+    // Fallback URL: /aladdin/api/v1/countries/1/city-list
+    const fallbackUrl = `${this.getBaseUrl()}/aladdin/api/v1/countries/1/city-list`;
+    const res2 = await fetch(fallbackUrl, {
       method: 'GET',
       headers: {
         Authorization: `Bearer ${token}`,
         Accept: 'application/json',
       },
     });
-
-    const data = await res.json();
-    if (!res.ok) {
-      throw new BadRequestException(data.message || 'Failed to fetch Pathao cities');
+    const data2 = await res2.json();
+    if (!res2.ok) {
+      throw new BadRequestException(data2.message || 'Failed to fetch Pathao cities');
     }
-    return data.data?.data || data.data || [];
+    return data2.data?.data || data2.data || [];
   }
 
   /**
@@ -491,5 +509,63 @@ export class PathaoService {
       orderStatus: order.status,
       details: info,
     };
+  }
+
+  /**
+   * Create a New Store in Pathao (Endpoint: POST /aladdin/api/v1/stores)
+   */
+  async createStore(storeData: {
+    name: string;
+    contact_name: string;
+    contact_number: string;
+    secondary_contact?: string;
+    otp_number?: string;
+    address: string;
+    city_id: number;
+    zone_id: number;
+    area_id: number;
+  }) {
+    const token = await this.getValidAccessToken();
+    const url = `${this.getBaseUrl()}/aladdin/api/v1/stores`;
+
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+      },
+      body: JSON.stringify(storeData),
+    });
+
+    const data = await res.json();
+    if (!res.ok) {
+      throw new BadRequestException(data.message || 'Failed to create Pathao store');
+    }
+    return data;
+  }
+
+  /**
+   * Create Bulk Orders in Pathao (Endpoint: POST /aladdin/api/v1/orders/bulk)
+   */
+  async createBulkOrder(orders: any[]) {
+    const token = await this.getValidAccessToken();
+    const url = `${this.getBaseUrl()}/aladdin/api/v1/orders/bulk`;
+
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json; charset=UTF-8',
+        Accept: 'application/json',
+      },
+      body: JSON.stringify({ orders }),
+    });
+
+    const data = await res.json();
+    if (!res.ok) {
+      throw new BadRequestException(data.message || 'Failed to create bulk orders in Pathao');
+    }
+    return data;
   }
 }
