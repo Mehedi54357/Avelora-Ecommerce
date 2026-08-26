@@ -3,15 +3,16 @@ import { redirect } from 'next/navigation';
 import { API_BASE_URL } from '../../../../utils/api-config';
 
 interface OrderQrResolverProps {
-  params: {
+  params: Promise<{
     token: string;
-  };
+  }>;
 }
 
 export const dynamic = 'force-dynamic';
 
 export default async function OrderQrResolverPage({ params }: OrderQrResolverProps) {
-  const token = decodeURIComponent(params.token || '').trim();
+  const resolvedParams = await params;
+  const token = decodeURIComponent(resolvedParams.token || '').trim();
 
   let resolvedOrderId = '';
 

@@ -3,15 +3,16 @@ import { redirect, notFound } from 'next/navigation';
 import { API_BASE_URL } from '../../../../utils/api-config';
 
 interface ProductQrResolverProps {
-  params: {
+  params: Promise<{
     code: string;
-  };
+  }>;
 }
 
 export const dynamic = 'force-dynamic';
 
 export default async function ProductQrResolverPage({ params }: ProductQrResolverProps) {
-  const code = params.code?.trim();
+  const resolvedParams = await params;
+  const code = resolvedParams.code?.trim();
   if (!code) {
     notFound();
   }

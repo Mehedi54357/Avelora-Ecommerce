@@ -26,6 +26,9 @@ export class ProductVariant {
   @Prop({ required: true, default: 0 })
   costPrice: number; // Cost of goods (COGS)
 
+  @Prop({ required: false, default: 0 })
+  weightedAverageCost?: number; // Realized weighted-average unit acquisition cost
+
   @Prop({ required: true, default: 0 })
   stockQuantity: number; // Total physical inventory on hand
 

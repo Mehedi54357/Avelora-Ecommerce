@@ -194,6 +194,10 @@ export class Order {
       trackingUrl: { type: String, default: '' },
       charge: { type: Number, default: 0 },
       bookedAt: { type: Date },
+      pathaoStatus: { type: String, default: '' },
+      amountToCollect: { type: Number, default: 0 },
+      storeId: { type: Number },
+      deliveryFee: { type: Number, default: 0 },
     },
     required: false,
     _id: false,
@@ -204,6 +208,10 @@ export class Order {
     trackingUrl: string;
     charge: number;
     bookedAt?: Date;
+    pathaoStatus?: string;
+    amountToCollect?: number;
+    storeId?: number;
+    deliveryFee?: number;
   };
 
   @Prop({

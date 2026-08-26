@@ -21,6 +21,9 @@ import { CouponsModule } from './modules/coupons/coupons.module';
 import { SettingsModule } from './modules/settings/settings.module';
 import { PaymentsModule } from './modules/payments/payments.module';
 import { AuditLogModule } from './modules/audit-log/audit-log.module';
+import { CourierModule } from './modules/courier/courier.module';
+import { PurchasesModule } from './modules/purchases/purchases.module';
+import { CapitalModule } from './modules/capital/capital.module';
 
 import { User, UserSchema } from './schemas/user.schema';
 import { Customer, CustomerSchema } from './schemas/customer.schema';
@@ -38,6 +41,12 @@ import { Coupon, CouponSchema } from './schemas/coupon.schema';
 import { DeliveryZone, DeliveryZoneSchema } from './schemas/delivery-zone.schema';
 import { Settings, SettingsSchema } from './schemas/settings.schema';
 import { ReturnRequest, ReturnRequestSchema } from './schemas/return-request.schema';
+import { Supplier, SupplierSchema } from './schemas/supplier.schema';
+import { PurchaseOrder, PurchaseOrderSchema } from './schemas/purchase.schema';
+import { CapitalTransaction, CapitalTransactionSchema } from './schemas/capital.schema';
+import { CourierSettlement, CourierSettlementSchema } from './schemas/courier-settlement.schema';
+import { PathaoToken, PathaoTokenSchema } from './schemas/pathao-token.schema';
+import { Review, ReviewSchema } from './schemas/review.schema';
 
 @Module({
   imports: [
@@ -75,6 +84,12 @@ import { ReturnRequest, ReturnRequestSchema } from './schemas/return-request.sch
       { name: DeliveryZone.name, schema: DeliveryZoneSchema },
       { name: Settings.name, schema: SettingsSchema },
       { name: ReturnRequest.name, schema: ReturnRequestSchema },
+      { name: Supplier.name, schema: SupplierSchema },
+      { name: PurchaseOrder.name, schema: PurchaseOrderSchema },
+      { name: CapitalTransaction.name, schema: CapitalTransactionSchema },
+      { name: CourierSettlement.name, schema: CourierSettlementSchema },
+      { name: PathaoToken.name, schema: PathaoTokenSchema },
+      { name: Review.name, schema: ReviewSchema },
     ]),
     AuditLogModule,
     UsersModule,
@@ -91,6 +106,9 @@ import { ReturnRequest, ReturnRequestSchema } from './schemas/return-request.sch
     CouponsModule,
     SettingsModule,
     PaymentsModule,
+    CourierModule,
+    PurchasesModule,
+    CapitalModule,
   ],
   controllers: [AppController],
   providers: [

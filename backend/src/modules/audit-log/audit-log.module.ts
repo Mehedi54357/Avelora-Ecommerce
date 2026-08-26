@@ -1,13 +1,18 @@
-import { Module, Global } from '@nestjs/common';
+import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
-import { AuditLogService } from './audit-log.service';
 import { AuditLog, AuditLogSchema } from '../../schemas/audit-log.schema';
+import { AuditLogService } from './audit-log.service';
+import { AuditLogController } from './audit-log.controller';
+import { AuthModule } from '../auth/auth.module';
 
-@Global()
 @Module({
   imports: [
-    MongooseModule.forFeature([{ name: AuditLog.name, schema: AuditLogSchema }]),
+    MongooseModule.forFeature([
+      { name: AuditLog.name, schema: AuditLogSchema },
+    ]),
+    AuthModule,
   ],
+  controllers: [AuditLogController],
   providers: [AuditLogService],
   exports: [AuditLogService],
 })
