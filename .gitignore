@@ -15,7 +15,7 @@ frontend/.env*
 !frontend/.env.example
 
 # Build outputs
-dist/
+# backend/dist is tracked for guaranteed cloud deployment
 build/
 .next/
 out/
