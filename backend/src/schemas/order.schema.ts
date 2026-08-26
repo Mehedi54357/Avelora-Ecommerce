@@ -8,6 +8,7 @@ export enum OrderStatus {
   CONFIRMED = 'CONFIRMED',
   PROCESSING = 'PROCESSING',
   PACKED = 'PACKED',
+  COURIER_BOOKED = 'COURIER_BOOKED',
   SHIPPED = 'SHIPPED',
   DELIVERED = 'DELIVERED',
   CANCELLED = 'CANCELLED',
@@ -19,6 +20,7 @@ export enum OrderStatus {
 export enum PaymentStatus {
   UNPAID = 'UNPAID',
   PENDING = 'PENDING',
+  PARTIALLY_PAID = 'PARTIALLY_PAID',
   PAID = 'PAID',
   PARTIALLY_REFUNDED = 'PARTIALLY_REFUNDED',
   REFUNDED = 'REFUNDED',
@@ -26,10 +28,19 @@ export enum PaymentStatus {
   CANCELLED = 'CANCELLED',
 }
 
+export enum CourierSettlementStatus {
+  NOT_APPLICABLE = 'NOT_APPLICABLE',
+  AWAITING_SETTLEMENT = 'AWAITING_SETTLEMENT',
+  PARTIALLY_SETTLED = 'PARTIALLY_SETTLED',
+  SETTLED = 'SETTLED',
+  DISPUTED = 'DISPUTED',
+}
+
 export enum FulfillmentStatus {
   UNFULFILLED = 'UNFULFILLED',
   PROCESSING = 'PROCESSING',
   PACKED = 'PACKED',
+  COURIER_BOOKED = 'COURIER_BOOKED',
   SHIPPED = 'SHIPPED',
   DELIVERED = 'DELIVERED',
   RETURNED = 'RETURNED',
@@ -193,11 +204,27 @@ export class Order {
       consignmentId: { type: String, default: '' },
       trackingUrl: { type: String, default: '' },
       charge: { type: Number, default: 0 },
-      bookedAt: { type: Date },
-      pathaoStatus: { type: String, default: '' },
+      deliveryFee: { type: Number, default: 0 },
+      returnFee: { type: Number, default: 0 },
       amountToCollect: { type: Number, default: 0 },
       storeId: { type: Number },
-      deliveryFee: { type: Number, default: 0 },
+      pathaoStatus: { type: String, default: '' },
+      bookedAt: { type: Date },
+      pickedUpAt: { type: Date },
+      deliveredAt: { type: Date },
+      // Courier COD Settlement State Machine
+      settlementStatus: {
+        type: String,
+        enum: Object.values(CourierSettlementStatus),
+        default: CourierSettlementStatus.NOT_APPLICABLE,
+      },
+      expectedSettlement: { type: Number, default: 0 },
+      actualSettlement: { type: Number, default: 0 },
+      settledAt: { type: Date },
+      settlementAccount: { type: String, default: '' },
+      transactionRef: { type: String, default: '' },
+      variance: { type: Number, default: 0 },
+      settlementNotes: { type: String, default: '' },
     },
     required: false,
     _id: false,
@@ -207,11 +234,22 @@ export class Order {
     consignmentId: string;
     trackingUrl: string;
     charge: number;
-    bookedAt?: Date;
-    pathaoStatus?: string;
+    deliveryFee?: number;
+    returnFee?: number;
     amountToCollect?: number;
     storeId?: number;
-    deliveryFee?: number;
+    pathaoStatus?: string;
+    bookedAt?: Date;
+    pickedUpAt?: Date;
+    deliveredAt?: Date;
+    settlementStatus?: CourierSettlementStatus;
+    expectedSettlement?: number;
+    actualSettlement?: number;
+    settledAt?: Date;
+    settlementAccount?: string;
+    transactionRef?: string;
+    variance?: number;
+    settlementNotes?: string;
   };
 
   @Prop({

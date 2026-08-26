@@ -3,7 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { PathaoToken, PathaoTokenDocument } from '../../schemas/pathao-token.schema';
-import { Order, OrderDocument, OrderStatus } from '../../schemas/order.schema';
+import { Order, OrderDocument, OrderStatus, PaymentStatus, CourierSettlementStatus } from '../../schemas/order.schema';
 import { AuditLogService } from '../audit-log/audit-log.service';
 
 export interface PathaoOrderPayload {
@@ -390,7 +390,9 @@ export class PathaoService {
     const consignmentId = orderData.consignment_id || orderData.order_id || '';
     const deliveryFee = Number(orderData.delivery_fee || 0);
 
-    // Persist consignment details & update order
+    const expectedSettlement = Math.max(0, amountToCollect - deliveryFee);
+
+    // Persist consignment details & update order - DO NOT mark SHIPPED immediately upon booking
     order.courier = {
       provider: 'Pathao',
       consignmentId,
@@ -399,19 +401,20 @@ export class PathaoService {
       deliveryFee,
       amountToCollect,
       storeId: Number(bookingData.storeId),
-      pathaoStatus: orderData.order_status || 'Created',
+      pathaoStatus: orderData.order_status || 'Pending',
       bookedAt: new Date(),
+      expectedSettlement,
+      settlementStatus: order.paymentMethod === 'COD' ? CourierSettlementStatus.AWAITING_SETTLEMENT : CourierSettlementStatus.NOT_APPLICABLE,
     };
 
-    if (order.status === OrderStatus.PENDING || order.status === OrderStatus.CONFIRMED || order.status === OrderStatus.PROCESSING) {
-      order.status = OrderStatus.SHIPPED;
-    }
+    // Transition to COURIER_BOOKED / READY_FOR_PICKUP
+    order.status = OrderStatus.COURIER_BOOKED;
 
     order.timeline.push({
-      status: 'SHIPPED_PATHAO',
+      status: 'COURIER_BOOKED',
       at: new Date(),
       actor: actorEmail,
-      note: `Booked with Pathao Consignment #${consignmentId}. COD to collect: ৳${amountToCollect}`,
+      note: `Booked with Pathao Consignment #${consignmentId}. COD to collect: ৳${amountToCollect}. Awaiting rider pickup.`,
     });
 
     await order.save();
@@ -426,6 +429,8 @@ export class PathaoService {
         consignmentId,
         amountToCollect,
         deliveryFee,
+        expectedSettlement,
+        status: OrderStatus.COURIER_BOOKED,
         actor: actorEmail,
       },
     });
@@ -436,6 +441,7 @@ export class PathaoService {
       deliveryFee,
       trackingUrl: order.courier.trackingUrl,
       amountToCollect,
+      expectedSettlement,
       order: order,
     };
   }
@@ -473,24 +479,48 @@ export class PathaoService {
       order.courier.pathaoStatus = pathaoStatus;
     }
 
-    // Map Pathao courier status to Order FSM if appropriate
-    const lower = pathaoStatus.toLowerCase();
-    if (lower.includes('delivered') && order.status !== OrderStatus.DELIVERED) {
+    // Map Pathao courier status to Order FSM strictly
+    const lower = pathaoStatus.toLowerCase().replace(/[\s_-]+/g, '');
+
+    // 1. Pickup Confirmed -> SHIPPED
+    if (
+      (lower.includes('intransit') || lower.includes('pickedup') || lower.includes('pickupcompleted') || lower.includes('ontheway')) &&
+      order.status !== OrderStatus.SHIPPED &&
+      order.status !== OrderStatus.DELIVERED
+    ) {
+      order.status = OrderStatus.SHIPPED;
+      order.courier.pickedUpAt = order.courier.pickedUpAt || new Date();
+      order.timeline.push({
+        status: 'SHIPPED',
+        at: new Date(),
+        actor: 'PATHAO_SYNC',
+        note: `Pathao confirmed rider pickup (${pathaoStatus}). Parcel in transit to customer.`,
+      });
+    }
+    // 2. Delivery Confirmed -> DELIVERED (Creates Courier COD Receivable, does NOT increase cash)
+    else if (lower.includes('delivered') && order.status !== OrderStatus.DELIVERED) {
       order.status = OrderStatus.DELIVERED;
-      order.paymentStatus = 'PAID' as any;
+      order.courier.deliveredAt = order.courier.deliveredAt || new Date();
+      if (order.paymentMethod === 'COD') {
+        order.paymentStatus = PaymentStatus.PAID;
+        order.courier.settlementStatus = CourierSettlementStatus.AWAITING_SETTLEMENT;
+      }
       order.timeline.push({
         status: 'DELIVERED',
         at: new Date(),
         actor: 'PATHAO_SYNC',
-        note: `Pathao confirmed delivery for consignment #${consignmentId}`,
+        note: `Pathao confirmed delivery (${pathaoStatus}). COD collected by courier; settlement pending.`,
       });
-    } else if (lower.includes('return') && order.status !== OrderStatus.RETURNED) {
+    }
+    // 3. Return Confirmed -> RETURNED (Zero false revenue/cash)
+    else if ((lower.includes('return') || lower.includes('rto') || lower.includes('failed')) && order.status !== OrderStatus.RETURNED) {
       order.status = OrderStatus.RETURNED;
+      order.courier.settlementStatus = CourierSettlementStatus.NOT_APPLICABLE;
       order.timeline.push({
         status: 'RETURNED',
         at: new Date(),
         actor: 'PATHAO_SYNC',
-        note: `Pathao reported return for consignment #${consignmentId}`,
+        note: `Pathao reported parcel return (${pathaoStatus}). Restocked into warehouse.`,
       });
     }
 
@@ -507,6 +537,7 @@ export class PathaoService {
       consignmentId,
       pathaoStatus,
       orderStatus: order.status,
+      settlementStatus: order.courier?.settlementStatus,
       details: info,
     };
   }

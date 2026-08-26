@@ -37,6 +37,7 @@ const STATUS_OPTIONS = [
   'CONFIRMED',
   'PROCESSING',
   'PACKED',
+  'COURIER_BOOKED',
   'SHIPPED',
   'DELIVERED',
   'CANCELLED',
@@ -416,7 +417,9 @@ export default function AdminOrdersPage() {
                               ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
                               : order.status === 'SHIPPED'
                               ? 'bg-blue-50 text-blue-800 border-blue-300'
-                              : order.status === 'CONFIRMED' || order.status === 'PROCESSING'
+                              : order.status === 'COURIER_BOOKED'
+                              ? 'bg-sky-50 text-sky-800 border-sky-300'
+                              : order.status === 'CONFIRMED' || order.status === 'PROCESSING' || order.status === 'PACKED'
                               ? 'bg-amber-50 text-amber-800 border-amber-300'
                               : order.status === 'CANCELLED' || order.status === 'RETURNED'
                               ? 'bg-red-50 text-red-800 border-red-300'
@@ -439,6 +442,12 @@ export default function AdminOrdersPage() {
                               <Truck className="w-3 h-3 text-slate-700" />
                               {order.courier.provider}: {order.courier.consignmentId}
                             </span>
+
+                            {order.courier?.settlementStatus && order.paymentMethod === 'COD' && (
+                              <span className="block text-[8px] font-bold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200 uppercase">
+                                COD: {order.courier.settlementStatus.replace(/_/g, ' ')}
+                              </span>
+                            )}
 
                             {order.courier?.provider === 'Pathao' && (
                               <button

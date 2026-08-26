@@ -52,6 +52,20 @@ export class FinanceController {
     return this.financeService.getReconciliation();
   }
 
+  @Post('courier/reconcile-order')
+  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN)
+  async reconcileCourierOrder(@Body() body: any, @Request() req: any) {
+    const actor = req.user?.email || 'ADMIN';
+    return this.financeService.reconcileCourierOrder(body, actor);
+  }
+
+  @Post('courier/bulk-reconcile')
+  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN)
+  async bulkReconcileCourier(@Body() body: any, @Request() req: any) {
+    const actor = req.user?.email || 'ADMIN';
+    return this.financeService.bulkReconcileCourier(body, actor);
+  }
+
   @Get('expenses')
   @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.MANAGER)
   async getExpenses(@Query() query: { category?: string; limit?: number }) {

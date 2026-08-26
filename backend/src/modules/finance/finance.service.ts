@@ -2,7 +2,7 @@ import { Injectable, NotFoundException, BadRequestException } from '@nestjs/comm
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Expense, ExpenseDocument } from '../../schemas/expense.schema';
-import { Order, OrderDocument, OrderStatus } from '../../schemas/order.schema';
+import { Order, OrderDocument, OrderStatus, PaymentStatus, CourierSettlementStatus } from '../../schemas/order.schema';
 import { Product, ProductDocument } from '../../schemas/product.schema';
 import { Supplier, SupplierDocument } from '../../schemas/supplier.schema';
 import { PurchaseOrder, PurchaseOrderDocument, PurchaseStatus } from '../../schemas/purchase.schema';
@@ -397,14 +397,21 @@ export class FinanceService {
     // Inflows
     let customerAdvancePaid = 0;
     let codSettledFromDelivered = 0;
+    let courierCodReceivableOutstanding = 0;
+
     for (const o of orders) {
-      if (o.status === OrderStatus.DELIVERED) {
-        const paid = o.paidAmount !== undefined ? o.paidAmount : (o.paymentMethod === 'COD' ? o.deliveryCharge : o.totalAmount);
-        const due = o.dueAmount !== undefined ? o.dueAmount : (o.paymentMethod === 'COD' ? o.subtotal : 0);
-        customerAdvancePaid += paid || 0;
-        codSettledFromDelivered += due || 0;
-      } else if (o.paidAmount > 0) {
+      if (o.paidAmount > 0) {
         customerAdvancePaid += o.paidAmount;
+      }
+
+      // COD Orders Accounting Rule: Only increase Cash/Bank when genuine settlement has been received!
+      if (o.paymentMethod === 'COD' && o.status === OrderStatus.DELIVERED) {
+        const codDue = o.dueAmount !== undefined ? o.dueAmount : o.subtotal;
+        if (o.courier?.settlementStatus === CourierSettlementStatus.SETTLED) {
+          codSettledFromDelivered += o.courier.actualSettlement !== undefined ? o.courier.actualSettlement : (codDue - (o.courier.deliveryFee || 0));
+        } else {
+          courierCodReceivableOutstanding += codDue;
+        }
       }
     }
 
@@ -523,42 +530,321 @@ export class FinanceService {
     };
   }
 
-  // ================= RECONCILIATION: GATEWAY & COURIER =================
+  // ================= RECONCILIATION: GATEWAY & COURIER COD ACCOUNTING =================
 
   async getReconciliation() {
     const [orders, settlements] = await Promise.all([
-      this.orderModel.find().sort({ createdAt: -1 }).limit(100).exec(),
+      this.orderModel.find({ paymentMethod: 'COD' }).sort({ createdAt: -1 }).limit(200).exec(),
       this.settlementModel.find().sort({ settledAt: -1 }).limit(50).exec(),
     ]);
 
-    const deliveredCodOrders = orders.filter((o) => o.status === OrderStatus.DELIVERED && o.paymentMethod === 'COD');
+    // Include Delivered, Shipped, and Booked COD orders
+    const codOrders = orders.filter(
+      (o) =>
+        o.status === OrderStatus.DELIVERED ||
+        o.status === OrderStatus.SHIPPED ||
+        o.status === OrderStatus.COURIER_BOOKED,
+    );
+
     let totalDeliveredCodDue = 0;
-    for (const o of deliveredCodOrders) {
-      totalDeliveredCodDue += o.dueAmount !== undefined ? o.dueAmount : o.subtotal;
-    }
+    let totalSettledAmount = 0;
+    let totalCourierFees = 0;
+    let outstandingCodReceivable = 0;
+    let totalDisputedAmount = 0;
 
-    let totalSettledByCourier = 0;
-    let totalCourierFeesDeducted = 0;
-    for (const s of settlements) {
-      totalSettledByCourier += s.totalNetRemitted || 0;
-      totalCourierFeesDeducted += s.totalFeesDeducted || 0;
-    }
+    const formattedOrders = codOrders.map((o) => {
+      const codDue = o.dueAmount !== undefined ? o.dueAmount : o.subtotal;
+      const courierFee = o.courier?.deliveryFee || o.deliveryCharge || 0;
+      const returnFee = o.courier?.returnFee || 0;
+      const expectedSettlement = Math.max(0, codDue - courierFee - returnFee);
+      const actualSettlement = o.courier?.actualSettlement || 0;
+      const settlementStatus = o.courier?.settlementStatus || (o.status === OrderStatus.DELIVERED ? CourierSettlementStatus.AWAITING_SETTLEMENT : CourierSettlementStatus.NOT_APPLICABLE);
+      const variance = o.courier?.variance !== undefined ? o.courier.variance : (settlementStatus === CourierSettlementStatus.SETTLED ? (expectedSettlement - actualSettlement) : 0);
 
-    const outstandingCodReceivable = Math.max(0, totalDeliveredCodDue - totalSettledByCourier);
+      if (o.status === OrderStatus.DELIVERED) {
+        totalDeliveredCodDue += codDue;
+        totalCourierFees += courierFee;
+
+        if (settlementStatus === CourierSettlementStatus.SETTLED) {
+          totalSettledAmount += actualSettlement;
+        } else {
+          outstandingCodReceivable += codDue;
+        }
+
+        if (settlementStatus === CourierSettlementStatus.DISPUTED) {
+          totalDisputedAmount += Math.abs(variance);
+        }
+      }
+
+      return {
+        _id: o._id,
+        orderId: o.orderId,
+        customerName: o.customerDetails?.name || 'Customer',
+        customerMobile: o.customerDetails?.mobile,
+        customerDistrict: o.customerDetails?.district,
+        consignmentId: o.courier?.consignmentId || 'Pending Booking',
+        courierProvider: o.courier?.provider || 'Pathao',
+        orderStatus: o.status,
+        deliveryDate: o.courier?.deliveredAt || (o.status === OrderStatus.DELIVERED ? o.updatedAt : null),
+        codCollected: codDue,
+        courierFee,
+        returnFee,
+        expectedSettlement,
+        actualSettlement,
+        settlementDate: o.courier?.settledAt || null,
+        bankAccount: o.courier?.settlementAccount || '',
+        transactionRef: o.courier?.transactionRef || '',
+        variance,
+        settlementStatus,
+        discrepancyNote: o.courier?.settlementNotes || '',
+      };
+    });
 
     return {
-      courierReconciliation: {
-        deliveredCodOrdersCount: deliveredCodOrders.length,
+      kpis: {
+        deliveredCodOrdersCount: codOrders.filter((o) => o.status === OrderStatus.DELIVERED).length,
         totalDeliveredCodDue,
-        totalSettledByCourier,
-        totalCourierFeesDeducted,
+        totalSettledAmount,
+        totalCourierFees,
         outstandingCodReceivable,
-        settlementBatches: settlements,
+        totalDisputedAmount,
       },
+      orders: formattedOrders,
+      settlementBatches: settlements,
       gatewayReconciliation: {
-        totalDigitalOrders: orders.filter((o) => o.paymentMethod !== 'COD').length,
+        totalDigitalOrders: (await this.orderModel.countDocuments({ paymentMethod: { $ne: 'COD' } }).exec()),
         matchedStatus: 'ALL_VERIFIED',
       },
+    };
+  }
+
+  /**
+   * Reconcile Single Order Courier Settlement
+   */
+  async reconcileCourierOrder(
+    payload: {
+      orderId: string;
+      actualSettlement: number;
+      courierFee?: number;
+      returnFee?: number;
+      settlementAccount: string;
+      transactionRef?: string;
+      settledAt?: string | Date;
+      status: CourierSettlementStatus;
+      notes?: string;
+    },
+    actorEmail: string = 'ADMIN',
+  ) {
+    const order = await this.orderModel.findById(payload.orderId).exec();
+    if (!order) {
+      throw new NotFoundException('Order not found');
+    }
+
+    const codDue = order.dueAmount !== undefined ? order.dueAmount : order.subtotal;
+    const courierFee = payload.courierFee !== undefined ? Number(payload.courierFee) : (order.courier?.deliveryFee || 0);
+    const returnFee = payload.returnFee !== undefined ? Number(payload.returnFee) : (order.courier?.returnFee || 0);
+    const actualSettlement = Number(payload.actualSettlement || 0);
+    const expectedSettlement = Math.max(0, codDue - courierFee - returnFee);
+    const variance = expectedSettlement - actualSettlement;
+
+    if (!order.courier) {
+      order.courier = {
+        provider: 'Pathao',
+        consignmentId: '',
+        trackingUrl: '',
+        charge: courierFee,
+      };
+    }
+
+    order.courier.deliveryFee = courierFee;
+    order.courier.returnFee = returnFee;
+    order.courier.expectedSettlement = expectedSettlement;
+    order.courier.actualSettlement = actualSettlement;
+    order.courier.settlementStatus = payload.status || CourierSettlementStatus.SETTLED;
+    order.courier.settledAt = payload.settledAt ? new Date(payload.settledAt) : new Date();
+    order.courier.settlementAccount = payload.settlementAccount || 'Bank Account';
+    order.courier.transactionRef = payload.transactionRef || '';
+    order.courier.variance = variance;
+    order.courier.settlementNotes = payload.notes || '';
+
+    order.timeline.push({
+      status: `SETTLEMENT_${order.courier.settlementStatus}`,
+      at: new Date(),
+      actor: actorEmail,
+      note: `Courier COD Reconciled. Status: ${order.courier.settlementStatus}. Settled: ৳${actualSettlement} into ${order.courier.settlementAccount} (Ref: ${order.courier.transactionRef || 'N/A'}). Variance: ৳${variance}`,
+    });
+
+    await order.save();
+
+    await this.auditLogService.logAction({
+      action: 'COURIER_SETTLEMENT_RECONCILED',
+      entityType: 'Order',
+      entityId: (order as any)._id.toString(),
+      newData: {
+        orderId: order.orderId,
+        consignmentId: order.courier.consignmentId,
+        actualSettlement,
+        settlementAccount: order.courier.settlementAccount,
+        status: order.courier.settlementStatus,
+        variance,
+        actor: actorEmail,
+      },
+    });
+
+    return {
+      success: true,
+      order: order,
+    };
+  }
+
+  /**
+   * Bulk Reconcile Courier Settlement Statements / CSV Import
+   */
+  async bulkReconcileCourier(
+    payload: {
+      settlementBatchId: string;
+      provider?: string;
+      settlementAccount: string;
+      transactionRef?: string;
+      settledAt?: string | Date;
+      items: Array<{
+        orderIdOrConsignment: string;
+        codCollected?: number;
+        courierFee?: number;
+        returnFee?: number;
+        actualSettlement: number;
+        status?: string;
+        notes?: string;
+      }>;
+    },
+    actorEmail: string = 'ADMIN',
+  ) {
+    if (!payload.items || payload.items.length === 0) {
+      throw new BadRequestException('Settlement items list cannot be empty');
+    }
+
+    const provider = payload.provider || 'Pathao';
+    const batchId = payload.settlementBatchId || `SETTLE-${Date.now()}`;
+    const settledAt = payload.settledAt ? new Date(payload.settledAt) : new Date();
+
+    let totalCod = 0;
+    let totalFees = 0;
+    let totalNet = 0;
+    const lines: any[] = [];
+    const updatedOrderIds: string[] = [];
+
+    for (const item of payload.items) {
+      const cleanKey = item.orderIdOrConsignment?.trim();
+      if (!cleanKey) continue;
+
+      const order = await this.orderModel
+        .findOne({
+          $or: [{ orderId: cleanKey }, { 'courier.consignmentId': cleanKey }],
+        })
+        .exec();
+
+      const codCollected = Number(item.codCollected || (order ? order.dueAmount || order.subtotal : 0));
+      const courierFee = Number(item.courierFee || (order?.courier?.deliveryFee || 0));
+      const returnFee = Number(item.returnFee || 0);
+      const actualSettlement = Number(item.actualSettlement || (codCollected - courierFee - returnFee));
+      const expectedSettlement = Math.max(0, codCollected - courierFee - returnFee);
+      const variance = expectedSettlement - actualSettlement;
+
+      totalCod += codCollected;
+      totalFees += courierFee + returnFee;
+      totalNet += actualSettlement;
+
+      let status = SettlementStatus.MATCHED;
+      let orderSettlementStatus = CourierSettlementStatus.SETTLED;
+
+      if (variance !== 0) {
+        status = SettlementStatus.AMOUNT_MISMATCH;
+        orderSettlementStatus = CourierSettlementStatus.DISPUTED;
+      }
+
+      if (!order) {
+        status = SettlementStatus.MISSING_ORDER;
+      } else {
+        if (!order.courier) {
+          order.courier = {
+            provider,
+            consignmentId: cleanKey,
+            trackingUrl: '',
+            charge: courierFee,
+          };
+        }
+
+        order.courier.deliveryFee = courierFee;
+        order.courier.returnFee = returnFee;
+        order.courier.actualSettlement = actualSettlement;
+        order.courier.expectedSettlement = expectedSettlement;
+        order.courier.settlementStatus = orderSettlementStatus;
+        order.courier.settledAt = settledAt;
+        order.courier.settlementAccount = payload.settlementAccount;
+        order.courier.transactionRef = payload.transactionRef;
+        order.courier.variance = variance;
+        order.courier.settlementNotes = item.notes || `Reconciled via batch ${batchId}`;
+
+        order.timeline.push({
+          status: `SETTLEMENT_${orderSettlementStatus}`,
+          at: new Date(),
+          actor: actorEmail,
+          note: `Batch Reconciled (${batchId}). Settled: ৳${actualSettlement} to ${payload.settlementAccount}.`,
+        });
+
+        await order.save();
+        updatedOrderIds.push(order.orderId);
+      }
+
+      lines.push({
+        orderId: order?._id,
+        orderNumber: order?.orderId || cleanKey,
+        consignmentId: order?.courier?.consignmentId || cleanKey,
+        codCollected,
+        deliveryFee: courierFee,
+        returnFee,
+        adjustmentFee: 0,
+        netRemitted: actualSettlement,
+        status,
+        discrepancyNote: item.notes || '',
+      });
+    }
+
+    // Persist Settlement Batch Record
+    const batchRecord = await this.settlementModel.create({
+      provider,
+      settlementBatchId: batchId,
+      lines,
+      totalCodCollected: totalCod,
+      totalFeesDeducted: totalFees,
+      totalNetRemitted: totalNet,
+      settledAt,
+      overallStatus: lines.some((l) => l.status !== SettlementStatus.MATCHED) ? 'HAS_DISCREPANCIES' : 'MATCHED',
+      bankDepositReference: payload.transactionRef || payload.settlementAccount,
+      notes: `Batch reconciled by ${actorEmail} with ${lines.length} orders.`,
+      reconciledBy: actorEmail,
+    });
+
+    await this.auditLogService.logAction({
+      action: 'COURIER_BATCH_SETTLEMENT_RECONCILED',
+      entityType: 'CourierSettlement',
+      entityId: (batchRecord as any)._id.toString(),
+      newData: {
+        batchId,
+        provider,
+        totalNet,
+        totalFees,
+        ordersCount: updatedOrderIds.length,
+        actor: actorEmail,
+      },
+    });
+
+    return {
+      success: true,
+      batchId,
+      totalNetRemitted: totalNet,
+      reconciledOrdersCount: updatedOrderIds.length,
+      updatedOrders: updatedOrderIds,
     };
   }
 
