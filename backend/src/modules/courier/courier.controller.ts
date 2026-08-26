@@ -18,6 +18,49 @@ import { UserRole } from '../../schemas/user.schema';
 export class CourierController {
   constructor(private readonly pathaoService: PathaoService) {}
 
+  @Get('pathao/config')
+  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.MANAGER, UserRole.STAFF)
+  async getConfig() {
+    return this.pathaoService.getConfig();
+  }
+
+  @Post('pathao/config')
+  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN)
+  async updateConfig(@Body() body: any, @Request() req: any) {
+    const actorEmail = req.user?.email || 'ADMIN';
+    return this.pathaoService.updateConfig(body, actorEmail);
+  }
+
+  @Post('pathao/sync-stores')
+  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.MANAGER)
+  async syncStores(@Request() req: any) {
+    const actorEmail = req.user?.email || 'ADMIN';
+    return this.pathaoService.syncStores(actorEmail);
+  }
+
+  @Post('pathao/toggle')
+  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN)
+  async toggleIntegration(@Body() body: { enabled: boolean }, @Request() req: any) {
+    const actorEmail = req.user?.email || 'ADMIN';
+    return this.pathaoService.toggleIntegration(body.enabled, actorEmail);
+  }
+
+  @Post('pathao/default-store')
+  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.MANAGER)
+  async setDefaultStore(
+    @Body() body: { storeId: number; storeName: string },
+    @Request() req: any,
+  ) {
+    const actorEmail = req.user?.email || 'ADMIN';
+    return this.pathaoService.setDefaultStore(body.storeId, body.storeName, actorEmail);
+  }
+
+  @Post('pathao/test')
+  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.MANAGER, UserRole.STAFF)
+  async testConnection() {
+    return this.pathaoService.testConnection();
+  }
+
   @Get('pathao/stores')
   @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.MANAGER, UserRole.STAFF)
   async getStores() {

@@ -40,6 +40,36 @@ export class Settings {
 
   @Prop({ required: false, default: 130 })
   defaultOutsideDhakaDeliveryCharge: number;
+
+  @Prop({ required: false, default: true })
+  pathaoEnabled: boolean;
+
+  @Prop({ required: false, default: false })
+  pathaoSandbox: boolean;
+
+  @Prop({ required: false, default: '' })
+  pathaoBaseUrl: string;
+
+  @Prop({ required: false, default: '' })
+  pathaoClientId: string;
+
+  @Prop({ required: false, default: '' })
+  pathaoClientSecret: string;
+
+  @Prop({ required: false, default: '' })
+  pathaoUsername: string;
+
+  @Prop({ required: false, default: '' })
+  pathaoPassword: string;
+
+  @Prop({ required: false, default: null })
+  pathaoDefaultStoreId: number;
+
+  @Prop({ required: false, default: '' })
+  pathaoDefaultStoreName: string;
+
+  @Prop({ required: false, default: null })
+  pathaoLastSyncAt: Date;
 }
 
 export const SettingsSchema = SchemaFactory.createForClass(Settings);

@@ -7,7 +7,7 @@ import { Product, ProductDocument } from '../../schemas/product.schema';
 import { Supplier, SupplierDocument } from '../../schemas/supplier.schema';
 import { PurchaseOrder, PurchaseOrderDocument, PurchaseStatus } from '../../schemas/purchase.schema';
 import { CapitalTransaction, CapitalTransactionDocument, CapitalTransactionType } from '../../schemas/capital.schema';
-import { CourierSettlement, CourierSettlementDocument } from '../../schemas/courier-settlement.schema';
+import { CourierSettlement, CourierSettlementDocument, SettlementStatus } from '../../schemas/courier-settlement.schema';
 import { Payment, PaymentDocument } from '../../schemas/payment.schema';
 import { ReturnRequest, ReturnRequestDocument } from '../../schemas/return-request.schema';
 import { AuditLogService } from '../audit-log/audit-log.service';
@@ -585,7 +585,7 @@ export class FinanceService {
         consignmentId: o.courier?.consignmentId || 'Pending Booking',
         courierProvider: o.courier?.provider || 'Pathao',
         orderStatus: o.status,
-        deliveryDate: o.courier?.deliveredAt || (o.status === OrderStatus.DELIVERED ? o.updatedAt : null),
+        deliveryDate: o.courier?.deliveredAt || (o.status === OrderStatus.DELIVERED ? (o as any).updatedAt : null),
         codCollected: codDue,
         courierFee,
         returnFee,
