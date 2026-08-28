@@ -23,8 +23,8 @@ export class DashboardService {
     const range = (queryRange || '7D').toUpperCase();
 
     // 1. Authoritative Financial Analytics from FinanceService (Source of Truth)
-    const financeAnalytics = await this.financeService.getFinancialAnalytics();
-    const fSummary = financeAnalytics.summary || {};
+    const financeAnalytics: any = await this.financeService.getFinancialAnalytics();
+    const fSummary: any = financeAnalytics?.summary || {};
 
     // 2. Date Range Boundaries
     const now = new Date();

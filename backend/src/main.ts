@@ -1,7 +1,6 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
-import * as cookieParserRaw from 'cookie-parser';
-const cookieParser = cookieParserRaw.default || cookieParserRaw;
+import cookieParser from 'cookie-parser';
 import { ValidationPipe, Logger } from '@nestjs/common';
 import { json, urlencoded } from 'express';
 import helmet from 'helmet';
