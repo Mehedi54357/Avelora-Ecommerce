@@ -24,6 +24,7 @@ import { AuditLogModule } from './modules/audit-log/audit-log.module';
 import { CourierModule } from './modules/courier/courier.module';
 import { PurchasesModule } from './modules/purchases/purchases.module';
 import { CapitalModule } from './modules/capital/capital.module';
+import { DashboardModule } from './modules/dashboard/dashboard.module';
 
 import { User, UserSchema } from './schemas/user.schema';
 import { Customer, CustomerSchema } from './schemas/customer.schema';
@@ -109,6 +110,7 @@ import { Review, ReviewSchema } from './schemas/review.schema';
     CourierModule,
     PurchasesModule,
     CapitalModule,
+    DashboardModule,
   ],
   controllers: [AppController],
   providers: [
