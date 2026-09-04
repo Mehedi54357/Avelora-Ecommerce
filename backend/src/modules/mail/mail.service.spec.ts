@@ -1,24 +1,29 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ConfigService } from '@nestjs/config';
-import { MailService, determineFailureStage } from './mail.service';
-import * as nodemailer from 'nodemailer';
+import { MailService } from './mail.service';
+import { Resend } from 'resend';
 
-jest.mock('nodemailer');
+jest.mock('resend');
 
-describe('MailService - SMTP Configuration & Verification', () => {
+describe('MailService - Resend HTTPS API Integration', () => {
   let service: MailService;
-  let mockTransporter: any;
+  let mockEmailsSend: jest.Mock;
 
   beforeEach(() => {
     jest.clearAllMocks();
-    mockTransporter = {
-      verify: jest.fn().mockResolvedValue(true),
-      sendMail: jest.fn().mockResolvedValue({ messageId: 'msg_123' }),
-    };
-    (nodemailer.createTransport as jest.Mock).mockReturnValue(mockTransporter);
+    mockEmailsSend = jest.fn().mockResolvedValue({
+      data: { id: 're_123456789' },
+      error: null,
+    });
+
+    (Resend as unknown as jest.Mock).mockImplementation(() => ({
+      emails: {
+        send: mockEmailsSend,
+      },
+    }));
   });
 
-  it('1. Initializes and verifies transporter with IPv4 and typed variables', async () => {
+  it('1. Initializes Resend client and logs configured when RESEND_API_KEY is present', async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         MailService,
@@ -26,12 +31,8 @@ describe('MailService - SMTP Configuration & Verification', () => {
           provide: ConfigService,
           useValue: {
             get: jest.fn((key) => {
-              if (key === 'SMTP_HOST') return 'smtp.gmail.com';
-              if (key === 'SMTP_PORT') return '465';
-              if (key === 'SMTP_SECURE') return 'true';
-              if (key === 'SMTP_USER') return 'aveloraelegance@gmail.com';
-              if (key === 'SMTP_PASS') return 'mockapppass1234';
-              if (key === 'MAIL_FROM') return 'AVELORA Security <aveloraelegance@gmail.com>';
+              if (key === 'RESEND_API_KEY') return 're_test_key_12345';
+              if (key === 'MAIL_FROM') return 'AVELORA Security <security@avelora.com>';
               return null;
             }),
           },
@@ -42,23 +43,11 @@ describe('MailService - SMTP Configuration & Verification', () => {
     service = module.get<MailService>(MailService);
     await service.onModuleInit();
 
-    expect(nodemailer.createTransport).toHaveBeenCalledWith(
-      expect.objectContaining({
-        host: 'smtp.gmail.com',
-        port: 465,
-        secure: true,
-        family: 4,
-        auth: {
-          user: 'aveloraelegance@gmail.com',
-          pass: 'mockapppass1234',
-        },
-      }),
-    );
-    expect(mockTransporter.verify).toHaveBeenCalledTimes(1);
+    expect(Resend).toHaveBeenCalledWith('re_test_key_12345');
     expect(service.isConfigured()).toBe(true);
   });
 
-  it('2. Gracefully handles missing SMTP credentials without throwing', async () => {
+  it('2. Gracefully handles missing RESEND_API_KEY without throwing errors', async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         MailService,
@@ -74,7 +63,6 @@ describe('MailService - SMTP Configuration & Verification', () => {
     service = module.get<MailService>(MailService);
     await service.onModuleInit();
 
-    expect(nodemailer.createTransport).not.toHaveBeenCalled();
     expect(service.isConfigured()).toBe(false);
 
     const result = await service.sendAdminOtpEmail('admin@avelora.com', '123456');
@@ -82,11 +70,7 @@ describe('MailService - SMTP Configuration & Verification', () => {
     expect(result.configured).toBe(false);
   });
 
-  it('3. Fails securely when SMTP verification rejects (e.g. invalid app password)', async () => {
-    mockTransporter.verify.mockRejectedValue(
-      new Error('Invalid login: 535-5.7.8 Username and Password not accepted'),
-    );
-
+  it('3. Successfully sends Admin Login OTP email with custom MAIL_FROM', async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         MailService,
@@ -94,11 +78,8 @@ describe('MailService - SMTP Configuration & Verification', () => {
           provide: ConfigService,
           useValue: {
             get: jest.fn((key) => {
-              if (key === 'SMTP_HOST') return 'smtp.gmail.com';
-              if (key === 'SMTP_PORT') return '465';
-              if (key === 'SMTP_SECURE') return 'true';
-              if (key === 'SMTP_USER') return 'aveloraelegance@gmail.com';
-              if (key === 'SMTP_PASS') return 'wrongpass';
+              if (key === 'RESEND_API_KEY') return 're_test_key_12345';
+              if (key === 'MAIL_FROM') return 'AVELORA Security <security@avelora.com>';
               return null;
             }),
           },
@@ -109,61 +90,25 @@ describe('MailService - SMTP Configuration & Verification', () => {
     service = module.get<MailService>(MailService);
     await service.onModuleInit();
 
-    expect(service.isConfigured()).toBe(false);
-  });
+    const result = await service.sendAdminOtpEmail('admin@avelora.com', '789123', 'Super Admin');
 
-  it('4. Classifies failure stages accurately without exposing secrets', () => {
-    // TCP Connection Timeout
-    expect(determineFailureStage({ code: 'ETIMEDOUT', syscall: 'connect' })).toBe('TCP_CONNECTION');
-    expect(determineFailureStage({ code: 'ECONNREFUSED', syscall: 'connect' })).toBe('TCP_CONNECTION');
-
-    // TLS Negotiation / Socket Reset
-    expect(determineFailureStage({ code: 'ESOCKET', message: 'socket closed unexpectedly' })).toBe('TLS_NEGOTIATION');
-    expect(determineFailureStage({ message: 'SSL routines:ssl3_read_bytes:tlsv1 alert' })).toBe('TLS_NEGOTIATION');
-
-    // SMTP Authentication Failure
-    expect(determineFailureStage({ code: 'EAUTH', responseCode: 535 })).toBe('SMTP_AUTHENTICATION');
-    expect(determineFailureStage({ message: '535 5.7.8 Username and Password not accepted' })).toBe('SMTP_AUTHENTICATION');
-
-    // DNS Resolution Failure
-    expect(determineFailureStage({ code: 'ENOTFOUND' })).toBe('DNS_RESOLUTION');
-  });
-
-  it('5. sendAdminOtpEmail dispatches structured HTML email', async () => {
-    const module: TestingModule = await Test.createTestingModule({
-      providers: [
-        MailService,
-        {
-          provide: ConfigService,
-          useValue: {
-            get: jest.fn((key) => {
-              if (key === 'SMTP_USER') return 'aveloraelegance@gmail.com';
-              if (key === 'SMTP_PASS') return 'mockapppass1234';
-              if (key === 'MAIL_FROM') return 'AVELORA Security <aveloraelegance@gmail.com>';
-              return null;
-            }),
-          },
-        },
-      ],
-    }).compile();
-
-    service = module.get<MailService>(MailService);
-    await service.onModuleInit();
-
-    const result = await service.sendAdminOtpEmail('recipient@example.com', '987654', 'Admin');
     expect(result.success).toBe(true);
-    expect(mockTransporter.sendMail).toHaveBeenCalledWith(
+    expect(mockEmailsSend).toHaveBeenCalledWith(
       expect.objectContaining({
-        to: 'recipient@example.com',
+        from: 'AVELORA Security <security@avelora.com>',
+        to: ['admin@avelora.com'],
         subject: 'AVELORA Admin Verification Code',
-        from: 'AVELORA Security <aveloraelegance@gmail.com>',
       }),
     );
-    const mailArgs = mockTransporter.sendMail.mock.calls[0][0];
-    expect(mailArgs.html).toContain('987654');
+
+    const callPayload = mockEmailsSend.mock.calls[0][0];
+    expect(callPayload.html).toContain('789123');
+    expect(callPayload.html).toContain('Super Admin');
+    expect(callPayload.html).toContain('AVELORA');
+    expect(callPayload.html).toContain('5 minutes');
   });
 
-  it('6. sendPasswordResetEmail dispatches password reset code', async () => {
+  it('4. Successfully sends Password Reset OTP email with custom MAIL_FROM', async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         MailService,
@@ -171,8 +116,7 @@ describe('MailService - SMTP Configuration & Verification', () => {
           provide: ConfigService,
           useValue: {
             get: jest.fn((key) => {
-              if (key === 'SMTP_USER') return 'aveloraelegance@gmail.com';
-              if (key === 'SMTP_PASS') return 'mockapppass1234';
+              if (key === 'RESEND_API_KEY') return 're_test_key_12345';
               return null;
             }),
           },
@@ -183,15 +127,76 @@ describe('MailService - SMTP Configuration & Verification', () => {
     service = module.get<MailService>(MailService);
     await service.onModuleInit();
 
-    const result = await service.sendPasswordResetEmail('reset@example.com', '654321', 'Admin User');
+    const result = await service.sendPasswordResetEmail('admin@avelora.com', '456789', 'Admin');
+
     expect(result.success).toBe(true);
-    expect(mockTransporter.sendMail).toHaveBeenCalledWith(
+    expect(mockEmailsSend).toHaveBeenCalledWith(
       expect.objectContaining({
-        to: 'reset@example.com',
+        from: 'AVELORA Security <onboarding@resend.dev>',
+        to: ['admin@avelora.com'],
         subject: 'AVELORA Password Reset Code',
       }),
     );
-    const mailArgs = mockTransporter.sendMail.mock.calls[0][0];
-    expect(mailArgs.html).toContain('654321');
+
+    const callPayload = mockEmailsSend.mock.calls[0][0];
+    expect(callPayload.html).toContain('456789');
+    expect(callPayload.html).toContain('10 minutes');
+  });
+
+  it('5. Fails securely and returns error when Resend API returns an error object', async () => {
+    mockEmailsSend.mockResolvedValueOnce({
+      data: null,
+      error: { message: 'Domain not verified or rate limit reached', name: 'validation_error' },
+    });
+
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        MailService,
+        {
+          provide: ConfigService,
+          useValue: {
+            get: jest.fn((key) => {
+              if (key === 'RESEND_API_KEY') return 're_test_key_12345';
+              return null;
+            }),
+          },
+        },
+      ],
+    }).compile();
+
+    service = module.get<MailService>(MailService);
+    await service.onModuleInit();
+
+    const result = await service.sendAdminOtpEmail('admin@avelora.com', '112233');
+
+    expect(result.success).toBe(false);
+    expect(result.configured).toBe(true);
+  });
+
+  it('6. Fails securely when Resend API throws an unexpected network exception', async () => {
+    mockEmailsSend.mockRejectedValueOnce(new Error('Network connection timeout'));
+
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        MailService,
+        {
+          provide: ConfigService,
+          useValue: {
+            get: jest.fn((key) => {
+              if (key === 'RESEND_API_KEY') return 're_test_key_12345';
+              return null;
+            }),
+          },
+        },
+      ],
+    }).compile();
+
+    service = module.get<MailService>(MailService);
+    await service.onModuleInit();
+
+    const result = await service.sendAdminOtpEmail('admin@avelora.com', '112233');
+
+    expect(result.success).toBe(false);
+    expect(result.configured).toBe(true);
   });
 });

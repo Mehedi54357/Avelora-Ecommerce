@@ -1,53 +1,19 @@
 "use strict";
-var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    var desc = Object.getOwnPropertyDescriptor(m, k);
-    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
-      desc = { enumerable: true, get: function() { return m[k]; } };
-    }
-    Object.defineProperty(o, k2, desc);
-}) : (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    o[k2] = m[k];
-}));
-var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
-    Object.defineProperty(o, "default", { enumerable: true, value: v });
-}) : function(o, v) {
-    o["default"] = v;
-});
 var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
     var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
     if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
     else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
     return c > 3 && r && Object.defineProperty(target, key, r), r;
 };
-var __importStar = (this && this.__importStar) || (function () {
-    var ownKeys = function(o) {
-        ownKeys = Object.getOwnPropertyNames || function (o) {
-            var ar = [];
-            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
-            return ar;
-        };
-        return ownKeys(o);
-    };
-    return function (mod) {
-        if (mod && mod.__esModule) return mod;
-        var result = {};
-        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
-        __setModuleDefault(result, mod);
-        return result;
-    };
-})();
 var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
 var MailService_1;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.MailService = void 0;
-exports.determineFailureStage = determineFailureStage;
 const common_1 = require("@nestjs/common");
 const config_1 = require("@nestjs/config");
-const nodemailer = __importStar(require("nodemailer"));
+const resend_1 = require("resend");
 function maskEmail(email) {
     if (!email || !email.includes('@'))
         return '******';
@@ -56,157 +22,49 @@ function maskEmail(email) {
         return `${user[0]}*@${domain}`;
     return `${user[0]}${'*'.repeat(Math.min(user.length - 2, 6))}${user[user.length - 1]}@${domain}`;
 }
-function sanitizeErrorMessage(msg, secretPass, secretUser) {
-    if (!msg)
-        return 'No error message provided';
-    let sanitized = String(msg);
-    if (secretPass && secretPass.length > 0) {
-        sanitized = sanitized.split(secretPass).join('[REDACTED_PASS]');
-    }
-    if (secretUser && secretUser.includes('@')) {
-        sanitized = sanitized.split(secretUser).join(maskEmail(secretUser));
-    }
-    return sanitized;
-}
-function determineFailureStage(err) {
-    if (!err)
-        return 'UNKNOWN';
-    const code = String(err.code || '').toUpperCase();
-    const syscall = String(err.syscall || '').toLowerCase();
-    const command = String(err.command || '').toUpperCase();
-    const msg = String(err.message || '');
-    if (code === 'ENOTFOUND' || code === 'EAI_AGAIN') {
-        return 'DNS_RESOLUTION';
-    }
-    if (syscall === 'connect' ||
-        code === 'ETIMEDOUT' ||
-        code === 'ECONNREFUSED' ||
-        code === 'EHOSTUNREACH' ||
-        code === 'ENETUNREACH') {
-        return 'TCP_CONNECTION';
-    }
-    if (code === 'ESOCKET' ||
-        code === 'ECONNRESET' ||
-        code === 'EPIPE' ||
-        msg.includes('SSL') ||
-        msg.includes('TLS') ||
-        msg.includes('handshake') ||
-        msg.includes('CERT_') ||
-        msg.includes('wrong version number')) {
-        return 'TLS_NEGOTIATION';
-    }
-    if (code === 'EAUTH' ||
-        command === 'AUTH' ||
-        err.responseCode === 535 ||
-        msg.includes('Invalid login') ||
-        msg.includes('Username and Password not accepted')) {
-        return 'SMTP_AUTHENTICATION';
-    }
-    if (command === 'STARTTLS' || command === 'EHLO' || command === 'HELO' || command === 'GREETING') {
-        return 'SMTP_PROTOCOL_HANDSHAKE';
-    }
-    return 'UNKNOWN';
-}
 let MailService = MailService_1 = class MailService {
     constructor(configService) {
         this.configService = configService;
         this.logger = new common_1.Logger(MailService_1.name);
-        this.transporter = null;
+        this.resend = null;
         this.isVerified = false;
-        this.initTransporter();
+        this.initResend();
     }
     async onModuleInit() {
-        await this.verifyTransporter();
+        this.verifyResend();
     }
-    initTransporter() {
-        const rawUser = this.configService.get('SMTP_USER');
-        const rawPass = this.configService.get('SMTP_PASS');
-        const rawHost = this.configService.get('SMTP_HOST');
-        const rawPort = this.configService.get('SMTP_PORT');
-        const rawSecure = this.configService.get('SMTP_SECURE');
-        if (!rawUser || !rawPass) {
-            this.transporter = null;
-            this.isVerified = false;
-            return;
-        }
-        const user = String(rawUser).trim();
-        const pass = String(rawPass).replace(/\s+/g, '');
-        const isGmail = user.toLowerCase().endsWith('@gmail.com') || (rawHost && String(rawHost).includes('gmail'));
-        const host = rawHost && String(rawHost).trim() !== ''
-            ? String(rawHost).trim()
-            : isGmail
-                ? 'smtp.gmail.com'
-                : undefined;
-        let port = Number(rawPort);
-        if (!port || isNaN(port)) {
-            port = String(rawSecure).toLowerCase() === 'true' ? 465 : 587;
-        }
-        const isSecureExplicitlySet = rawSecure !== undefined && rawSecure !== null && String(rawSecure).trim() !== '';
-        const secure = isSecureExplicitlySet ? String(rawSecure).toLowerCase() === 'true' : port === 465;
-        if (host && user && pass) {
-            this.transporter = nodemailer.createTransport({
-                host,
-                port,
-                secure,
-                family: 4,
-                auth: { user, pass },
-                connectionTimeout: 10000,
-                greetingTimeout: 10000,
-                socketTimeout: 15000,
-            });
+    initResend() {
+        const apiKey = this.configService.get('RESEND_API_KEY');
+        if (apiKey && apiKey.trim().length > 0) {
+            this.resend = new resend_1.Resend(apiKey.trim());
+            this.isVerified = true;
         }
         else {
-            this.transporter = null;
+            this.resend = null;
             this.isVerified = false;
         }
     }
-    async verifyTransporter() {
-        if (!this.transporter) {
-            this.logger.log('Mail transport: NOT configured (SMTP_USER or SMTP_PASS missing)');
-            return;
+    verifyResend() {
+        if (this.resend && this.isVerified) {
+            this.logger.log('Email transport: Resend configured');
         }
-        const rawPass = this.configService.get('SMTP_PASS') || '';
-        const rawUser = this.configService.get('SMTP_USER') || '';
-        try {
-            await this.transporter.verify();
-            this.isVerified = true;
-            this.logger.log('Mail transport: configured');
-        }
-        catch (err) {
-            this.isVerified = false;
-            const stage = determineFailureStage(err);
-            const safeError = {
-                stage,
-                code: err?.code || 'UNKNOWN',
-                syscall: err?.syscall || null,
-                hostname: err?.hostname ||
-                    err?.address ||
-                    this.configService.get('SMTP_HOST') ||
-                    'smtp.gmail.com',
-                port: err?.port ||
-                    Number(this.configService.get('SMTP_PORT')) ||
-                    (this.configService.get('SMTP_SECURE') === 'true' ? 465 : 587),
-                command: err?.command || null,
-                responseCode: err?.responseCode || null,
-                message: sanitizeErrorMessage(err?.message, rawPass, rawUser),
-            };
-            this.logger.warn(`Mail transport: NOT configured [Stage: ${safeError.stage}, Code: ${safeError.code}, Syscall: ${safeError.syscall || 'N/A'}, Target: ${safeError.hostname}:${safeError.port}, Command: ${safeError.command || 'N/A'}, ResponseCode: ${safeError.responseCode || 'N/A'}] — Details: ${safeError.message}`);
+        else {
+            this.logger.warn('Email transport: NOT configured (RESEND_API_KEY missing)');
         }
     }
     isConfigured() {
-        return this.transporter !== null && this.isVerified;
+        return this.resend !== null && this.isVerified;
     }
     async sendAdminOtpEmail(toEmail, otpCode, adminName = 'Administrator') {
-        if (!this.transporter) {
-            this.logger.warn(`[MailService] Attempted to send Admin OTP to ${maskEmail(toEmail)}, but SMTP is not configured.`);
+        if (!this.resend) {
+            this.logger.warn(`[MailService] Attempted to send Admin OTP to ${maskEmail(toEmail)}, but Resend is not configured.`);
             return {
                 success: false,
-                message: 'SMTP not configured — verification email could not be dispatched.',
+                message: 'Email service not configured — verification email could not be dispatched.',
                 configured: false,
             };
         }
-        const smtpUser = this.configService.get('SMTP_USER') || 'aveloraelegance@gmail.com';
-        const from = this.configService.get('MAIL_FROM') || `"AVELORA Security" <${smtpUser}>`;
+        const from = this.configService.get('MAIL_FROM') || 'AVELORA Security <onboarding@resend.dev>';
         const subject = 'AVELORA Admin Verification Code';
         const html = `
 <!DOCTYPE html>
@@ -277,31 +135,46 @@ let MailService = MailService_1 = class MailService {
 </html>
 `;
         try {
-            await this.transporter.sendMail({
+            const { data, error } = await this.resend.emails.send({
                 from,
-                to: toEmail,
+                to: [toEmail],
                 subject,
                 html,
             });
-            this.logger.log(`[MailService] OTP email successfully dispatched to ${maskEmail(toEmail)}`);
-            return { success: true, message: 'Verification code dispatched to your registered email.', configured: true };
+            if (error) {
+                this.logger.error(`[MailService] Failed to send OTP email via Resend to ${maskEmail(toEmail)}: ${error.message || JSON.stringify(error)}`);
+                return {
+                    success: false,
+                    message: 'Verification email could not be sent. Please try again.',
+                    configured: true,
+                };
+            }
+            this.logger.log(`[MailService] OTP email successfully dispatched via Resend to ${maskEmail(toEmail)} (id: ${data?.id || 'ack'})`);
+            return {
+                success: true,
+                message: 'Verification code dispatched to your registered email.',
+                configured: true,
+            };
         }
         catch (err) {
-            this.logger.error(`[MailService] Failed to send OTP email to ${maskEmail(toEmail)}: ${err.message}`);
-            return { success: false, message: 'Verification email could not be sent. Please try again.', configured: true };
+            this.logger.error(`[MailService] Exception sending OTP email via Resend to ${maskEmail(toEmail)}: ${err.message}`);
+            return {
+                success: false,
+                message: 'Verification email could not be sent. Please try again.',
+                configured: true,
+            };
         }
     }
     async sendPasswordResetEmail(toEmail, resetCode, adminName = 'Administrator') {
-        if (!this.transporter) {
-            this.logger.warn(`[MailService] Attempted to send Password Reset to ${maskEmail(toEmail)}, but SMTP is not configured.`);
+        if (!this.resend) {
+            this.logger.warn(`[MailService] Attempted to send Password Reset to ${maskEmail(toEmail)}, but Resend is not configured.`);
             return {
                 success: false,
-                message: 'SMTP not configured — email delivery unavailable.',
+                message: 'Email service not configured — email delivery unavailable.',
                 configured: false,
             };
         }
-        const smtpUser = this.configService.get('SMTP_USER') || 'aveloraelegance@gmail.com';
-        const from = this.configService.get('MAIL_FROM') || `"AVELORA Security" <${smtpUser}>`;
+        const from = this.configService.get('MAIL_FROM') || 'AVELORA Security <onboarding@resend.dev>';
         const subject = 'AVELORA Password Reset Code';
         const html = `
 <!DOCTYPE html>
@@ -350,18 +223,34 @@ let MailService = MailService_1 = class MailService {
 </html>
 `;
         try {
-            await this.transporter.sendMail({
+            const { data, error } = await this.resend.emails.send({
                 from,
-                to: toEmail,
+                to: [toEmail],
                 subject,
                 html,
             });
-            this.logger.log(`[MailService] Password reset email dispatched to ${maskEmail(toEmail)}`);
-            return { success: true, message: 'Password reset instructions sent to your email.', configured: true };
+            if (error) {
+                this.logger.error(`[MailService] Failed to send reset email via Resend to ${maskEmail(toEmail)}: ${error.message || JSON.stringify(error)}`);
+                return {
+                    success: false,
+                    message: 'Password reset email could not be sent. Please try again.',
+                    configured: true,
+                };
+            }
+            this.logger.log(`[MailService] Password reset email dispatched via Resend to ${maskEmail(toEmail)} (id: ${data?.id || 'ack'})`);
+            return {
+                success: true,
+                message: 'Password reset instructions sent to your email.',
+                configured: true,
+            };
         }
         catch (err) {
-            this.logger.error(`[MailService] Failed to send reset email to ${maskEmail(toEmail)}: ${err.message}`);
-            return { success: false, message: 'Password reset email could not be sent. Please try again.', configured: true };
+            this.logger.error(`[MailService] Exception sending reset email via Resend to ${maskEmail(toEmail)}: ${err.message}`);
+            return {
+                success: false,
+                message: 'Password reset email could not be sent. Please try again.',
+                configured: true,
+            };
         }
     }
 };

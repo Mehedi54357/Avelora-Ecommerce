@@ -153,7 +153,7 @@ export class AuthService {
         throw new BadRequestException(
           mailResult.configured
             ? 'Verification email could not be sent. Please try again in a few moments.'
-            : 'Email OTP delivery is unavailable because SMTP is not configured. Please configure SMTP in server environment.',
+            : 'Email OTP delivery is unavailable because email service is not configured. Please configure RESEND_API_KEY in server environment.',
         );
       }
 
@@ -313,7 +313,7 @@ export class AuthService {
       throw new BadRequestException(
         mailResult.configured
           ? 'Verification email could not be sent. Please try again in a few moments.'
-          : 'Email delivery is unavailable because SMTP is not configured in server environment.',
+          : 'Email delivery is unavailable because email service is not configured in server environment.',
       );
     }
 
@@ -378,7 +378,7 @@ export class AuthService {
     const mailResult = await this.mailService.sendPasswordResetEmail(cleanEmail, resetCode, user.name);
 
     if (!mailResult.success && !mailResult.configured) {
-      this.logger.warn(`[ForgotPassword] Password reset email requested for ${maskEmail(cleanEmail)}, but SMTP is not configured.`);
+      this.logger.warn(`[ForgotPassword] Password reset email requested for ${maskEmail(cleanEmail)}, but email transport is not configured.`);
     }
 
     await this.auditLogService.logAction({
