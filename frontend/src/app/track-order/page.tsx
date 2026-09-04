@@ -97,10 +97,10 @@ export default function TrackOrderPage() {
   const isReturned = order?.status === 'RETURNED' || order?.status === 'RETURN_REQUESTED';
 
   return (
-    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+    <div className="max-w-4xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-8 space-y-6 sm:space-y-8">
       {/* Breadcrumbs & Quick Back Navigation */}
-      <div className="flex flex-wrap items-center justify-between gap-4 bg-white px-5 py-3 rounded-2xl border border-gray-200/80 shadow-sm text-xs">
-        <nav className="flex items-center gap-2 text-gray-500 font-medium py-1">
+      <div className="flex flex-wrap items-center justify-between gap-3 bg-white px-3.5 sm:px-5 py-2.5 sm:py-3 rounded-2xl border border-gray-200/80 shadow-2xs text-xs">
+        <nav className="flex items-center gap-1.5 sm:gap-2 text-gray-500 font-medium py-1">
           <Link href="/" className="hover:text-[#C5A059] transition text-gray-700 font-semibold">
             Home
           </Link>
@@ -110,29 +110,29 @@ export default function TrackOrderPage() {
 
         <Link
           href="/"
-          className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold text-xs transition"
+          className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold text-[11px] sm:text-xs transition"
         >
-          <ArrowLeft className="w-3.5 h-3.5" />
+          <ArrowLeft className="w-3 h-3" />
           <span>Back to Home</span>
         </Link>
       </div>
 
       {/* Header */}
-      <div className="text-center space-y-3">
-        <div className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-[#D4AF37]/10 text-[#997B21] text-[10px] font-bold uppercase tracking-widest border border-[#D4AF37]/30">
-          <Compass className="w-3.5 h-3.5" />
+      <div className="text-center space-y-2 sm:space-y-3">
+        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#D4AF37]/10 text-[#997B21] text-[9px] sm:text-[10px] font-bold uppercase tracking-widest border border-[#D4AF37]/30">
+          <Compass className="w-3 h-3" />
           <span>Real-Time Dispatch Tracking</span>
         </div>
-        <h1 className="text-3xl sm:text-4xl font-bold font-serif-luxury text-gray-900">
+        <h1 className="text-2xl sm:text-4xl font-bold font-serif-luxury text-gray-900">
           Track Your AVELORA Order
         </h1>
-        <p className="text-xs sm:text-sm text-gray-500 max-w-md mx-auto">
+        <p className="text-xs sm:text-sm text-gray-500 max-w-md mx-auto leading-relaxed">
           For enhanced privacy & security, enter both your <strong>Order Reference ID</strong> and <strong>Recipient Mobile Number</strong>.
         </p>
       </div>
 
       {/* Secure Search Form (Order ID + Mobile Number) */}
-      <form onSubmit={handleSearch} className="max-w-2xl mx-auto bg-white p-6 sm:p-8 rounded-2xl border border-gray-200 shadow-md space-y-4">
+      <form onSubmit={handleSearch} className="max-w-2xl mx-auto bg-white p-4 sm:p-8 rounded-2xl border border-gray-200 shadow-2xs space-y-4">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="space-y-1 text-left">
             <label className="block text-xs font-bold uppercase text-gray-700">

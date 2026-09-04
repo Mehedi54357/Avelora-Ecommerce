@@ -1,7 +1,7 @@
 import { Document, Schema as MongooseSchema } from 'mongoose';
 export type AuditLogDocument = AuditLog & Document;
 export declare class AuditLog {
-    adminId: MongooseSchema.Types.ObjectId;
+    adminId?: MongooseSchema.Types.ObjectId;
     action: string;
     entityType: string;
     entityId: string;

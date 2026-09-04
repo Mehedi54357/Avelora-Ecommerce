@@ -7,10 +7,13 @@ import { Order, OrderStatus, PaymentStatus, CourierSettlementStatus } from '../.
 import { AuditLogService } from '../audit-log/audit-log.service';
 import { BadRequestException } from '@nestjs/common';
 
+import { Settings } from '../../schemas/settings.schema';
+
 describe('PathaoService - Real Courier Merchant API & Lifecycle Accounting', () => {
   let service: PathaoService;
   let mockTokenModel: any;
   let mockOrderModel: any;
+  let mockSettingsModel: any;
   let mockConfigService: any;
   let mockAuditLogService: any;
 
@@ -22,6 +25,10 @@ describe('PathaoService - Real Courier Merchant API & Lifecycle Accounting', () 
 
     mockOrderModel = {
       findById: jest.fn(),
+    };
+
+    mockSettingsModel = {
+      findOne: jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue(null) }),
     };
 
     mockConfigService = {
@@ -45,6 +52,7 @@ describe('PathaoService - Real Courier Merchant API & Lifecycle Accounting', () 
         { provide: ConfigService, useValue: mockConfigService },
         { provide: getModelToken(PathaoToken.name), useValue: mockTokenModel },
         { provide: getModelToken(Order.name), useValue: mockOrderModel },
+        { provide: getModelToken(Settings.name), useValue: mockSettingsModel },
         { provide: AuditLogService, useValue: mockAuditLogService },
       ],
     }).compile();
@@ -99,7 +107,7 @@ describe('PathaoService - Real Courier Merchant API & Lifecycle Accounting', () 
       }),
     });
 
-    const mockOrder = {
+    const mockOrder: any = {
       _id: 'ord_123',
       orderId: 'AVE-20260826-001',
       status: OrderStatus.PROCESSING,
@@ -109,6 +117,7 @@ describe('PathaoService - Real Courier Merchant API & Lifecycle Accounting', () 
       deliveryCharge: 80,
       items: [{ productName: 'Velvet Dress', sku: 'VD-01', quantity: 1 }],
       timeline: [],
+      courier: {},
       save: jest.fn().mockResolvedValue(true),
     };
 

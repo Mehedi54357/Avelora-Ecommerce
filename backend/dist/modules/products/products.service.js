@@ -13,6 +13,7 @@ var __param = (this && this.__param) || function (paramIndex, decorator) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ProductsService = exports.DEFAULT_AVELORA_CATEGORIES = void 0;
+exports.evaluateProductPricing = evaluateProductPricing;
 const common_1 = require("@nestjs/common");
 const mongoose_1 = require("@nestjs/mongoose");
 const mongoose_2 = require("mongoose");
@@ -30,13 +31,146 @@ exports.DEFAULT_AVELORA_CATEGORIES = [
     { slug: 'kids-girls-dresses', name: 'Girls\' Dresses (বাচ্চাদের ড্রেস ও পার্টি গাউন)', department: 'kids', description: 'Organza party gowns and velvet Eid frocks for little princesses' },
     { slug: 'kids-accessories', name: 'Kids\' Shoes & Accessories (বাচ্চাদের জুতা ও এক্সেসরিজ)', department: 'kids', description: 'Kids footwear, headbands, and accessories' },
 ];
+function evaluateProductPricing(product, now = new Date()) {
+    const originalPrice = Math.max(0, Number(product.originalPrice) || 0);
+    let salePrice = Math.max(0, Number(product.salePrice) || 0);
+    if ((!salePrice || salePrice === originalPrice) && product.discountPercentage && product.discountPercentage > 0 && originalPrice > 0) {
+        salePrice = Math.round(originalPrice * (1 - product.discountPercentage / 100));
+    }
+    const isEnabled = product.isDiscountActive !== false;
+    let isFuture = false;
+    let isExpired = false;
+    if (product.discountStartDate) {
+        const start = new Date(product.discountStartDate);
+        if (!isNaN(start.getTime()) && now.getTime() < start.getTime()) {
+            isFuture = true;
+        }
+    }
+    if (product.discountEndDate) {
+        const end = new Date(product.discountEndDate);
+        if (!isNaN(end.getTime()) && now.getTime() > end.getTime()) {
+            isExpired = true;
+        }
+    }
+    const isTimeValid = !isFuture && !isExpired;
+    const isDiscountValid = isEnabled && isTimeValid && salePrice > 0 && salePrice < originalPrice;
+    if (isDiscountValid) {
+        const savingAmount = originalPrice - salePrice;
+        const discountPercentage = Math.round(((originalPrice - salePrice) / originalPrice) * 100);
+        return {
+            regularPrice: originalPrice,
+            salePrice,
+            effectivePrice: salePrice,
+            hasDiscount: true,
+            discountPercentage,
+            savingAmount,
+            isDiscountActive: true,
+            isScheduled: Boolean(product.discountStartDate || product.discountEndDate),
+            isExpired: false,
+            isFuture: false,
+        };
+    }
+    const fallbackPrice = originalPrice > 0 ? originalPrice : salePrice;
+    return {
+        regularPrice: fallbackPrice,
+        salePrice: 0,
+        effectivePrice: fallbackPrice,
+        hasDiscount: false,
+        discountPercentage: 0,
+        savingAmount: 0,
+        isDiscountActive: false,
+        isScheduled: Boolean(product.discountStartDate || product.discountEndDate),
+        isExpired,
+        isFuture,
+    };
+}
+const order_schema_1 = require("../../schemas/order.schema");
+const purchase_schema_1 = require("../../schemas/purchase.schema");
+const inventory_transaction_schema_1 = require("../../schemas/inventory-transaction.schema");
+const return_request_schema_1 = require("../../schemas/return-request.schema");
+const audit_log_service_1 = require("../audit-log/audit-log.service");
 let ProductsService = class ProductsService {
-    constructor(productModel, categoryModel) {
+    constructor(productModel, categoryModel, orderModel, purchaseOrderModel, transactionModel, returnRequestModel, auditLogService) {
         this.productModel = productModel;
         this.categoryModel = categoryModel;
+        this.orderModel = orderModel;
+        this.purchaseOrderModel = purchaseOrderModel;
+        this.transactionModel = transactionModel;
+        this.returnRequestModel = returnRequestModel;
+        this.auditLogService = auditLogService;
+    }
+    normalizeProductImages(payload) {
+        if (Array.isArray(payload.productImages) && payload.productImages.length > 0) {
+            let hasPrimary = false;
+            const normalized = payload.productImages.map((img, idx) => {
+                const url = typeof img === 'string' ? img.trim() : (img.url?.trim() || '');
+                const isPrimary = typeof img === 'object' && Boolean(img.isPrimary);
+                if (isPrimary)
+                    hasPrimary = true;
+                return {
+                    url,
+                    public_id: typeof img === 'object' ? img.public_id || '' : '',
+                    sortOrder: typeof img === 'object' && img.sortOrder !== undefined ? Number(img.sortOrder) : idx,
+                    isPrimary,
+                    alt: typeof img === 'object' ? img.alt || '' : '',
+                    width: typeof img === 'object' ? Number(img.width) || 0 : 0,
+                    height: typeof img === 'object' ? Number(img.height) || 0 : 0,
+                    variantColor: typeof img === 'object' ? img.variantColor || '' : '',
+                };
+            }).filter((img) => Boolean(img.url));
+            if (!hasPrimary && normalized.length > 0) {
+                normalized[0].isPrimary = true;
+            }
+            normalized.sort((a, b) => (a.isPrimary ? -1 : b.isPrimary ? 1 : a.sortOrder - b.sortOrder));
+            normalized.forEach((img, idx) => {
+                img.sortOrder = idx;
+            });
+            payload.productImages = normalized;
+            payload.images = normalized.map((img) => img.url);
+        }
+        else if (Array.isArray(payload.images) && payload.images.length > 0) {
+            const cleanImages = payload.images.map((img) => String(img).trim()).filter(Boolean);
+            payload.images = cleanImages;
+            payload.productImages = cleanImages.map((url, idx) => ({
+                url,
+                public_id: '',
+                sortOrder: idx,
+                isPrimary: idx === 0,
+                alt: '',
+                width: 0,
+                height: 0,
+                variantColor: '',
+            }));
+        }
+    }
+    validatePricingAndDates(payload) {
+        const orig = Number(payload.originalPrice) || 0;
+        const sale = Number(payload.salePrice) || 0;
+        if (payload.isDiscountActive !== false && sale > 0 && orig > 0) {
+            if (sale >= orig) {
+                throw new common_1.BadRequestException(`Sale price (৳${sale}) must be strictly less than original price (৳${orig})`);
+            }
+        }
+        if (payload.discountStartDate && payload.discountEndDate) {
+            const start = new Date(payload.discountStartDate);
+            const end = new Date(payload.discountEndDate);
+            if (!isNaN(start.getTime()) && !isNaN(end.getTime()) && end.getTime() <= start.getTime()) {
+                throw new common_1.BadRequestException('Discount end date must be strictly after start date');
+            }
+        }
+        if (orig > 0 && sale > 0 && sale < orig) {
+            payload.discountPercentage = Math.round(((orig - sale) / orig) * 100);
+        }
+        else if (payload.discountPercentage > 0 && orig > 0 && (!sale || sale === orig)) {
+            payload.salePrice = Math.round(orig * (1 - payload.discountPercentage / 100));
+        }
     }
     async findPublic(query) {
-        const filter = { isPublished: { $ne: false } };
+        const filter = {
+            isPublished: { $ne: false },
+            status: 'ACTIVE',
+            dataMode: { $ne: 'TEST' },
+        };
         if (query.category && query.category.trim() !== '') {
             const catSlugOrId = query.category.trim();
             const categoryDoc = await this.categoryModel
@@ -116,6 +250,13 @@ let ProductsService = class ProductsService {
         if (!product) {
             throw new common_1.NotFoundException(`Product "${slug}" not found`);
         }
+        if (product.dataMode === 'TEST' ||
+            product.status === 'ARCHIVED' ||
+            product.status === 'HIDDEN' ||
+            product.status === 'DRAFT' ||
+            product.isPublished === false) {
+            throw new common_1.NotFoundException(`Product "${slug}" not available`);
+        }
         return product;
     }
     async findById(id) {
@@ -138,6 +279,12 @@ let ProductsService = class ProductsService {
         }
         if (query.isPublished !== undefined) {
             filter.isPublished = query.isPublished;
+        }
+        if (query.status && query.status !== 'ALL') {
+            filter.status = query.status;
+        }
+        if (query.dataMode && query.dataMode !== 'ALL') {
+            filter.dataMode = query.dataMode;
         }
         return this.productModel
             .find(filter)
@@ -207,12 +354,8 @@ let ProductsService = class ProductsService {
         if (existing) {
             payload.slug = `${payload.slug}-${Date.now().toString().slice(-4)}`;
         }
-        if (payload.originalPrice && payload.discountPercentage && (!payload.salePrice || payload.salePrice === payload.originalPrice)) {
-            payload.salePrice = Math.round(payload.originalPrice * (1 - payload.discountPercentage / 100));
-        }
-        else if (!payload.salePrice && payload.originalPrice) {
-            payload.salePrice = payload.originalPrice;
-        }
+        this.normalizeProductImages(payload);
+        this.validatePricingAndDates(payload);
         if (Array.isArray(payload.variants) && payload.variants.length > 0) {
             payload.variants = payload.variants.map((v, index) => ({
                 sku: v.sku?.trim() || `AVE-${Date.now().toString().slice(-4)}-${index + 1}`,
@@ -220,7 +363,7 @@ let ProductsService = class ProductsService {
                 colorHex: v.colorHex?.trim() || '',
                 image: v.image?.trim() || '',
                 size: v.size?.trim() || '',
-                price: Number(v.price) || Number(payload.salePrice) || Number(payload.originalPrice) || 0,
+                price: Number(v.price) > 0 ? Number(v.price) : Number(payload.salePrice) || Number(payload.originalPrice) || 0,
                 costPrice: Number(v.costPrice) || 0,
                 stockQuantity: Number(v.stockQuantity !== undefined ? v.stockQuantity : (v.stock || 10)),
                 reservedQuantity: Number(v.reservedQuantity || 0),
@@ -270,9 +413,6 @@ let ProductsService = class ProductsService {
                 .replace(/[^a-z0-9\u0980-\u09FF]+/g, '-')
                 .replace(/(^-|-$)+/g, '');
         }
-        if (payload.originalPrice && payload.discountPercentage && !payload.salePrice) {
-            payload.salePrice = Math.round(payload.originalPrice * (1 - payload.discountPercentage / 100));
-        }
         if (payload.categoryId) {
             const resolvedCatId = await this.ensureCategory(payload.categoryId);
             if (resolvedCatId) {
@@ -282,9 +422,11 @@ let ProductsService = class ProductsService {
                 delete payload.categoryId;
             }
         }
-        else {
+        else if (payload.categoryId === '' || payload.categoryId === null) {
             delete payload.categoryId;
         }
+        this.normalizeProductImages(payload);
+        this.validatePricingAndDates(payload);
         if (Array.isArray(payload.variants) && payload.variants.length > 0) {
             payload.variants = payload.variants.map((v, index) => ({
                 sku: v.sku?.trim() || `AVE-${Date.now().toString().slice(-4)}-${index + 1}`,
@@ -292,7 +434,7 @@ let ProductsService = class ProductsService {
                 colorHex: v.colorHex?.trim() || '',
                 image: v.image?.trim() || '',
                 size: v.size?.trim() || '',
-                price: Number(v.price) || Number(payload.salePrice) || Number(payload.originalPrice) || 0,
+                price: Number(v.price) > 0 ? Number(v.price) : Number(payload.salePrice) || Number(payload.originalPrice) || 0,
                 costPrice: Number(v.costPrice) || 0,
                 stockQuantity: Number(v.stockQuantity !== undefined ? v.stockQuantity : (v.stock || 0)),
                 reservedQuantity: Number(v.reservedQuantity || 0),
@@ -313,15 +455,66 @@ let ProductsService = class ProductsService {
             throw new common_1.BadRequestException(err.message || 'Failed to update product');
         }
     }
-    async delete(id) {
-        const result = await this.productModel.findByIdAndDelete(id).exec();
-        if (!result) {
+    async archiveProduct(id, actorId) {
+        const product = await this.productModel.findById(id).exec();
+        if (!product)
+            throw new common_1.NotFoundException('Product not found');
+        product.status = 'ARCHIVED';
+        await product.save();
+        await this.auditLogService.logAction({
+            adminId: actorId,
+            action: 'PRODUCT_ARCHIVED',
+            entityType: 'PRODUCT',
+            entityId: id,
+            newData: { name: product.name, slug: product.slug },
+        });
+        return product;
+    }
+    async restoreProduct(id, actorId) {
+        const product = await this.productModel.findById(id).exec();
+        if (!product)
+            throw new common_1.NotFoundException('Product not found');
+        product.status = 'ACTIVE';
+        await product.save();
+        await this.auditLogService.logAction({
+            adminId: actorId,
+            action: 'PRODUCT_RESTORED',
+            entityType: 'PRODUCT',
+            entityId: id,
+            newData: { name: product.name, slug: product.slug },
+        });
+        return product;
+    }
+    async delete(id, actorId) {
+        const product = await this.productModel.findById(id).exec();
+        if (!product) {
             throw new common_1.NotFoundException('Product not found');
         }
-        return { success: true };
+        const [orderCount, poCount, txnCount, returnCount] = await Promise.all([
+            this.orderModel.countDocuments({ 'items.productId': id }).exec(),
+            this.purchaseOrderModel.countDocuments({ 'items.productId': id }).exec(),
+            this.transactionModel.countDocuments({ productId: id }).exec(),
+            this.returnRequestModel.countDocuments({ 'items.productId': id }).exec(),
+        ]);
+        const hasHistory = orderCount > 0 || poCount > 0 || txnCount > 0 || returnCount > 0;
+        if (hasHistory) {
+            if (product.dataMode !== 'TEST') {
+                throw new common_1.BadRequestException('This product has transaction history and cannot be permanently deleted. Archive the product instead.');
+            }
+            await this.transactionModel.deleteMany({ productId: id }).exec();
+        }
+        await this.productModel.findByIdAndDelete(id).exec();
+        await this.auditLogService.logAction({
+            adminId: actorId,
+            action: 'PRODUCT_PERMANENTLY_DELETED',
+            entityType: 'PRODUCT',
+            entityId: id,
+            oldData: { name: product.name, slug: product.slug, dataMode: product.dataMode },
+        });
+        return { success: true, message: 'Product permanently deleted.' };
     }
     async clearAll() {
-        const res = await this.productModel.deleteMany({}).exec();
+        const res = await this.productModel.deleteMany({ dataMode: 'TEST' }).exec();
         return { success: true, deletedCount: res.deletedCount || 0 };
     }
 };
@@ -330,7 +523,16 @@ exports.ProductsService = ProductsService = __decorate([
     (0, common_1.Injectable)(),
     __param(0, (0, mongoose_1.InjectModel)(product_schema_1.Product.name)),
     __param(1, (0, mongoose_1.InjectModel)(category_schema_1.Category.name)),
+    __param(2, (0, mongoose_1.InjectModel)(order_schema_1.Order.name)),
+    __param(3, (0, mongoose_1.InjectModel)(purchase_schema_1.PurchaseOrder.name)),
+    __param(4, (0, mongoose_1.InjectModel)(inventory_transaction_schema_1.InventoryTransaction.name)),
+    __param(5, (0, mongoose_1.InjectModel)(return_request_schema_1.ReturnRequest.name)),
     __metadata("design:paramtypes", [mongoose_2.Model,
-        mongoose_2.Model])
+        mongoose_2.Model,
+        mongoose_2.Model,
+        mongoose_2.Model,
+        mongoose_2.Model,
+        mongoose_2.Model,
+        audit_log_service_1.AuditLogService])
 ], ProductsService);
 //# sourceMappingURL=products.service.js.map

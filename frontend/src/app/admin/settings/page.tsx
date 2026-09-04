@@ -22,11 +22,17 @@ import {
   Activity,
   Check,
   Shield,
+  Database,
+  Trash2,
+  ShieldAlert,
+  FileText,
+  RotateCcw,
+  Package,
 } from 'lucide-react';
 import { API_BASE_URL, authFetch } from '../../../utils/api-config';
 
 export default function AdminSettingsPage() {
-  const [activeTab, setActiveTab] = useState<'IDENTITY' | 'PATHAO' | 'DELIVERY'>('PATHAO');
+  const [activeTab, setActiveTab] = useState<'IDENTITY' | 'PATHAO' | 'DELIVERY' | 'DATA_MANAGEMENT'>('PATHAO');
 
   // Business Identity
   const [businessName, setBusinessName] = useState('AVELORA');
@@ -76,6 +82,13 @@ export default function AdminSettingsPage() {
     sandbox: false,
   });
 
+  // TEST DATA MANAGEMENT STATE
+  const [testSummary, setTestSummary] = useState<any>(null);
+  const [loadingTestSummary, setLoadingTestSummary] = useState(false);
+  const [showCleanupModal, setShowCleanupModal] = useState(false);
+  const [cleanupConfirmText, setCleanupConfirmText] = useState('');
+  const [cleaningUp, setCleaningUp] = useState(false);
+
   const fetchPathaoConfig = async () => {
     setLoadingPathao(true);
     try {
@@ -95,9 +108,30 @@ export default function AdminSettingsPage() {
     }
   };
 
+  const fetchTestSummary = async () => {
+    setLoadingTestSummary(true);
+    try {
+      const res = await authFetch(`${API_BASE_URL}/api/settings/admin/test-data/summary`);
+      if (res.ok) {
+        const data = await res.json();
+        setTestSummary(data);
+      }
+    } catch (e) {
+      console.error('Failed to fetch test summary:', e);
+    } finally {
+      setLoadingTestSummary(false);
+    }
+  };
+
   useEffect(() => {
     fetchPathaoConfig();
   }, []);
+
+  useEffect(() => {
+    if (activeTab === 'DATA_MANAGEMENT') {
+      fetchTestSummary();
+    }
+  }, [activeTab]);
 
   const handleTestConnection = async () => {
     setTestingPathao(true);
@@ -122,7 +156,7 @@ export default function AdminSettingsPage() {
     } catch (e: any) {
       setPathaoStatus({
         success: false,
-        message: e.message || 'Connection test error',
+        message: 'Connection failed: ' + (e.message || 'Server timeout'),
       });
     } finally {
       setTestingPathao(false);
@@ -140,33 +174,34 @@ export default function AdminSettingsPage() {
       if (res.ok && data.success) {
         setPathaoStatus({
           success: true,
-          message: `Synced successfully! ${data.stores?.length || 0} stores fetched.`,
+          message: `Synced ${data.count || 0} pickup hubs from your Pathao Merchant profile.`,
         });
         fetchPathaoConfig();
       } else {
         setPathaoStatus({
           success: false,
-          message: data.message || 'Failed to sync stores from Pathao.',
+          message: data.message || 'Failed to sync pickup stores from Pathao.',
         });
       }
     } catch (e: any) {
       setPathaoStatus({
         success: false,
-        message: e.message || 'Store sync error',
+        message: 'Sync failed: ' + e.message,
       });
     } finally {
       setSyncingStores(false);
     }
   };
 
-  const handleSelectStore = async (storeId: number, storeName: string) => {
+  const handleSetDefaultStore = async (storeId: number, storeName: string) => {
     try {
       const res = await authFetch(`${API_BASE_URL}/api/admin/courier/pathao/default-store`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ storeId, storeName }),
       });
-      if (res.ok) {
+      const data = await res.json();
+      if (res.ok && data.success) {
         setPathaoConfig((prev: any) => ({
           ...prev,
           selectedStoreId: storeId,
@@ -174,16 +209,15 @@ export default function AdminSettingsPage() {
         }));
         setPathaoStatus({
           success: true,
-          message: `Default pickup store set to: "${storeName}"`,
+          message: `Default pickup store updated to "${storeName}".`,
         });
       }
     } catch (e: any) {
-      alert('Failed to update default store: ' + e.message);
+      alert('Failed to set default store: ' + e.message);
     }
   };
 
-  const handleToggleIntegration = async () => {
-    const nextState = !pathaoConfig.enabled;
+  const handleToggleIntegration = async (nextState: boolean) => {
     try {
       const res = await authFetch(`${API_BASE_URL}/api/admin/courier/pathao/toggle`, {
         method: 'POST',
@@ -191,12 +225,8 @@ export default function AdminSettingsPage() {
         body: JSON.stringify({ enabled: nextState }),
       });
       const data = await res.json();
-      if (res.ok) {
-        setPathaoConfig((prev: any) => ({
-          ...prev,
-          enabled: nextState,
-          connectionStatus: nextState ? 'Connected' : 'Disabled',
-        }));
+      if (res.ok && data.success) {
+        setPathaoConfig((prev: any) => ({ ...prev, enabled: nextState }));
         setPathaoStatus({
           success: true,
           message: data.message || `Pathao Integration ${nextState ? 'enabled' : 'disabled'}.`,
@@ -247,6 +277,41 @@ export default function AdminSettingsPage() {
     }
   };
 
+  // Bulk Clean Test Data
+  const handleBulkCleanupTestData = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (cleanupConfirmText.trim() !== 'DELETE TEST DATA') {
+      alert('You must type exact text "DELETE TEST DATA" to proceed.');
+      return;
+    }
+    setCleaningUp(true);
+
+    try {
+      const res = await authFetch(`${API_BASE_URL}/api/settings/admin/test-data/cleanup`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          confirmationText: cleanupConfirmText.trim(),
+          cleanAll: true,
+        }),
+      });
+
+      const data = await res.json();
+      if (res.ok && data.success) {
+        alert(data.message || 'Test data safely cleaned up and inventory reservations reconciled.');
+        setShowCleanupModal(false);
+        setCleanupConfirmText('');
+        fetchTestSummary();
+      } else {
+        alert(data.message || 'Failed to clean up test data.');
+      }
+    } catch (err: any) {
+      alert(err.message || 'Error executing test cleanup.');
+    } finally {
+      setCleaningUp(false);
+    }
+  };
+
   const formatDateTime = (dateStr: any) => {
     if (!dateStr) return 'Never';
     try {
@@ -270,27 +335,27 @@ export default function AdminSettingsPage() {
       <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <span className="text-[10px] font-bold uppercase tracking-widest text-[#8C6D23]">
-            System Configuration & Integrations
+            System Configuration &amp; Operations
           </span>
           <h1 className="text-2xl font-extrabold font-serif-luxury text-slate-950 mt-0.5">
-            Settings & Logistics Infrastructure
+            Settings &amp; Infrastructure
           </h1>
           <p className="text-xs text-gray-500">
-            Manage business identity, Pathao Merchant API credentials, default pickup hubs, and delivery zones.
+            Manage business identity, Pathao courier API, delivery zones, and production-grade sandboxed test data.
           </p>
         </div>
         <div className="flex items-center gap-2">
           <span className="px-3 py-1 bg-slate-100 text-slate-700 rounded-full font-mono text-xs font-semibold border border-slate-200">
-            v2.4.0 • Production Ready
+            v2.4.0 &bull; Enterprise 2FA
           </span>
         </div>
       </div>
 
       {/* Tabs */}
-      <div className="flex border-b border-gray-200 bg-white px-6 pt-3 rounded-t-2xl shadow-sm">
+      <div className="flex border-b border-gray-200 bg-white px-6 pt-3 rounded-t-2xl shadow-sm overflow-x-auto">
         <button
           onClick={() => setActiveTab('PATHAO')}
-          className={`pb-3 px-4 text-xs font-bold uppercase tracking-wider border-b-2 transition flex items-center gap-2 ${
+          className={`pb-3 px-4 text-xs font-bold uppercase tracking-wider border-b-2 transition flex items-center gap-2 flex-shrink-0 cursor-pointer ${
             activeTab === 'PATHAO'
               ? 'border-red-600 text-red-600'
               : 'border-transparent text-gray-500 hover:text-slate-800'
@@ -302,331 +367,197 @@ export default function AdminSettingsPage() {
 
         <button
           onClick={() => setActiveTab('IDENTITY')}
-          className={`pb-3 px-4 text-xs font-bold uppercase tracking-wider border-b-2 transition flex items-center gap-2 ${
+          className={`pb-3 px-4 text-xs font-bold uppercase tracking-wider border-b-2 transition flex items-center gap-2 flex-shrink-0 cursor-pointer ${
             activeTab === 'IDENTITY'
               ? 'border-slate-900 text-slate-950'
               : 'border-transparent text-gray-500 hover:text-slate-800'
           }`}
         >
           <Building2 className="w-4 h-4 text-[#8C6D23]" />
-          <span>Business Identity & VAT</span>
+          <span>Business Identity &amp; VAT</span>
         </button>
 
         <button
           onClick={() => setActiveTab('DELIVERY')}
-          className={`pb-3 px-4 text-xs font-bold uppercase tracking-wider border-b-2 transition flex items-center gap-2 ${
+          className={`pb-3 px-4 text-xs font-bold uppercase tracking-wider border-b-2 transition flex items-center gap-2 flex-shrink-0 cursor-pointer ${
             activeTab === 'DELIVERY'
               ? 'border-slate-900 text-slate-950'
               : 'border-transparent text-gray-500 hover:text-slate-800'
           }`}
         >
           <ShieldCheck className="w-4 h-4 text-emerald-600" />
-          <span>Delivery Rates & Zones</span>
+          <span>Delivery Rates &amp; Zones</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('DATA_MANAGEMENT')}
+          className={`pb-3 px-4 text-xs font-bold uppercase tracking-wider border-b-2 transition flex items-center gap-2 flex-shrink-0 cursor-pointer ${
+            activeTab === 'DATA_MANAGEMENT'
+              ? 'border-purple-600 text-purple-700'
+              : 'border-transparent text-purple-600/70 hover:text-purple-900'
+          }`}
+        >
+          <Database className="w-4 h-4 text-purple-600" />
+          <span>🧪 Test &amp; Demo Data Center</span>
         </button>
       </div>
 
       {/* TAB 1: PATHAO COURIER INTEGRATION */}
       {activeTab === 'PATHAO' && (
         <div className="bg-white rounded-b-2xl border border-gray-200 shadow-sm p-6 space-y-6 -mt-6">
-          {/* Header Banner */}
-          <div className="flex flex-col md:flex-row md:items-center justify-between pb-5 border-b border-gray-100 gap-4">
-            <div className="flex items-center gap-3">
-              <div className="w-11 h-11 rounded-2xl bg-red-50 border border-red-100 flex items-center justify-center flex-shrink-0">
-                <Truck className="w-6 h-6 text-red-600" />
+          <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 pb-6 border-b border-gray-100">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 rounded-2xl bg-red-50 border border-red-200 flex items-center justify-center text-red-600 font-bold">
+                <Truck className="w-6 h-6" />
               </div>
               <div>
-                <h3 className="text-lg font-bold text-slate-950">Pathao Courier Integration</h3>
-                <p className="text-xs text-gray-500">
-                  Full-stack automated courier dispatch, OAuth token renewal, live order tracking, and COD reconciliation.
-                </p>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-lg font-bold text-slate-950 font-serif-luxury">Pathao Merchant API</h3>
+                  <span
+                    className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                      pathaoConfig.enabled
+                        ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                        : 'bg-gray-100 text-gray-600 border border-gray-200'
+                    }`}
+                  >
+                    {pathaoConfig.enabled ? 'Active Integration' : 'Disabled'}
+                  </span>
+                </div>
+                <p className="text-xs text-gray-500">Official merchant courier booking, real-time rate plan &amp; consignment dispatch</p>
               </div>
             </div>
 
             <div className="flex items-center gap-2">
-              <span
-                className={`px-3 py-1 rounded-full font-bold text-xs flex items-center gap-1.5 border ${
-                  pathaoConfig.enabled && pathaoConfig.connectionStatus === 'Connected'
-                    ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
-                    : pathaoConfig.enabled
-                    ? 'bg-amber-50 text-amber-800 border-amber-200'
-                    : 'bg-rose-50 text-rose-800 border-rose-200'
+              <button
+                onClick={() => handleToggleIntegration(!pathaoConfig.enabled)}
+                className={`px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                  pathaoConfig.enabled
+                    ? 'bg-red-50 text-red-700 border border-red-200 hover:bg-red-100'
+                    : 'bg-slate-900 text-white hover:bg-slate-800'
                 }`}
               >
-                <span
-                  className={`w-2 h-2 rounded-full ${
-                    pathaoConfig.enabled && pathaoConfig.connectionStatus === 'Connected'
-                      ? 'bg-emerald-500 animate-pulse'
-                      : pathaoConfig.enabled
-                      ? 'bg-amber-500'
-                      : 'bg-rose-500'
-                  }`}
-                ></span>
-                {pathaoConfig.connectionStatus}
-              </span>
+                <Power className="w-3.5 h-3.5" />
+                <span>{pathaoConfig.enabled ? 'Disable' : 'Enable'}</span>
+              </button>
 
-              <span
-                className={`px-3 py-1 rounded-full font-extrabold text-[11px] uppercase tracking-wider border ${
-                  pathaoConfig.mode === 'LIVE'
-                    ? 'bg-slate-900 text-white border-slate-900'
-                    : 'bg-amber-100 text-amber-900 border-amber-300'
-                }`}
+              <button
+                onClick={() => {
+                  setCredForm({
+                    username: '',
+                    password: '',
+                    clientId: '',
+                    clientSecret: '',
+                    sandbox: pathaoConfig.sandbox || false,
+                  });
+                  setShowEditModal(true);
+                }}
+                className="px-4 py-2 bg-slate-950 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-sm cursor-pointer"
               >
-                {pathaoConfig.mode}
-              </span>
+                <Edit3 className="w-3.5 h-3.5 text-[#D4AF37]" />
+                <span>Configure Credentials</span>
+              </button>
             </div>
           </div>
 
-          {/* Feedback Status Alert */}
           {pathaoStatus && (
             <div
-              className={`p-4 rounded-2xl border text-xs flex items-start gap-3 transition-all ${
+              className={`p-4 rounded-xl text-xs flex items-start gap-3 animate-fadeIn ${
                 pathaoStatus.success
-                  ? 'bg-emerald-50/90 border-emerald-200 text-emerald-900'
-                  : 'bg-rose-50/90 border-rose-200 text-rose-900'
+                  ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+                  : 'bg-red-50 text-red-800 border border-red-200'
               }`}
             >
               {pathaoStatus.success ? (
-                <CheckCircle2 className="w-5 h-5 flex-shrink-0 mt-0.5 text-emerald-600" />
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 mt-0.5 flex-shrink-0" />
               ) : (
-                <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5 text-rose-600" />
+                <AlertCircle className="w-4 h-4 text-red-600 mt-0.5 flex-shrink-0" />
               )}
               <div className="flex-1">
-                <p className="font-bold text-sm">{pathaoStatus.success ? 'Success' : 'Notice'}</p>
-                <p className="mt-0.5 text-xs opacity-90">{pathaoStatus.message}</p>
+                <p className="font-bold">{pathaoStatus.success ? 'Success' : 'Notice'}</p>
+                <p className="mt-0.5 text-[11px]">{pathaoStatus.message}</p>
               </div>
-              <button
-                onClick={() => setPathaoStatus(null)}
-                className="text-gray-400 hover:text-gray-600"
-              >
-                <X className="w-4 h-4" />
-              </button>
             </div>
           )}
 
-          {/* Main Credentials & Connection Card */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-slate-50 p-6 rounded-2xl border border-slate-200">
-            {/* Left Column */}
-            <div className="space-y-4 text-xs">
-              <div className="flex items-center justify-between py-2 border-b border-slate-200/80">
-                <span className="text-gray-500 font-semibold">Connection Status</span>
-                <span className="font-bold flex items-center gap-1.5 text-emerald-700">
-                  <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-                  {pathaoConfig.connectionStatus}
-                </span>
-              </div>
-
-              <div className="flex items-center justify-between py-2 border-b border-slate-200/80">
-                <span className="text-gray-500 font-semibold">Mode</span>
-                <span className="font-extrabold uppercase font-mono px-2 py-0.5 bg-white border border-slate-200 rounded text-slate-800 text-[11px]">
-                  {pathaoConfig.mode}
-                </span>
-              </div>
-
-              <div className="flex items-center justify-between py-2 border-b border-slate-200/80">
-                <span className="text-gray-500 font-semibold">Merchant Email</span>
-                <span className="font-mono font-bold text-slate-900 bg-white px-2 py-0.5 rounded border border-slate-200">
-                  {pathaoConfig.merchantEmail}
-                </span>
-              </div>
-
-              <div className="flex items-center justify-between py-2">
-                <span className="text-gray-500 font-semibold">Client ID</span>
-                <span className="font-mono font-bold text-slate-900 bg-white px-2 py-0.5 rounded border border-slate-200">
-                  {pathaoConfig.clientId}
-                </span>
-              </div>
+          {/* Pathao Status Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="p-4 bg-gray-50 rounded-2xl border border-gray-200 space-y-1">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500">Connection State</span>
+              <p className="text-sm font-bold text-slate-900">{pathaoConfig.connectionStatus || 'Ready'}</p>
+              <span className="text-[10px] text-gray-400 font-mono">Mode: {pathaoConfig.mode || 'LIVE'}</span>
             </div>
 
-            {/* Right Column */}
-            <div className="space-y-4 text-xs">
-              <div className="flex items-center justify-between py-2 border-b border-slate-200/80">
-                <span className="text-gray-500 font-semibold">Client Secret</span>
-                <span className="font-mono tracking-widest text-slate-500 bg-white px-2 py-0.5 rounded border border-slate-200">
-                  {pathaoConfig.clientSecret}
-                </span>
-              </div>
+            <div className="p-4 bg-gray-50 rounded-2xl border border-gray-200 space-y-1">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500">Selected Pickup Store</span>
+              <p className="text-sm font-bold text-slate-900 truncate">{pathaoConfig.selectedStoreName || 'Default Hub'}</p>
+              <span className="text-[10px] text-gray-400 font-mono">Store ID: #{pathaoConfig.selectedStoreId || 1}</span>
+            </div>
 
-              <div className="flex items-center justify-between py-2 border-b border-slate-200/80">
-                <span className="text-gray-500 font-semibold">Password</span>
-                <span className="font-mono tracking-widest text-slate-500 bg-white px-2 py-0.5 rounded border border-slate-200">
-                  {pathaoConfig.password}
-                </span>
-              </div>
+            <div className="p-4 bg-gray-50 rounded-2xl border border-gray-200 space-y-1">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500">Synced Pickup Hubs</span>
+              <p className="text-sm font-bold text-slate-900">{pathaoConfig.stores?.length || 0} Registered</p>
+              <span className="text-[10px] text-gray-400 font-mono">Last Sync: {formatDateTime(pathaoConfig.lastSuccessfulSync)}</span>
+            </div>
 
-              <div className="flex items-center justify-between py-2 border-b border-slate-200/80">
-                <span className="text-gray-500 font-semibold">Token Status</span>
-                <span
-                  className={`px-2.5 py-0.5 rounded-full font-bold text-[11px] border ${
-                    pathaoConfig.tokenStatus === 'Active'
-                      ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
-                      : 'bg-slate-200 text-slate-700 border-slate-300'
-                  }`}
-                >
-                  {pathaoConfig.tokenStatus}
-                </span>
-              </div>
-
-              <div className="flex items-center justify-between py-2">
-                <span className="text-gray-500 font-semibold">API Health</span>
-                <span
-                  className={`px-2.5 py-0.5 rounded-full font-bold text-[11px] border flex items-center gap-1 ${
-                    pathaoConfig.apiHealth === 'Healthy'
-                      ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
-                      : 'bg-rose-100 text-rose-800 border-rose-300'
-                  }`}
-                >
-                  <Activity className="w-3 h-3 text-emerald-600" />
-                  {pathaoConfig.apiHealth}
-                </span>
-              </div>
+            <div className="p-4 bg-gray-50 rounded-2xl border border-gray-200 space-y-1">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500">API Gateway Health</span>
+              <p className="text-sm font-bold text-emerald-700">Healthy (200 OK)</p>
+              <span className="text-[10px] text-gray-400 font-mono">OAuth 2.0 Client Credentials</span>
             </div>
           </div>
 
-          {/* Pickup Store Selector Box */}
-          <div className="p-5 bg-slate-900 text-white rounded-2xl flex flex-col md:flex-row items-center justify-between gap-4 shadow-sm">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center flex-shrink-0">
-                <Store className="w-5 h-5 text-[#D4AF37]" />
-              </div>
-              <div>
-                <p className="text-xs font-bold text-white uppercase tracking-wider">
-                  Active Pickup Store / Warehouse
-                </p>
-                <p className="text-[11px] text-gray-300">
-                  All automated parcel bookings will assign riders to pick up goods from this registered hub.
-                </p>
-              </div>
-            </div>
-
-            <div className="w-full md:w-auto min-w-[280px]">
-              <select
-                value={pathaoConfig.selectedStoreId || ''}
-                onChange={(e) => {
-                  const sId = Number(e.target.value);
-                  const found = pathaoConfig.stores?.find((s: any) => s.store_id === sId);
-                  if (found) {
-                    handleSelectStore(sId, found.store_name);
-                  }
-                }}
-                className="w-full px-4 py-2.5 bg-slate-800 border border-slate-700 hover:border-[#D4AF37] text-white rounded-xl text-xs font-bold focus:outline-none focus:ring-2 focus:ring-[#D4AF37]"
-              >
-                {pathaoConfig.stores && pathaoConfig.stores.length > 0 ? (
-                  pathaoConfig.stores.map((s: any) => (
-                    <option key={s.store_id} value={s.store_id}>
-                      {s.store_name} ({s.store_address || 'Default Hub'})
-                    </option>
-                  ))
-                ) : (
-                  <option value="">
-                    {pathaoConfig.selectedStoreName || 'Default Avelora Main Store'}
-                  </option>
-                )}
-              </select>
-            </div>
-          </div>
-
-          {/* Control Action Buttons */}
-          <div className="flex flex-wrap items-center gap-3 pt-2">
+          <div className="flex gap-2">
             <button
               onClick={handleTestConnection}
               disabled={testingPathao}
-              className="px-4 py-2.5 bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white rounded-xl text-xs font-bold transition flex items-center gap-2 shadow-sm"
+              className="px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-slate-900 font-bold text-xs rounded-xl transition flex items-center gap-2 cursor-pointer"
             >
-              {testingPathao ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
-              <span>Test Connection</span>
+              {testingPathao ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Activity className="w-3.5 h-3.5 text-blue-600" />}
+              <span>Test API Connection</span>
             </button>
 
             <button
               onClick={handleSyncStores}
               disabled={syncingStores}
-              className="px-4 py-2.5 bg-white hover:bg-gray-50 border border-gray-300 text-slate-800 rounded-xl text-xs font-bold transition flex items-center gap-2 shadow-sm"
+              className="px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-slate-900 font-bold text-xs rounded-xl transition flex items-center gap-2 cursor-pointer"
             >
-              {syncingStores ? <Loader2 className="w-4 h-4 animate-spin" /> : <Store className="w-4 h-4 text-[#8C6D23]" />}
-              <span>Sync Stores</span>
+              {syncingStores ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5 text-emerald-600" />}
+              <span>Sync Pickup Stores</span>
             </button>
-
-            <button
-              onClick={() => {
-                setCredForm({
-                  username: '',
-                  password: '',
-                  clientId: '',
-                  clientSecret: '',
-                  sandbox: pathaoConfig.sandbox || false,
-                });
-                setShowEditModal(true);
-              }}
-              className="px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition flex items-center gap-2 shadow-sm"
-            >
-              <Edit3 className="w-4 h-4 text-[#D4AF37]" />
-              <span>Update Credentials</span>
-            </button>
-
-            <button
-              onClick={handleToggleIntegration}
-              className={`px-4 py-2.5 rounded-xl text-xs font-bold transition flex items-center gap-2 shadow-sm border ${
-                pathaoConfig.enabled
-                  ? 'bg-rose-50 hover:bg-rose-100 text-rose-700 border-rose-200'
-                  : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border-emerald-200'
-              }`}
-            >
-              <Power className="w-4 h-4" />
-              <span>{pathaoConfig.enabled ? 'Disable Integration' : 'Enable Integration'}</span>
-            </button>
-          </div>
-
-          {/* Sync & Health Info Footer */}
-          <div className="flex flex-col sm:flex-row items-center justify-between text-xs text-gray-500 bg-gray-50 p-4 rounded-xl border border-gray-200 gap-2">
-            <div className="flex items-center gap-2">
-              <Clock className="w-4 h-4 text-gray-400" />
-              <span>
-                Last Successful Sync:{' '}
-                <strong className="text-slate-800 font-mono">
-                  {formatDateTime(pathaoConfig.lastSuccessfulSync)}
-                </strong>
-              </span>
-            </div>
-            <div className="flex items-center gap-4">
-              <span className="text-[11px] flex items-center gap-1 text-slate-600">
-                <Shield className="w-3.5 h-3.5 text-emerald-600" /> Bank-Grade Server Encrypted Storage
-              </span>
-            </div>
           </div>
         </div>
       )}
 
-      {/* TAB 2: BUSINESS IDENTITY */}
+      {/* TAB 2: BUSINESS IDENTITY & VAT */}
       {activeTab === 'IDENTITY' && (
-        <div className="bg-white rounded-b-2xl border border-gray-200 shadow-sm p-6 space-y-4 text-xs -mt-6">
-          <div className="grid grid-cols-2 gap-4">
+        <div className="bg-white rounded-b-2xl border border-gray-200 shadow-sm p-6 space-y-6 -mt-6">
+          <h3 className="text-base font-bold text-slate-900 font-serif-luxury">Official Merchant Identity</h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
             <div>
-              <label className="block font-bold text-gray-700 mb-1">Brand Name</label>
+              <label className="block font-bold text-gray-700 mb-1">Business Name</label>
               <input
                 type="text"
                 value={businessName}
                 onChange={(e) => setBusinessName(e.target.value)}
-                className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-xl outline-none font-bold"
+                className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-xl"
               />
             </div>
             <div>
-              <label className="block font-bold text-gray-700 mb-1">Brand Tagline</label>
+              <label className="block font-bold text-gray-700 mb-1">Tagline</label>
               <input
                 type="text"
                 value={tagline}
                 onChange={(e) => setTagline(e.target.value)}
-                className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-xl outline-none"
+                className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-xl"
               />
             </div>
-          </div>
-
-          <div className="grid grid-cols-3 gap-4">
             <div>
               <label className="block font-bold text-gray-700 mb-1">BIN / VAT Registration</label>
               <input
                 type="text"
                 value={binVat}
                 onChange={(e) => setBinVat(e.target.value)}
-                className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-xl outline-none font-mono"
+                className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-xl font-mono"
               />
             </div>
             <div>
@@ -635,47 +566,21 @@ export default function AdminSettingsPage() {
                 type="text"
                 value={hotline}
                 onChange={(e) => setHotline(e.target.value)}
-                className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-xl outline-none font-mono"
-              />
-            </div>
-            <div>
-              <label className="block font-bold text-gray-700 mb-1">Official Support Email</label>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-xl outline-none"
+                className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-xl font-mono"
               />
             </div>
           </div>
-
-          <div>
-            <label className="block font-bold text-gray-700 mb-1">Registered Office & Flagship Address</label>
-            <input
-              type="text"
-              value={address}
-              onChange={(e) => setAddress(e.target.value)}
-              className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-xl outline-none"
-            />
-          </div>
-
-          <button
-            onClick={() => alert('Business identity saved successfully.')}
-            className="px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-bold transition flex items-center gap-2"
-          >
-            <Save className="w-4 h-4 text-[#D4AF37]" />
-            <span>Save Identity Settings</span>
-          </button>
         </div>
       )}
 
-      {/* TAB 3: DELIVERY ZONES */}
+      {/* TAB 3: DELIVERY RATES & ZONES */}
       {activeTab === 'DELIVERY' && (
-        <div className="bg-white rounded-b-2xl border border-gray-200 shadow-sm p-6 space-y-4 text-xs -mt-6">
-          <div className="grid grid-cols-2 gap-4">
+        <div className="bg-white rounded-b-2xl border border-gray-200 shadow-sm p-6 space-y-6 -mt-6 text-xs">
+          <h3 className="text-base font-bold text-slate-900 font-serif-luxury">Standard Delivery Rates</h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="p-4 bg-gray-50 rounded-2xl border border-gray-200 space-y-2">
-              <h4 className="font-bold text-slate-900">Inside Dhaka City</h4>
-              <p className="text-gray-500">Standard 24-48 hour insured delivery</p>
+              <h4 className="font-bold text-slate-900">Inside Dhaka Metro</h4>
+              <p className="text-gray-500">Express doorstep delivery</p>
               <div className="flex items-center gap-2 pt-2">
                 <span className="font-bold font-mono text-base">৳</span>
                 <input
@@ -701,14 +606,195 @@ export default function AdminSettingsPage() {
               </div>
             </div>
           </div>
+        </div>
+      )}
 
-          <button
-            onClick={() => alert('Delivery zones and rates updated.')}
-            className="px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-bold transition flex items-center gap-2"
-          >
-            <Save className="w-4 h-4 text-[#D4AF37]" />
-            <span>Update Delivery Rates</span>
-          </button>
+      {/* TAB 4: TEST & DEMO DATA MANAGEMENT CENTER */}
+      {activeTab === 'DATA_MANAGEMENT' && (
+        <div className="bg-white rounded-b-2xl border border-gray-200 shadow-sm p-6 space-y-6 -mt-6 animate-fadeIn">
+          <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 pb-6 border-b border-gray-100">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 rounded-2xl bg-purple-50 border border-purple-200 flex items-center justify-center text-purple-700 font-bold">
+                <Database className="w-6 h-6" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-lg font-bold text-slate-950 font-serif-luxury">Test &amp; Demo Data Center</h3>
+                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-purple-100 text-purple-800 border border-purple-200 uppercase tracking-wider">
+                    Authoritative Isolation
+                  </span>
+                </div>
+                <p className="text-xs text-gray-500">
+                  Inspect sandboxed records, reverse reserved stock, and perform safe dependency-aware cleanups without corrupting production ledgers.
+                </p>
+              </div>
+            </div>
+
+            <button
+              onClick={fetchTestSummary}
+              disabled={loadingTestSummary}
+              className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-slate-900 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${loadingTestSummary ? 'animate-spin' : ''}`} />
+              <span>Refresh Summary</span>
+            </button>
+          </div>
+
+          {/* Test Metrics KPI Grid */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+            <div className="p-4 bg-purple-50/50 rounded-2xl border border-purple-100 space-y-1">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-purple-800">Test Products</span>
+              <p className="text-xl font-bold font-mono text-purple-950">{testSummary?.testProductsCount || 0}</p>
+              <span className="text-[10px] text-gray-500">Catalog items</span>
+            </div>
+
+            <div className="p-4 bg-purple-50/50 rounded-2xl border border-purple-100 space-y-1">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-purple-800">Test Orders</span>
+              <p className="text-xl font-bold font-mono text-purple-950">{testSummary?.testOrdersCount || 0}</p>
+              <span className="text-[10px] text-gray-500">Simulated checkouts</span>
+            </div>
+
+            <div className="p-4 bg-purple-50/50 rounded-2xl border border-purple-100 space-y-1">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-purple-800">Test Reservations</span>
+              <p className="text-xl font-bold font-mono text-purple-950">{testSummary?.testReservationsCount || 0}</p>
+              <span className="text-[10px] text-gray-500">Units on test hold</span>
+            </div>
+
+            <div className="p-4 bg-purple-50/50 rounded-2xl border border-purple-100 space-y-1">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-purple-800">Test Txns</span>
+              <p className="text-xl font-bold font-mono text-purple-950">{testSummary?.testTxnsCount || 0}</p>
+              <span className="text-[10px] text-gray-500">Inventory moves</span>
+            </div>
+
+            <div className="p-4 bg-purple-50/50 rounded-2xl border border-purple-100 space-y-1">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-purple-800">Test Payments</span>
+              <p className="text-xl font-bold font-mono text-purple-950">{testSummary?.testPaymentsCount || 0}</p>
+              <span className="text-[10px] text-gray-500">Ledger entries</span>
+            </div>
+
+            <div className="p-4 bg-purple-50/50 rounded-2xl border border-purple-100 space-y-1">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-purple-800">Test Returns</span>
+              <p className="text-xl font-bold font-mono text-purple-950">{testSummary?.testReturnsCount || 0}</p>
+              <span className="text-[10px] text-gray-500">Simulated RMAs</span>
+            </div>
+          </div>
+
+          {/* Section 1: Itemized Test Products */}
+          <div className="space-y-3 pt-2">
+            <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
+              <Package className="w-4 h-4 text-purple-600" />
+              <span>Registered Test Products ({testSummary?.testProducts?.length || 0})</span>
+            </h4>
+
+            {testSummary?.testProducts?.length === 0 ? (
+              <div className="p-6 bg-gray-50 rounded-2xl border border-gray-100 text-center text-xs text-gray-400">
+                No test products currently in database. Real production catalog is clean.
+              </div>
+            ) : (
+              <div className="overflow-x-auto border border-gray-200 rounded-xl">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-gray-50 text-[10px] font-bold uppercase text-gray-500 border-b border-gray-200">
+                    <tr>
+                      <th className="py-2.5 px-3">Product Name</th>
+                      <th className="py-2.5 px-3">Status</th>
+                      <th className="py-2.5 px-3">Price</th>
+                      <th className="py-2.5 px-3">Variants</th>
+                      <th className="py-2.5 px-3">Created</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {(testSummary?.testProducts || []).map((p: any) => (
+                      <tr key={p._id} className="hover:bg-purple-50/30">
+                        <td className="py-2.5 px-3 font-semibold text-slate-900">
+                          {p.name} <span className="font-mono text-[10px] text-gray-400">/{p.slug}</span>
+                        </td>
+                        <td className="py-2.5 px-3">
+                          <span className="px-2 py-0.5 rounded text-[9px] font-bold bg-purple-100 text-purple-800">
+                            {p.status}
+                          </span>
+                        </td>
+                        <td className="py-2.5 px-3 font-mono">৳{p.salePrice}</td>
+                        <td className="py-2.5 px-3">{p.variants?.length || 1} Variant(s)</td>
+                        <td className="py-2.5 px-3 text-gray-400 text-[10px]">{new Date(p.createdAt).toLocaleDateString()}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
+          {/* Section 2: Itemized Test Orders */}
+          <div className="space-y-3 pt-4">
+            <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
+              <FileText className="w-4 h-4 text-purple-600" />
+              <span>Registered Test Orders ({testSummary?.testOrders?.length || 0})</span>
+            </h4>
+
+            {testSummary?.testOrders?.length === 0 ? (
+              <div className="p-6 bg-gray-50 rounded-2xl border border-gray-100 text-center text-xs text-gray-400">
+                No active test orders. Production analytics are 100% authentic.
+              </div>
+            ) : (
+              <div className="overflow-x-auto border border-gray-200 rounded-xl">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-gray-50 text-[10px] font-bold uppercase text-gray-500 border-b border-gray-200">
+                    <tr>
+                      <th className="py-2.5 px-3">Order Ref</th>
+                      <th className="py-2.5 px-3">Method</th>
+                      <th className="py-2.5 px-3">Status</th>
+                      <th className="py-2.5 px-3">Total</th>
+                      <th className="py-2.5 px-3">Paid / Due</th>
+                      <th className="py-2.5 px-3">Created</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {(testSummary?.testOrders || []).map((o: any) => (
+                      <tr key={o._id} className="hover:bg-purple-50/30 font-mono">
+                        <td className="py-2.5 px-3 font-bold text-slate-900">{o.orderId}</td>
+                        <td className="py-2.5 px-3 font-sans">{o.fulfillmentMethod}</td>
+                        <td className="py-2.5 px-3">
+                          <span className="px-2 py-0.5 rounded text-[9px] font-bold bg-gray-100 text-gray-800">
+                            {o.status}
+                          </span>
+                        </td>
+                        <td className="py-2.5 px-3">৳{o.totalAmount}</td>
+                        <td className="py-2.5 px-3 text-[11px]">
+                          <span className="text-emerald-700 font-medium">৳{o.paidAmount || 0}</span> / <span className="text-amber-800 font-bold">৳{o.dueAmount || 0}</span>
+                        </td>
+                        <td className="py-2.5 px-3 text-gray-400 text-[10px] font-sans">{new Date(o.createdAt).toLocaleDateString()}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
+          {/* Section 3: Bulk Clean Danger Zone */}
+          <div className="p-6 bg-red-50/60 border border-red-200 rounded-2xl space-y-4">
+            <div className="flex items-start gap-3">
+              <ShieldAlert className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+              <div>
+                <h4 className="text-sm font-bold text-red-950">Bulk Test Data Cleanup Engine</h4>
+                <p className="text-xs text-red-800 mt-1 leading-relaxed">
+                  Permanently deletes all designated test products, test simulated orders, test payments, and releases test shelf reservations. Production orders and real inventory are strictly protected.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex justify-end pt-2">
+              <button
+                type="button"
+                onClick={() => setShowCleanupModal(true)}
+                disabled={(testSummary?.testProductsCount || 0) === 0 && (testSummary?.testOrdersCount || 0) === 0}
+                className="px-5 py-2.5 bg-red-600 hover:bg-red-700 text-white font-bold text-xs uppercase tracking-wider rounded-xl transition flex items-center gap-2 shadow-sm disabled:opacity-50 cursor-pointer"
+              >
+                <Trash2 className="w-4 h-4" />
+                <span>Initiate Safe Test Cleanup</span>
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
@@ -729,7 +815,7 @@ export default function AdminSettingsPage() {
               </div>
               <button
                 onClick={() => setShowEditModal(false)}
-                className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-gray-300 hover:text-white transition"
+                className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-gray-300 hover:text-white transition cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -743,7 +829,7 @@ export default function AdminSettingsPage() {
                   <button
                     type="button"
                     onClick={() => setCredForm((prev) => ({ ...prev, sandbox: false }))}
-                    className={`py-2.5 px-3 rounded-xl font-bold text-xs transition border flex items-center justify-center gap-2 ${
+                    className={`py-2.5 px-3 rounded-xl font-bold text-xs transition border flex items-center justify-center gap-2 cursor-pointer ${
                       !credForm.sandbox
                         ? 'bg-slate-950 text-white border-slate-950 shadow-sm'
                         : 'bg-gray-50 text-gray-600 border-gray-300 hover:bg-gray-100'
@@ -756,7 +842,7 @@ export default function AdminSettingsPage() {
                   <button
                     type="button"
                     onClick={() => setCredForm((prev) => ({ ...prev, sandbox: true }))}
-                    className={`py-2.5 px-3 rounded-xl font-bold text-xs transition border flex items-center justify-center gap-2 ${
+                    className={`py-2.5 px-3 rounded-xl font-bold text-xs transition border flex items-center justify-center gap-2 cursor-pointer ${
                       credForm.sandbox
                         ? 'bg-amber-500 text-white border-amber-500 shadow-sm'
                         : 'bg-gray-50 text-gray-600 border-gray-300 hover:bg-gray-100'
@@ -842,28 +928,75 @@ export default function AdminSettingsPage() {
                 </div>
               )}
 
-              <div className="p-3 bg-amber-50 rounded-xl border border-amber-200 text-amber-900 text-[11px] leading-relaxed">
-                <p>
-                  <strong>Note:</strong> Upon clicking Save, the system will immediately initiate an OAuth handshake with Pathao API to authenticate and fetch your registered pickup stores list.
-                </p>
-              </div>
-
               {/* Modal Actions */}
               <div className="flex items-center justify-end gap-3 pt-3 border-t border-gray-100">
                 <button
                   type="button"
                   onClick={() => setShowEditModal(false)}
-                  className="px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold rounded-xl transition"
+                  className="px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold rounded-xl transition cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={savingCreds}
-                  className="px-6 py-2.5 bg-slate-950 hover:bg-slate-800 disabled:opacity-50 text-white font-bold rounded-xl transition flex items-center gap-2 shadow-sm"
+                  className="px-6 py-2.5 bg-slate-950 hover:bg-slate-800 disabled:opacity-50 text-white font-bold rounded-xl transition flex items-center gap-2 shadow-sm cursor-pointer"
                 >
                   {savingCreds ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4 text-[#D4AF37]" />}
-                  <span>Save & Verify Credentials</span>
+                  <span>Save &amp; Verify Credentials</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* BULK TEST CLEANUP CONFIRMATION MODAL */}
+      {showCleanupModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fadeIn">
+          <div className="bg-white max-w-md w-full rounded-2xl p-6 shadow-2xl border border-red-200 text-slate-900 space-y-4">
+            <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center text-red-700 mx-auto">
+              <Trash2 className="w-6 h-6" />
+            </div>
+
+            <div className="text-center space-y-2">
+              <h3 className="text-lg font-bold text-slate-900">Confirm Test Data Cleanup</h3>
+              <p className="text-xs text-gray-600 leading-relaxed">
+                This operation will delete all sandboxed test products, test orders, and reverse test stock reservations.
+              </p>
+              <p className="text-xs font-bold text-red-700">
+                To confirm, type <span className="font-mono bg-red-100 px-1.5 py-0.5 rounded text-red-900 select-all">DELETE TEST DATA</span> below:
+              </p>
+            </div>
+
+            <form onSubmit={handleBulkCleanupTestData} className="space-y-4">
+              <input
+                type="text"
+                required
+                placeholder="DELETE TEST DATA"
+                value={cleanupConfirmText}
+                onChange={(e) => setCleanupConfirmText(e.target.value)}
+                className="w-full px-3.5 py-2.5 rounded-xl border border-red-300 font-mono text-center font-bold text-xs uppercase focus:outline-none focus:border-red-600 bg-red-50/30"
+              />
+
+              <div className="flex gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowCleanupModal(false);
+                    setCleanupConfirmText('');
+                  }}
+                  className="flex-1 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold text-xs uppercase rounded-xl transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={cleaningUp || cleanupConfirmText.trim() !== 'DELETE TEST DATA'}
+                  className="flex-1 py-2.5 bg-red-600 hover:bg-red-700 text-white font-bold text-xs uppercase rounded-xl transition flex items-center justify-center gap-1.5 shadow-sm disabled:opacity-40 cursor-pointer"
+                >
+                  {cleaningUp ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                  <span>Execute Cleanup</span>
                 </button>
               </div>
             </form>

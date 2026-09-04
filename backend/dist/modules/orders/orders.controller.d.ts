@@ -1,4 +1,5 @@
 import { OrdersService } from './orders.service';
+import { FulfillmentMethod } from '../../schemas/order.schema';
 export declare class OrdersController {
     private readonly ordersService;
     constructor(ordersService: OrdersService);
@@ -14,6 +15,7 @@ export declare class OrdersController {
         status: import("../../schemas/order.schema").OrderStatus;
         paymentStatus: import("../../schemas/order.schema").PaymentStatus;
         fulfillmentStatus: import("../../schemas/order.schema").FulfillmentStatus;
+        fulfillmentMethod: FulfillmentMethod;
         paymentMethod: string;
         createdAt: any;
         customerName: string;
@@ -42,7 +44,7 @@ export declare class OrdersController {
         };
         timeline: import("../../schemas/order.schema").OrderTimelineEntry[];
     }>;
-    getAdminOrders(status?: string, search?: string, page?: number, limit?: number): Promise<{
+    getAdminOrders(status?: string, paymentStatus?: string, fulfillmentMethod?: string, dataMode?: string, courier?: string, dateRange?: string, startDate?: string, endDate?: string, search?: string, page?: number, limit?: number): Promise<{
         orders: (import("mongoose").Document<unknown, {}, import("../../schemas/order.schema").OrderDocument, {}, import("mongoose").DefaultSchemaOptions> & import("../../schemas/order.schema").Order & import("mongoose").Document<import("mongoose").Types.ObjectId, any, any, Record<string, any>, {}> & Required<{
             _id: import("mongoose").Types.ObjectId;
         }> & {
@@ -68,6 +70,47 @@ export declare class OrdersController {
         __v: number;
     } & {
         id: string;
+    }>;
+    updateFulfillmentMethod(id: string, body: {
+        fulfillmentMethod: FulfillmentMethod;
+    }, req: any): Promise<import("mongoose").Document<unknown, {}, import("../../schemas/order.schema").OrderDocument, {}, import("mongoose").DefaultSchemaOptions> & import("../../schemas/order.schema").Order & import("mongoose").Document<import("mongoose").Types.ObjectId, any, any, Record<string, any>, {}> & Required<{
+        _id: import("mongoose").Types.ObjectId;
+    }> & {
+        __v: number;
+    } & {
+        id: string;
+    }>;
+    confirmDirectDelivery(id: string, body: any, req: any): Promise<import("mongoose").Document<unknown, {}, import("../../schemas/order.schema").OrderDocument, {}, import("mongoose").DefaultSchemaOptions> & import("../../schemas/order.schema").Order & import("mongoose").Document<import("mongoose").Types.ObjectId, any, any, Record<string, any>, {}> & Required<{
+        _id: import("mongoose").Types.ObjectId;
+    }> & {
+        __v: number;
+    } & {
+        id: string;
+    }>;
+    confirmCustomerPickup(id: string, body: any, req: any): Promise<import("mongoose").Document<unknown, {}, import("../../schemas/order.schema").OrderDocument, {}, import("mongoose").DefaultSchemaOptions> & import("../../schemas/order.schema").Order & import("mongoose").Document<import("mongoose").Types.ObjectId, any, any, Record<string, any>, {}> & Required<{
+        _id: import("mongoose").Types.ObjectId;
+    }> & {
+        __v: number;
+    } & {
+        id: string;
+    }>;
+    recordPayment(id: string, body: any, req: any): Promise<import("mongoose").Document<unknown, {}, import("../../schemas/order.schema").OrderDocument, {}, import("mongoose").DefaultSchemaOptions> & import("../../schemas/order.schema").Order & import("mongoose").Document<import("mongoose").Types.ObjectId, any, any, Record<string, any>, {}> & Required<{
+        _id: import("mongoose").Types.ObjectId;
+    }> & {
+        __v: number;
+    } & {
+        id: string;
+    }>;
+    resetTestOrder(id: string, req: any): Promise<import("mongoose").Document<unknown, {}, import("../../schemas/order.schema").OrderDocument, {}, import("mongoose").DefaultSchemaOptions> & import("../../schemas/order.schema").Order & import("mongoose").Document<import("mongoose").Types.ObjectId, any, any, Record<string, any>, {}> & Required<{
+        _id: import("mongoose").Types.ObjectId;
+    }> & {
+        __v: number;
+    } & {
+        id: string;
+    }>;
+    deleteTestOrder(id: string, req: any): Promise<{
+        success: boolean;
+        message: string;
     }>;
     updatePaymentDetails(id: string, body: any): Promise<import("mongoose").Document<unknown, {}, import("../../schemas/order.schema").OrderDocument, {}, import("mongoose").DefaultSchemaOptions> & import("../../schemas/order.schema").Order & import("mongoose").Document<import("mongoose").Types.ObjectId, any, any, Record<string, any>, {}> & Required<{
         _id: import("mongoose").Types.ObjectId;

@@ -16,7 +16,7 @@ let AuditLog = class AuditLog {
 };
 exports.AuditLog = AuditLog;
 __decorate([
-    (0, mongoose_1.Prop)({ type: mongoose_2.Schema.Types.ObjectId, ref: 'User', required: true, index: true }),
+    (0, mongoose_1.Prop)({ type: mongoose_2.Schema.Types.ObjectId, ref: 'User', required: false, index: true }),
     __metadata("design:type", mongoose_2.Schema.Types.ObjectId)
 ], AuditLog.prototype, "adminId", void 0);
 __decorate([

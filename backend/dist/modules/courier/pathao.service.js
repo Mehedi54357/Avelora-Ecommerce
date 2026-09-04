@@ -271,6 +271,9 @@ let PathaoService = PathaoService_1 = class PathaoService {
         if (!order) {
             throw new common_1.BadRequestException('Order not found');
         }
+        if (order.fulfillmentMethod && order.fulfillmentMethod !== 'COURIER') {
+            throw new common_1.BadRequestException(`This order is designated for "${order.fulfillmentMethod}". Courier booking is only permitted for COURIER fulfillment.`);
+        }
         if (order.courier?.consignmentId && order.courier?.provider === 'Pathao') {
             throw new common_1.BadRequestException(`Order is already booked with Pathao Consignment ID: ${order.courier.consignmentId}`);
         }

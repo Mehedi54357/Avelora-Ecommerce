@@ -164,6 +164,98 @@ export declare const ProductFeatureSchema: MongooseSchema<ProductFeature, import
         id: string;
     }>>;
 }, ProductFeature>;
+export declare class ProductImageItem {
+    url: string;
+    public_id?: string;
+    sortOrder?: number;
+    isPrimary?: boolean;
+    alt?: string;
+    width?: number;
+    height?: number;
+    variantColor?: string;
+}
+export declare const ProductImageItemSchema: MongooseSchema<ProductImageItem, import("mongoose").Model<ProductImageItem, any, any, any, any, any, ProductImageItem>, {}, {}, {}, {}, import("mongoose").DefaultSchemaOptions, ProductImageItem, Document<unknown, {}, ProductImageItem, {
+    id: string;
+}, import("mongoose").DefaultSchemaOptions> & Omit<ProductImageItem & {
+    _id: import("mongoose").Types.ObjectId;
+} & {
+    __v: number;
+}, "id"> & import("mongoose").HydratedDocumentOverrides<{
+    id: string;
+}>, {
+    url?: import("mongoose").SchemaDefinitionProperty<string, ProductImageItem, Document<unknown, {}, ProductImageItem, {
+        id: string;
+    }, import("mongoose").DefaultSchemaOptions> & Omit<ProductImageItem & {
+        _id: import("mongoose").Types.ObjectId;
+    } & {
+        __v: number;
+    }, "id"> & import("mongoose").HydratedDocumentOverrides<{
+        id: string;
+    }>>;
+    public_id?: import("mongoose").SchemaDefinitionProperty<string, ProductImageItem, Document<unknown, {}, ProductImageItem, {
+        id: string;
+    }, import("mongoose").DefaultSchemaOptions> & Omit<ProductImageItem & {
+        _id: import("mongoose").Types.ObjectId;
+    } & {
+        __v: number;
+    }, "id"> & import("mongoose").HydratedDocumentOverrides<{
+        id: string;
+    }>>;
+    sortOrder?: import("mongoose").SchemaDefinitionProperty<number, ProductImageItem, Document<unknown, {}, ProductImageItem, {
+        id: string;
+    }, import("mongoose").DefaultSchemaOptions> & Omit<ProductImageItem & {
+        _id: import("mongoose").Types.ObjectId;
+    } & {
+        __v: number;
+    }, "id"> & import("mongoose").HydratedDocumentOverrides<{
+        id: string;
+    }>>;
+    isPrimary?: import("mongoose").SchemaDefinitionProperty<boolean, ProductImageItem, Document<unknown, {}, ProductImageItem, {
+        id: string;
+    }, import("mongoose").DefaultSchemaOptions> & Omit<ProductImageItem & {
+        _id: import("mongoose").Types.ObjectId;
+    } & {
+        __v: number;
+    }, "id"> & import("mongoose").HydratedDocumentOverrides<{
+        id: string;
+    }>>;
+    alt?: import("mongoose").SchemaDefinitionProperty<string, ProductImageItem, Document<unknown, {}, ProductImageItem, {
+        id: string;
+    }, import("mongoose").DefaultSchemaOptions> & Omit<ProductImageItem & {
+        _id: import("mongoose").Types.ObjectId;
+    } & {
+        __v: number;
+    }, "id"> & import("mongoose").HydratedDocumentOverrides<{
+        id: string;
+    }>>;
+    width?: import("mongoose").SchemaDefinitionProperty<number, ProductImageItem, Document<unknown, {}, ProductImageItem, {
+        id: string;
+    }, import("mongoose").DefaultSchemaOptions> & Omit<ProductImageItem & {
+        _id: import("mongoose").Types.ObjectId;
+    } & {
+        __v: number;
+    }, "id"> & import("mongoose").HydratedDocumentOverrides<{
+        id: string;
+    }>>;
+    height?: import("mongoose").SchemaDefinitionProperty<number, ProductImageItem, Document<unknown, {}, ProductImageItem, {
+        id: string;
+    }, import("mongoose").DefaultSchemaOptions> & Omit<ProductImageItem & {
+        _id: import("mongoose").Types.ObjectId;
+    } & {
+        __v: number;
+    }, "id"> & import("mongoose").HydratedDocumentOverrides<{
+        id: string;
+    }>>;
+    variantColor?: import("mongoose").SchemaDefinitionProperty<string, ProductImageItem, Document<unknown, {}, ProductImageItem, {
+        id: string;
+    }, import("mongoose").DefaultSchemaOptions> & Omit<ProductImageItem & {
+        _id: import("mongoose").Types.ObjectId;
+    } & {
+        __v: number;
+    }, "id"> & import("mongoose").HydratedDocumentOverrides<{
+        id: string;
+    }>>;
+}, ProductImageItem>;
 export declare class Product {
     name: string;
     subtitle?: string;
@@ -171,6 +263,7 @@ export declare class Product {
     categoryId?: MongooseSchema.Types.ObjectId;
     description: string;
     images: string[];
+    productImages?: ProductImageItem[];
     badge?: string;
     unitBadge?: string;
     rating?: number;
@@ -179,8 +272,12 @@ export declare class Product {
     originalPrice: number;
     discountPercentage: number;
     salePrice: number;
+    isDiscountActive?: boolean;
+    discountStartDate?: Date;
+    discountEndDate?: Date;
     isPublished: boolean;
     status: string;
+    dataMode: string;
     qr?: {
         enabled: boolean;
         publicCode: string;
@@ -243,6 +340,15 @@ export declare const ProductSchema: MongooseSchema<Product, import("mongoose").M
         id: string;
     }>>;
     images?: import("mongoose").SchemaDefinitionProperty<string[], Product, Document<unknown, {}, Product, {
+        id: string;
+    }, import("mongoose").DefaultSchemaOptions> & Omit<Product & {
+        _id: import("mongoose").Types.ObjectId;
+    } & {
+        __v: number;
+    }, "id"> & import("mongoose").HydratedDocumentOverrides<{
+        id: string;
+    }>>;
+    productImages?: import("mongoose").SchemaDefinitionProperty<ProductImageItem[], Product, Document<unknown, {}, Product, {
         id: string;
     }, import("mongoose").DefaultSchemaOptions> & Omit<Product & {
         _id: import("mongoose").Types.ObjectId;
@@ -323,6 +429,33 @@ export declare const ProductSchema: MongooseSchema<Product, import("mongoose").M
     }, "id"> & import("mongoose").HydratedDocumentOverrides<{
         id: string;
     }>>;
+    isDiscountActive?: import("mongoose").SchemaDefinitionProperty<boolean, Product, Document<unknown, {}, Product, {
+        id: string;
+    }, import("mongoose").DefaultSchemaOptions> & Omit<Product & {
+        _id: import("mongoose").Types.ObjectId;
+    } & {
+        __v: number;
+    }, "id"> & import("mongoose").HydratedDocumentOverrides<{
+        id: string;
+    }>>;
+    discountStartDate?: import("mongoose").SchemaDefinitionProperty<Date, Product, Document<unknown, {}, Product, {
+        id: string;
+    }, import("mongoose").DefaultSchemaOptions> & Omit<Product & {
+        _id: import("mongoose").Types.ObjectId;
+    } & {
+        __v: number;
+    }, "id"> & import("mongoose").HydratedDocumentOverrides<{
+        id: string;
+    }>>;
+    discountEndDate?: import("mongoose").SchemaDefinitionProperty<Date, Product, Document<unknown, {}, Product, {
+        id: string;
+    }, import("mongoose").DefaultSchemaOptions> & Omit<Product & {
+        _id: import("mongoose").Types.ObjectId;
+    } & {
+        __v: number;
+    }, "id"> & import("mongoose").HydratedDocumentOverrides<{
+        id: string;
+    }>>;
     isPublished?: import("mongoose").SchemaDefinitionProperty<boolean, Product, Document<unknown, {}, Product, {
         id: string;
     }, import("mongoose").DefaultSchemaOptions> & Omit<Product & {
@@ -333,6 +466,15 @@ export declare const ProductSchema: MongooseSchema<Product, import("mongoose").M
         id: string;
     }>>;
     status?: import("mongoose").SchemaDefinitionProperty<string, Product, Document<unknown, {}, Product, {
+        id: string;
+    }, import("mongoose").DefaultSchemaOptions> & Omit<Product & {
+        _id: import("mongoose").Types.ObjectId;
+    } & {
+        __v: number;
+    }, "id"> & import("mongoose").HydratedDocumentOverrides<{
+        id: string;
+    }>>;
+    dataMode?: import("mongoose").SchemaDefinitionProperty<string, Product, Document<unknown, {}, Product, {
         id: string;
     }, import("mongoose").DefaultSchemaOptions> & Omit<Product & {
         _id: import("mongoose").Types.ObjectId;

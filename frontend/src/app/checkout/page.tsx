@@ -4,7 +4,6 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import { useCart } from '../../context/cart-context';
 import InvoiceModal from '../../components/invoice-modal';
-import PaymentGatewayModal from '../../components/payment-gateway-modal';
 import { API_BASE_URL } from '../../utils/api-config';
 import {
   ShoppingBag,
@@ -22,6 +21,8 @@ import {
   Lock,
   Building,
   Info,
+  Check,
+  PackageCheck,
 } from 'lucide-react';
 
 import {
@@ -39,21 +40,17 @@ export default function CheckoutPage() {
   const [orderFor, setOrderFor] = useState<'Self' | 'Gift'>('Self');
   const [name, setName] = useState('');
   const [mobile, setMobile] = useState('');
-  
+
   // Cascading Address Selector: Division (8) -> District (64) -> Upazila / Thana
   const [selectedDivisionId, setSelectedDivisionId] = useState<string>('dhaka');
   const [selectedDistrictId, setSelectedDistrictId] = useState<string>('dhaka');
   const [selectedUpazilaId, setSelectedUpazilaId] = useState<string>('mohakhali');
   const [detailedAddress, setDetailedAddress] = useState<string>('');
-  
+
   const [notes, setNotes] = useState('');
   const [deliveryMethod, setDeliveryMethod] = useState<'HOME' | 'PICKUP'>('HOME');
 
-  // Payment Options: 'COD' (Advance delivery fee) vs 'FULL_MOBILE_BANKING'
-  const [paymentOption, setPaymentOption] = useState<'COD' | 'FULL_MOBILE_BANKING'>('COD');
-
   // Modals & Process State
-  const [isGatewayOpen, setIsGatewayOpen] = useState(false);
   const [isInvoiceOpen, setIsInvoiceOpen] = useState(false);
   const [confirmedOrder, setConfirmedOrder] = useState<any>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -106,10 +103,6 @@ export default function CheckoutPage() {
   const deliveryCharge = isDhakaCity ? 70 : 130;
   const totalAmount = Math.max(0, subtotal - couponDiscount + deliveryCharge);
 
-  // Advance payable now vs Cash Due on delivery
-  const payableNow = paymentOption === 'COD' ? deliveryCharge : totalAmount;
-  const dueOnDelivery = paymentOption === 'COD' ? Math.max(0, subtotal - couponDiscount) : 0;
-
   const handleApplyCoupon = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!couponCode.trim()) return;
@@ -151,8 +144,8 @@ export default function CheckoutPage() {
     setCouponApplied(false);
   };
 
-  // 1. Customer clicks Confirm Order button on checkout page
-  const handleInitiatePayment = (e: React.FormEvent) => {
+  // Direct Cash On Delivery Order Submission (No advance payment requirement)
+  const handleDirectCODSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
 
@@ -173,21 +166,7 @@ export default function CheckoutPage() {
       return;
     }
 
-    // Open Interactive Payment Gateway Modal
-    setIsGatewayOpen(true);
-  };
-
-  // 2. Gateway completion callback (bKash / Nagad PIN verified or TrxID submitted)
-  const handleGatewaySuccess = async (paymentData: {
-    method: string;
-    provider: string;
-    senderMobile: string;
-    transactionId: string;
-    paidAmount: number;
-  }) => {
-    setIsGatewayOpen(false);
     setSubmitting(true);
-    setError('');
 
     const formattedFullAddress = `${detailedAddress.trim()}, ${currentUpazila.name}, ${currentDistrict.name}, ${currentDivision.name.replace(' Division', '')}`.replace(/^,\s*/, '');
 
@@ -208,12 +187,12 @@ export default function CheckoutPage() {
       })),
       notes: notes.trim(),
       couponCode: couponApplied ? couponCode.trim().toUpperCase() : undefined,
-      paymentMethod: paymentOption === 'COD' ? 'COD' : paymentData.provider?.toUpperCase() || 'BKASH',
-      paymentProvider: paymentData.provider || 'bKash',
-      senderMobile: paymentData.senderMobile || mobile,
-      transactionId: paymentData.transactionId || `TRX${Date.now().toString().slice(-6)}`,
-      paidAmount: paymentData.paidAmount,
-      dueAmount: dueOnDelivery,
+      paymentMethod: 'COD',
+      paymentProvider: 'COD',
+      senderMobile: '',
+      transactionId: '',
+      paidAmount: 0,
+      dueAmount: totalAmount,
     };
 
     try {
@@ -261,69 +240,69 @@ export default function CheckoutPage() {
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 animate-fadeIn space-y-6">
+    <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-8 animate-fadeIn space-y-4 sm:space-y-6">
       {/* Breadcrumbs & Quick Back Navigation */}
-      <div className="flex flex-wrap items-center justify-between gap-4 bg-white px-5 py-3 rounded-2xl border border-gray-200/80 shadow-sm text-xs">
-        <nav className="flex items-center gap-2 text-gray-500 font-medium py-1">
-          <Link href="/" className="hover:text-[#C5A059] transition text-gray-700 font-semibold">
+      <div className="flex flex-wrap items-center justify-between gap-3 bg-white px-3.5 sm:px-5 py-2.5 sm:py-3 rounded-2xl border border-gray-200/80 shadow-2xs text-xs">
+        <nav className="flex items-center gap-1.5 sm:gap-2 text-gray-500 font-medium py-1 overflow-x-auto scrollbar-none">
+          <Link href="/" className="hover:text-[#C5A059] transition text-gray-700 font-semibold flex-shrink-0">
             Home
           </Link>
-          <ChevronRight className="w-3.5 h-3.5 text-gray-400" />
-          <Link href="/products" className="hover:text-[#C5A059] transition text-gray-700 font-semibold">
+          <ChevronRight className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
+          <Link href="/products" className="hover:text-[#C5A059] transition text-gray-700 font-semibold flex-shrink-0">
             Collections
           </Link>
-          <ChevronRight className="w-3.5 h-3.5 text-gray-400" />
-          <span className="text-gray-900 font-bold">Checkout</span>
+          <ChevronRight className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
+          <span className="text-gray-900 font-bold flex-shrink-0">Checkout</span>
         </nav>
 
         <Link
           href="/products"
-          className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold text-xs transition"
+          className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold text-[11px] sm:text-xs transition"
         >
-          <ArrowLeft className="w-3.5 h-3.5" />
+          <ArrowLeft className="w-3 h-3" />
           <span>Back to Shopping</span>
         </Link>
       </div>
 
       {/* Top Header */}
-      <div className="text-center space-y-1.5 mb-8">
+      <div className="text-center space-y-1 mb-4 sm:mb-8">
         <span className="text-[10px] font-bold uppercase tracking-[0.25em] text-[#997B21]">
-          Fast & Secure Checkout
+          Direct Cash On Delivery Checkout
         </span>
-        <h1 className="text-2xl sm:text-3xl font-bold font-serif-luxury text-gray-900">
+        <h1 className="text-xl sm:text-3xl font-bold font-serif-luxury text-gray-900">
           কাস্টমার ও ডেলিভারি তথ্য (Order Checkout)
         </h1>
       </div>
 
-      <form onSubmit={handleInitiatePayment} className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+      <form onSubmit={handleDirectCODSubmit} className="grid grid-cols-1 lg:grid-cols-12 gap-5 sm:gap-8">
         {/* ========================================================================= */}
-        {/* LEFT COLUMN: Customer Information & Delivery Method (Matches Screenshot 2) */}
+        {/* LEFT COLUMN: Customer Information & Delivery Method                       */}
         {/* ========================================================================= */}
-        <div className="lg:col-span-7 space-y-6">
+        <div className="lg:col-span-7 space-y-4 sm:space-y-6">
           {error && (
-            <div className="p-3.5 bg-red-50 border border-red-200 text-red-700 text-xs rounded-xl flex items-center gap-2">
+            <div className="p-3 bg-red-50 border border-red-200 text-red-700 text-xs rounded-xl flex items-center gap-2">
               <AlertCircle className="w-4 h-4 flex-shrink-0" />
               <span>{error}</span>
             </div>
           )}
 
           {/* 1. Customer Information Box */}
-          <div className="bg-white p-6 rounded-2xl border border-gray-200/90 shadow-sm space-y-5">
+          <div className="bg-white p-4 sm:p-6 rounded-2xl border border-gray-200/90 shadow-2xs space-y-4 sm:space-y-5">
             <div className="flex items-center gap-2 pb-2 border-b border-gray-100">
               <User className="w-4 h-4 text-[#997B21]" />
-              <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wide">
+              <h3 className="text-xs sm:text-sm font-bold text-gray-900 uppercase tracking-wide">
                 Customer Information (গ্রাহকের তথ্য)
               </h3>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
               {/* Order For */}
               <div className="space-y-1">
                 <label className="text-xs font-bold text-gray-700">Order For *</label>
                 <select
                   value={orderFor}
                   onChange={(e: any) => setOrderFor(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-gray-300 bg-white text-xs font-semibold text-gray-900 focus:outline-none focus:border-[#C5A059]"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-gray-300 bg-white text-xs font-semibold text-gray-900 focus:outline-none focus:border-[#C5A059] min-h-[44px]"
                 >
                   <option value="Self">Self (নিজের জন্য)</option>
                   <option value="Gift">Gift (উপহার হিসেবে)</option>
@@ -339,12 +318,12 @@ export default function CheckoutPage() {
                   placeholder="Your full name"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-gray-300 bg-white text-xs text-gray-900 focus:outline-none focus:border-[#C5A059]"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-gray-300 bg-white text-xs text-gray-900 focus:outline-none focus:border-[#C5A059] min-h-[44px]"
                 />
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
               {/* Phone */}
               <div className="space-y-1">
                 <label className="text-xs font-bold text-gray-700">Phone (মোবাইল নম্বর) *</label>
@@ -354,12 +333,12 @@ export default function CheckoutPage() {
                   placeholder="01XXXXXXXXX"
                   value={mobile}
                   onChange={(e) => setMobile(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-gray-300 bg-white text-xs font-mono font-medium text-gray-900 focus:outline-none focus:border-[#C5A059]"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-gray-300 bg-white text-xs font-mono font-medium text-gray-900 focus:outline-none focus:border-[#C5A059] min-h-[44px]"
                 />
               </div>
             </div>
 
-            {/* Cascading 8 Divisions -> 64 Districts -> Upazilas (English) */}
+            {/* Cascading 8 Divisions -> 64 Districts -> Upazilas */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 pt-1">
               {/* 1. Division Dropdown */}
               <div className="space-y-1">
@@ -370,7 +349,7 @@ export default function CheckoutPage() {
                 <select
                   value={selectedDivisionId}
                   onChange={(e) => handleDivisionChange(e.target.value)}
-                  className="w-full px-3 py-2.5 rounded-xl border border-gray-300 bg-white text-xs font-semibold text-gray-900 focus:outline-none focus:border-[#C5A059]"
+                  className="w-full px-3 py-2.5 rounded-xl border border-gray-300 bg-white text-xs font-semibold text-gray-900 focus:outline-none focus:border-[#C5A059] min-h-[44px]"
                 >
                   {BANGLADESH_DIVISIONS.map((div) => (
                     <option key={div.id} value={div.id}>
@@ -389,7 +368,7 @@ export default function CheckoutPage() {
                 <select
                   value={selectedDistrictId}
                   onChange={(e) => handleDistrictChange(e.target.value)}
-                  className="w-full px-3 py-2.5 rounded-xl border border-gray-300 bg-white text-xs font-semibold text-gray-900 focus:outline-none focus:border-[#C5A059]"
+                  className="w-full px-3 py-2.5 rounded-xl border border-gray-300 bg-white text-xs font-semibold text-gray-900 focus:outline-none focus:border-[#C5A059] min-h-[44px]"
                 >
                   {availableDistricts.map((dist) => (
                     <option key={dist.id} value={dist.id}>
@@ -408,7 +387,7 @@ export default function CheckoutPage() {
                 <select
                   value={selectedUpazilaId}
                   onChange={(e) => handleUpazilaChange(e.target.value)}
-                  className="w-full px-3 py-2.5 rounded-xl border border-gray-300 bg-white text-xs font-semibold text-gray-900 focus:outline-none focus:border-[#C5A059]"
+                  className="w-full px-3 py-2.5 rounded-xl border border-gray-300 bg-white text-xs font-semibold text-gray-900 focus:outline-none focus:border-[#C5A059] min-h-[44px]"
                 >
                   {availableUpazilas.map((upa) => (
                     <option key={upa.id} value={upa.id}>
@@ -420,17 +399,17 @@ export default function CheckoutPage() {
             </div>
 
             {/* Delivery Charge Indicator Badge */}
-            <div className="p-2.5 bg-gray-50 rounded-xl border border-gray-200/80 flex items-center justify-between text-xs">
+            <div className="p-2.5 bg-gray-50 rounded-xl border border-gray-200/80 flex items-center justify-between text-xs flex-wrap gap-2">
               <div className="flex items-center gap-2">
                 <Truck className="w-4 h-4 text-[#997B21]" />
                 <span className="text-gray-700">
-                  Delivery Location:{' '}
+                  Location:{' '}
                   <strong className="text-gray-900 font-semibold">
                     {currentDistrict.name}, {currentDivision.name.replace(' Division', '')}
                   </strong>
                 </span>
               </div>
-              <span className="font-bold font-mono px-2 py-0.5 bg-white border border-gray-200 rounded-md text-emerald-800">
+              <span className="font-bold font-mono px-2 py-0.5 bg-white border border-gray-200 rounded-md text-emerald-800 text-xs">
                 Delivery Charge: ৳{deliveryCharge} ({isDhakaCity ? 'Inside Dhaka' : 'Outside Dhaka'})
               </span>
             </div>
@@ -464,17 +443,17 @@ export default function CheckoutPage() {
           </div>
 
           {/* 2. Delivery Method Box */}
-          <div className="bg-white p-6 rounded-2xl border border-gray-200/90 shadow-sm space-y-4">
+          <div className="bg-white p-4 sm:p-6 rounded-2xl border border-gray-200/90 shadow-2xs space-y-4">
             <div className="flex items-center gap-2 pb-2 border-b border-gray-100">
               <Truck className="w-4 h-4 text-[#997B21]" />
-              <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wide">
+              <h3 className="text-xs sm:text-sm font-bold text-gray-900 uppercase tracking-wide">
                 Delivery Method (ডেলিভারি মাধ্যম)
               </h3>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-3 sm:gap-4">
               <label
-                className={`p-3.5 rounded-xl border-2 cursor-pointer flex items-center gap-3 transition ${
+                className={`p-3 sm:p-3.5 rounded-xl border-2 cursor-pointer flex items-center gap-2.5 transition min-h-[44px] ${
                   deliveryMethod === 'HOME'
                     ? 'border-emerald-600 bg-emerald-50/50 text-emerald-950 font-bold'
                     : 'border-gray-200 hover:border-gray-300 text-gray-700'
@@ -491,7 +470,7 @@ export default function CheckoutPage() {
               </label>
 
               <label
-                className={`p-3.5 rounded-xl border-2 cursor-pointer flex items-center gap-3 transition ${
+                className={`p-3 sm:p-3.5 rounded-xl border-2 cursor-pointer flex items-center gap-2.5 transition min-h-[44px] ${
                   deliveryMethod === 'PICKUP'
                     ? 'border-emerald-600 bg-emerald-50/50 text-emerald-950 font-bold'
                     : 'border-gray-200 hover:border-gray-300 text-gray-700'
@@ -508,91 +487,54 @@ export default function CheckoutPage() {
               </label>
             </div>
 
-            {/* Courier Notice Info (Matches Screenshot 2) */}
+            {/* Courier Notice Info */}
             <div className="p-3 bg-amber-50/70 border border-amber-200 rounded-xl flex items-start gap-2 text-[11px] text-amber-900">
               <Info className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
               <span>
-                শুধুমাত্র জেলা/উপজেলা শহরের ৫ কিলোমিটারের মধ্যে হোম ডেলিভারি করা যাবে।
+                জেলা ও উপজেলা সদরে দ্রুততম সময়ে সরাসরি হোম ডেলিভারি পৌঁছে দেওয়া হবে।
               </span>
             </div>
           </div>
 
-          {/* 3. Payment Options Selection (Matches Screenshot 3) */}
-          <div className="bg-white p-6 rounded-2xl border border-gray-200/90 shadow-sm space-y-4">
+          {/* 3. Pure Cash on Delivery Payment Method Box (No advance requirement) */}
+          <div className="bg-white p-4 sm:p-6 rounded-2xl border border-gray-200/90 shadow-2xs space-y-4">
             <div className="flex items-center gap-2 pb-2 border-b border-gray-100">
               <ShieldCheck className="w-4 h-4 text-[#997B21]" />
-              <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wide">
-                Payment Options (পেমেন্ট অপশন)
+              <h3 className="text-xs sm:text-sm font-bold text-gray-900 uppercase tracking-wide">
+                Payment Method (পেমেন্ট পদ্ধতি)
               </h3>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {/* Option 1: Cash on Delivery with Advance Delivery Fee */}
-              <label
-                className={`p-4 rounded-xl border-2 cursor-pointer transition space-y-2 relative ${
-                  paymentOption === 'COD'
-                    ? 'border-slate-900 bg-slate-50/80 shadow-sm'
-                    : 'border-gray-200 hover:border-gray-300'
-                }`}
-              >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="radio"
-                      name="paymentOption"
-                      checked={paymentOption === 'COD'}
-                      onChange={() => setPaymentOption('COD')}
-                      className="w-4 h-4 text-slate-900"
-                    />
-                    <span className="text-xs font-bold text-gray-900">Cash on Delivery</span>
+            {/* Pure Cash On Delivery Highlight Card */}
+            <div className="p-4 sm:p-5 rounded-2xl border-2 border-slate-900 bg-slate-50/80 shadow-xs space-y-2.5">
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-5 h-5 rounded-full bg-slate-900 text-white flex items-center justify-center">
+                    <Check className="w-3 h-3" />
                   </div>
-                  <span className="px-2 py-0.5 bg-amber-100 text-amber-900 text-[10px] font-bold rounded">
-                    অগ্রিম ৳{deliveryCharge}
+                  <span className="text-sm font-bold text-gray-900">
+                    ক্যাশ অন ডেলিভারি (Cash on Delivery)
                   </span>
                 </div>
-                <p className="text-[11px] text-gray-600 pl-6 leading-relaxed">
-                  অর্ডার কনফার্ম করতে শুধু ডেলিভারি চার্জ (৳{deliveryCharge}) বিকাশে/নগদে দিন। বাকি <strong>৳{subtotal.toLocaleString()}</strong> পণ্য পেয়ে পরিশোধ করবেন।
-                </p>
-              </label>
+                <span className="px-2.5 py-1 bg-emerald-100 text-emerald-900 text-[10px] font-extrabold uppercase tracking-wider rounded-full border border-emerald-300">
+                  ১০০% পণ্য পেয়ে পরিশোধ
+                </span>
+              </div>
 
-              {/* Option 2: Full Mobile Banking Payment */}
-              <label
-                className={`p-4 rounded-xl border-2 cursor-pointer transition space-y-2 relative ${
-                  paymentOption === 'FULL_MOBILE_BANKING'
-                    ? 'border-slate-900 bg-slate-50/80 shadow-sm'
-                    : 'border-gray-200 hover:border-gray-300'
-                }`}
-              >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="radio"
-                      name="paymentOption"
-                      checked={paymentOption === 'FULL_MOBILE_BANKING'}
-                      onChange={() => setPaymentOption('FULL_MOBILE_BANKING')}
-                      className="w-4 h-4 text-slate-900"
-                    />
-                    <span className="text-xs font-bold text-gray-900">Mobile Banking (Full)</span>
-                  </div>
-                  <span className="px-2 py-0.5 bg-emerald-100 text-emerald-900 text-[10px] font-bold rounded">
-                    ১০০% পরিশোধ
-                  </span>
-                </div>
-                <p className="text-[11px] text-gray-600 pl-6 leading-relaxed">
-                  সম্পূর্ণ টাকা (৳{totalAmount.toLocaleString()}) একবারে বিকাশ/নগদে পরিশোধ করুন। ডেলিভারির সময় কোনো টাকা দিতে হবে না।
-                </p>
-              </label>
+              <p className="text-xs text-gray-600 leading-relaxed pl-7">
+                অর্ডার নিশ্চিত করতে <strong>কোনো অগ্রিম পেমেন্ট করতে হবে না</strong>। ডেলিভারি ম্যানের কাছ থেকে পার্সেল বুঝে পেয়ে সম্পূর্ণ মূল্য <strong>৳{totalAmount.toLocaleString()}</strong> নগদ পরিশোধ করবেন।
+              </p>
             </div>
           </div>
         </div>
 
         {/* ========================================================================= */}
-        {/* RIGHT COLUMN: Order Summary & Confirm Button */}
+        {/* RIGHT COLUMN: Order Summary & Direct Confirm Button                       */}
         {/* ========================================================================= */}
         <div className="lg:col-span-5 space-y-6">
-          <div className="bg-white p-6 rounded-2xl border border-gray-200/90 shadow-sm space-y-5 sticky top-24">
+          <div className="bg-white p-4 sm:p-6 rounded-2xl border border-gray-200/90 shadow-2xs space-y-4 sm:space-y-5 sticky top-24">
             <div className="flex items-center justify-between pb-3 border-b border-gray-100">
-              <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wide">
+              <h3 className="text-xs sm:text-sm font-bold text-gray-900 uppercase tracking-wide">
                 Order Summary (অর্ডার সামারি)
               </h3>
               <span className="text-xs text-gray-500">{cart.length} pieces</span>
@@ -643,13 +585,13 @@ export default function CheckoutPage() {
                       placeholder="Coupon Code (যেমন: EID20)"
                       value={couponCode}
                       onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
-                      className="flex-1 px-3 py-2 rounded-xl border border-gray-300 text-xs font-mono uppercase focus:outline-none focus:border-[#C5A059]"
+                      className="flex-1 px-3 py-2 rounded-xl border border-gray-300 text-xs font-mono uppercase focus:outline-none focus:border-[#C5A059] min-h-[40px]"
                     />
                     <button
                       type="button"
                       onClick={handleApplyCoupon}
                       disabled={!couponCode.trim() || applyingCoupon}
-                      className="px-4 py-2 bg-slate-900 hover:bg-[#C5A059] text-white font-bold text-xs uppercase tracking-wider rounded-xl transition disabled:opacity-50"
+                      className="px-4 py-2 bg-slate-900 hover:bg-[#C5A059] text-white font-bold text-xs uppercase tracking-wider rounded-xl transition disabled:opacity-50 min-h-[40px]"
                     >
                       {applyingCoupon ? '...' : 'Apply'}
                     </button>
@@ -698,50 +640,41 @@ export default function CheckoutPage() {
               </div>
             </div>
 
-            {/* Advance vs Due Split Box */}
-            <div className="p-4 bg-[#FAF7F0] rounded-xl border border-[#D4AF37]/30 space-y-2 text-xs">
-              <div className="flex justify-between font-bold text-emerald-800">
-                <span>এখন পরিশোধ (Payable Now):</span>
-                <span className="font-mono text-sm">৳{payableNow.toLocaleString()}</span>
+            {/* 100% Cash On Delivery Summary Callout */}
+            <div className="p-3.5 bg-emerald-50 rounded-xl border border-emerald-200 space-y-1 text-xs">
+              <div className="flex items-center gap-1.5 text-emerald-900 font-bold">
+                <PackageCheck className="w-4 h-4 text-emerald-700" />
+                <span>ডেলিভারির সময় প্রদেয় (Pay on Delivery):</span>
               </div>
-              <div className="flex justify-between font-bold text-amber-900">
-                <span>ডেলিভারির সময় বাকি (Cash on Delivery Due):</span>
-                <span className="font-mono text-sm">৳{dueOnDelivery.toLocaleString()}</span>
-              </div>
+              <p className="text-base font-bold font-mono text-emerald-950 pl-5">
+                ৳{totalAmount.toLocaleString()}
+              </p>
+              <p className="text-[10px] text-emerald-800 pl-5">
+                কোনো অগ্রিম পেমেন্ট নেই। পার্সেল পেয়ে সম্পূর্ণ টাকা দিন।
+              </p>
             </div>
 
-            {/* Submit / Confirm Button */}
+            {/* Direct Order Confirm Button */}
             <button
               type="submit"
               disabled={submitting}
-              className="w-full py-4 bg-[#C5A059] hover:bg-[#b08b3a] text-slate-950 font-bold text-xs uppercase tracking-[0.15em] rounded-xl transition-all shadow-lg hover:shadow-[#D4AF37]/30 flex items-center justify-center gap-2 group disabled:opacity-50"
+              className="w-full py-4 bg-[#C5A059] hover:bg-[#b08b3a] text-slate-950 font-bold text-xs uppercase tracking-[0.15em] rounded-xl transition-all shadow-lg hover:shadow-[#D4AF37]/30 flex items-center justify-center gap-2 group disabled:opacity-50 min-h-[48px]"
             >
               <span>
-                {paymentOption === 'COD'
-                  ? `অর্ডার কনফার্ম করুন (অগ্রিম ডেলিভারি চার্জ ৳${deliveryCharge})`
-                  : `অর্ডার কনফার্ম করুন (৳${totalAmount.toLocaleString()} পেমেন্ট)`}
+                {submitting
+                  ? 'অর্ডার প্রসেস হচ্ছে...'
+                  : `অর্ডার কনফার্ম করুন (৳${totalAmount.toLocaleString()} Cash on Delivery)`}
               </span>
               <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
             </button>
 
             <div className="flex items-center justify-center gap-1.5 text-[10px] text-gray-400 pt-1">
               <Lock className="w-3 h-3 text-[#C5A059]" />
-              <span>Official SSLCommerz & bKash 256-Bit Encrypted Checkout</span>
+              <span>100% Verified Cash on Delivery with Live SMS & Call Confirmation</span>
             </div>
           </div>
         </div>
       </form>
-
-      {/* Interactive Payment Gateway Modal */}
-      <PaymentGatewayModal
-        isOpen={isGatewayOpen}
-        onClose={() => setIsGatewayOpen(false)}
-        amount={payableNow}
-        invoiceId={`INV-${Date.now().toString().slice(-6)}`}
-        customerMobile={mobile}
-        isCODAdvance={paymentOption === 'COD'}
-        onSuccess={handleGatewaySuccess}
-      />
 
       {/* Invoice Modal */}
       <InvoiceModal

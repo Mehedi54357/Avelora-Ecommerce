@@ -17,6 +17,13 @@ const common_1 = require("@nestjs/common");
 const auth_service_1 = require("./auth.service");
 const config_1 = require("@nestjs/config");
 const auth_guard_1 = require("./auth.guard");
+function extractClientInfo(req) {
+    const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() ||
+        req.socket?.remoteAddress ||
+        '127.0.0.1';
+    const userAgent = req.headers['user-agent'] || 'Unknown';
+    return { ip, userAgent };
+}
 let AuthController = class AuthController {
     constructor(authService, configService) {
         this.authService = authService;
@@ -37,26 +44,45 @@ let AuthController = class AuthController {
             maxAge: 24 * 60 * 60 * 1000,
         };
     }
-    async login(body, res) {
-        const user = await this.authService.validateUser(body.email, body.password);
-        const { token, user: userData } = await this.authService.login(user);
-        const cookieOptions = this.getCookieOptions();
-        try {
-            res.cookie('token', token, cookieOptions);
+    async login(body, req, res) {
+        const { ip, userAgent } = extractClientInfo(req);
+        const user = await this.authService.validateUser(body.email, body.password, ip, userAgent);
+        const result = await this.authService.initiateLogin(user, ip, userAgent);
+        if ('token' in result && result.token) {
+            const cookieOptions = this.getCookieOptions();
+            try {
+                res.cookie('token', result.token, cookieOptions);
+            }
+            catch { }
         }
-        catch { }
-        return {
-            message: 'Logged in successfully',
-            token,
-            user: {
-                id: userData._id,
-                name: userData.name,
-                email: userData.email,
-                role: userData.role,
-            },
-        };
+        return result;
     }
-    async logout(res) {
+    async verifyOtp(body, req, res) {
+        const { ip, userAgent } = extractClientInfo(req);
+        const result = await this.authService.verifyOtp(body.challengeId, body.otpCode, ip, userAgent);
+        if (result.token) {
+            const cookieOptions = this.getCookieOptions();
+            try {
+                res.cookie('token', result.token, cookieOptions);
+            }
+            catch { }
+        }
+        return result;
+    }
+    async resendOtp(body, req) {
+        const { ip, userAgent } = extractClientInfo(req);
+        return this.authService.resendOtp(body.challengeId, ip, userAgent);
+    }
+    async forgotPassword(body, req) {
+        const { ip, userAgent } = extractClientInfo(req);
+        return this.authService.forgotPassword(body.email, ip, userAgent);
+    }
+    async resetPassword(body, req) {
+        const { ip, userAgent } = extractClientInfo(req);
+        return this.authService.resetPassword(body, ip, userAgent);
+    }
+    async logout(req, res) {
+        const { ip, userAgent } = extractClientInfo(req);
         const cookieOptions = this.getCookieOptions();
         res.clearCookie('token', {
             httpOnly: cookieOptions.httpOnly,
@@ -65,7 +91,9 @@ let AuthController = class AuthController {
             domain: cookieOptions.domain,
             path: '/',
         });
-        return { message: 'Logged out successfully' };
+        const token = req.cookies?.token;
+        const adminId = req.user?.sub;
+        return this.authService.logout(token, adminId, ip, userAgent);
     }
     async refresh(body) {
         return this.authService.refreshToken(body?.refreshToken);
@@ -89,16 +117,51 @@ exports.AuthController = AuthController;
 __decorate([
     (0, common_1.Post)('login'),
     __param(0, (0, common_1.Body)()),
-    __param(1, (0, common_1.Res)({ passthrough: true })),
+    __param(1, (0, common_1.Req)()),
+    __param(2, (0, common_1.Res)({ passthrough: true })),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object, Object]),
+    __metadata("design:paramtypes", [Object, Object, Object]),
     __metadata("design:returntype", Promise)
 ], AuthController.prototype, "login", null);
 __decorate([
-    (0, common_1.Post)('logout'),
-    __param(0, (0, common_1.Res)({ passthrough: true })),
+    (0, common_1.Post)('verify-otp'),
+    __param(0, (0, common_1.Body)()),
+    __param(1, (0, common_1.Req)()),
+    __param(2, (0, common_1.Res)({ passthrough: true })),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object]),
+    __metadata("design:paramtypes", [Object, Object, Object]),
+    __metadata("design:returntype", Promise)
+], AuthController.prototype, "verifyOtp", null);
+__decorate([
+    (0, common_1.Post)('resend-otp'),
+    __param(0, (0, common_1.Body)()),
+    __param(1, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, Object]),
+    __metadata("design:returntype", Promise)
+], AuthController.prototype, "resendOtp", null);
+__decorate([
+    (0, common_1.Post)('forgot-password'),
+    __param(0, (0, common_1.Body)()),
+    __param(1, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, Object]),
+    __metadata("design:returntype", Promise)
+], AuthController.prototype, "forgotPassword", null);
+__decorate([
+    (0, common_1.Post)('reset-password'),
+    __param(0, (0, common_1.Body)()),
+    __param(1, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, Object]),
+    __metadata("design:returntype", Promise)
+], AuthController.prototype, "resetPassword", null);
+__decorate([
+    (0, common_1.Post)('logout'),
+    __param(0, (0, common_1.Req)()),
+    __param(1, (0, common_1.Res)({ passthrough: true })),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, Object]),
     __metadata("design:returntype", Promise)
 ], AuthController.prototype, "logout", null);
 __decorate([

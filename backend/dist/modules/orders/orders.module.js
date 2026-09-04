@@ -19,6 +19,7 @@ const inventory_module_1 = require("../inventory/inventory.module");
 const coupons_module_1 = require("../coupons/coupons.module");
 const settings_module_1 = require("../settings/settings.module");
 const auth_module_1 = require("../auth/auth.module");
+const audit_log_module_1 = require("../audit-log/audit-log.module");
 let OrdersModule = class OrdersModule {
 };
 exports.OrdersModule = OrdersModule;
@@ -35,6 +36,7 @@ exports.OrdersModule = OrdersModule = __decorate([
             coupons_module_1.CouponsModule,
             settings_module_1.SettingsModule,
             auth_module_1.AuthModule,
+            audit_log_module_1.AuditLogModule,
         ],
         providers: [orders_service_1.OrdersService],
         controllers: [orders_controller_1.OrdersController],

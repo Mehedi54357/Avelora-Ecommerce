@@ -87,7 +87,7 @@ export default function PaymentGatewayModal({
       }, 700);
     } else if (pgwStep === 2) {
       if (!otp.trim() || otp.length < 4) {
-        setErrorMessage('সঠিক ভেরিফিকেশন কোড (OTP) লিখুন (যেমন: 123456)');
+        setErrorMessage('সঠিক ভেরিফিকেশন কোড (OTP) লিখুন');
         return;
       }
       setProcessing(true);
@@ -228,7 +228,7 @@ export default function PaymentGatewayModal({
                           required
                           autoFocus
                           maxLength={6}
-                          placeholder="6-digit OTP (e.g. 123456)"
+                          placeholder="• • • • • •"
                           value={otp}
                           onChange={(e) => setOtp(e.target.value)}
                           className="w-full text-center py-3 rounded-lg text-lg font-bold font-mono tracking-[0.3em] text-gray-900 bg-white shadow-inner focus:outline-none"

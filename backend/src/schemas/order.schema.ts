@@ -46,6 +46,12 @@ export enum FulfillmentStatus {
   RETURNED = 'RETURNED',
 }
 
+export enum FulfillmentMethod {
+  COURIER = 'COURIER',
+  DIRECT_HAND_DELIVERY = 'DIRECT_HAND_DELIVERY',
+  CUSTOMER_PICKUP = 'CUSTOMER_PICKUP',
+}
+
 @Schema()
 export class OrderItem {
   @Prop({ type: MongooseSchema.Types.ObjectId, ref: 'Product', required: true })
@@ -95,6 +101,9 @@ export class CustomerDetailsSnapshot {
   @Prop({ required: false, default: '' })
   altMobile?: string;
 
+  @Prop({ required: false, default: '' })
+  email?: string;
+
   @Prop({ required: true })
   address: string;
 
@@ -131,9 +140,47 @@ export class OrderTimelineEntry {
 export const OrderTimelineEntrySchema = SchemaFactory.createForClass(OrderTimelineEntry);
 
 @Schema({ timestamps: true })
+export class ManualPaymentRecord {
+  @Prop({ required: true })
+  amount: number;
+
+  @Prop({ required: true, default: 'Cash' })
+  paymentMethod: string;
+
+  @Prop({ required: false, default: '' })
+  transactionReference?: string;
+
+  @Prop({ required: false, default: 'Cash On Hand' })
+  account?: string;
+
+  @Prop({ required: true, default: Date.now })
+  paymentDate: Date;
+
+  @Prop({ required: false, default: 'ADMIN' })
+  recordedBy?: string;
+
+  @Prop({ required: false, default: '' })
+  notes?: string;
+}
+
+export const ManualPaymentRecordSchema = SchemaFactory.createForClass(ManualPaymentRecord);
+
+@Schema({ timestamps: true })
 export class Order {
   @Prop({ required: true, unique: true, index: true })
   orderId: string; // e.g. AVE-20260824-00125
+
+  @Prop({ required: false, enum: ['PRODUCTION', 'TEST'], default: 'PRODUCTION', index: true })
+  dataMode: string;
+
+  @Prop({ required: false, enum: FulfillmentMethod, default: FulfillmentMethod.COURIER, index: true })
+  fulfillmentMethod: FulfillmentMethod;
+
+  @Prop({ required: false, enum: CourierSettlementStatus, default: CourierSettlementStatus.AWAITING_SETTLEMENT, index: true })
+  courierSettlementStatus?: CourierSettlementStatus;
+
+  @Prop({ type: [ManualPaymentRecordSchema], default: [] })
+  manualPayments?: ManualPaymentRecord[];
 
   @Prop({ type: MongooseSchema.Types.ObjectId, ref: 'Customer', required: false, index: true })
   customerId?: MongooseSchema.Types.ObjectId;
@@ -292,4 +339,11 @@ export const OrderSchema = SchemaFactory.createForClass(Order);
 
 OrderSchema.index({ createdAt: -1 });
 OrderSchema.index({ 'customerDetails.mobile': 1 });
+OrderSchema.index({ 'customerDetails.name': 1 });
+OrderSchema.index({ 'customerDetails.email': 1 });
 OrderSchema.index({ status: 1, paymentStatus: 1 });
+OrderSchema.index({ dataMode: 1, createdAt: -1 });
+OrderSchema.index({ 'courier.consignmentId': 1 });
+OrderSchema.index({ 'courier.provider': 1 });
+OrderSchema.index({ 'items.sku': 1 });
+OrderSchema.index({ transactionId: 1 });

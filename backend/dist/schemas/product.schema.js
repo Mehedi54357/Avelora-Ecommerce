@@ -9,7 +9,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.ProductSchema = exports.Product = exports.ProductFeatureSchema = exports.ProductFeature = exports.ProductVariantSchema = exports.ProductVariant = void 0;
+exports.ProductSchema = exports.Product = exports.ProductImageItemSchema = exports.ProductImageItem = exports.ProductFeatureSchema = exports.ProductFeature = exports.ProductVariantSchema = exports.ProductVariant = void 0;
 const mongoose_1 = require("@nestjs/mongoose");
 const mongoose_2 = require("mongoose");
 let ProductVariant = class ProductVariant {
@@ -82,6 +82,45 @@ exports.ProductFeature = ProductFeature = __decorate([
     (0, mongoose_1.Schema)()
 ], ProductFeature);
 exports.ProductFeatureSchema = mongoose_1.SchemaFactory.createForClass(ProductFeature);
+let ProductImageItem = class ProductImageItem {
+};
+exports.ProductImageItem = ProductImageItem;
+__decorate([
+    (0, mongoose_1.Prop)({ required: true }),
+    __metadata("design:type", String)
+], ProductImageItem.prototype, "url", void 0);
+__decorate([
+    (0, mongoose_1.Prop)({ required: false, default: '' }),
+    __metadata("design:type", String)
+], ProductImageItem.prototype, "public_id", void 0);
+__decorate([
+    (0, mongoose_1.Prop)({ required: false, default: 0 }),
+    __metadata("design:type", Number)
+], ProductImageItem.prototype, "sortOrder", void 0);
+__decorate([
+    (0, mongoose_1.Prop)({ required: false, default: false }),
+    __metadata("design:type", Boolean)
+], ProductImageItem.prototype, "isPrimary", void 0);
+__decorate([
+    (0, mongoose_1.Prop)({ required: false, default: '' }),
+    __metadata("design:type", String)
+], ProductImageItem.prototype, "alt", void 0);
+__decorate([
+    (0, mongoose_1.Prop)({ required: false, default: 0 }),
+    __metadata("design:type", Number)
+], ProductImageItem.prototype, "width", void 0);
+__decorate([
+    (0, mongoose_1.Prop)({ required: false, default: 0 }),
+    __metadata("design:type", Number)
+], ProductImageItem.prototype, "height", void 0);
+__decorate([
+    (0, mongoose_1.Prop)({ required: false, default: '' }),
+    __metadata("design:type", String)
+], ProductImageItem.prototype, "variantColor", void 0);
+exports.ProductImageItem = ProductImageItem = __decorate([
+    (0, mongoose_1.Schema)({ _id: false })
+], ProductImageItem);
+exports.ProductImageItemSchema = mongoose_1.SchemaFactory.createForClass(ProductImageItem);
 let Product = class Product {
 };
 exports.Product = Product;
@@ -109,6 +148,10 @@ __decorate([
     (0, mongoose_1.Prop)({ type: [String], default: [] }),
     __metadata("design:type", Array)
 ], Product.prototype, "images", void 0);
+__decorate([
+    (0, mongoose_1.Prop)({ type: [exports.ProductImageItemSchema], default: [] }),
+    __metadata("design:type", Array)
+], Product.prototype, "productImages", void 0);
 __decorate([
     (0, mongoose_1.Prop)({ required: false, default: 'BEST SELLER' }),
     __metadata("design:type", String)
@@ -142,13 +185,29 @@ __decorate([
     __metadata("design:type", Number)
 ], Product.prototype, "salePrice", void 0);
 __decorate([
-    (0, mongoose_1.Prop)({ default: true }),
+    (0, mongoose_1.Prop)({ required: false, default: true }),
+    __metadata("design:type", Boolean)
+], Product.prototype, "isDiscountActive", void 0);
+__decorate([
+    (0, mongoose_1.Prop)({ required: false }),
+    __metadata("design:type", Date)
+], Product.prototype, "discountStartDate", void 0);
+__decorate([
+    (0, mongoose_1.Prop)({ required: false }),
+    __metadata("design:type", Date)
+], Product.prototype, "discountEndDate", void 0);
+__decorate([
+    (0, mongoose_1.Prop)({ default: true, index: true }),
     __metadata("design:type", Boolean)
 ], Product.prototype, "isPublished", void 0);
 __decorate([
-    (0, mongoose_1.Prop)({ required: false, default: 'ACTIVE', enum: ['ACTIVE', 'DRAFT', 'ARCHIVED'] }),
+    (0, mongoose_1.Prop)({ required: false, default: 'ACTIVE', enum: ['ACTIVE', 'DRAFT', 'HIDDEN', 'ARCHIVED'], index: true }),
     __metadata("design:type", String)
 ], Product.prototype, "status", void 0);
+__decorate([
+    (0, mongoose_1.Prop)({ required: false, default: 'PRODUCTION', enum: ['PRODUCTION', 'TEST'], index: true }),
+    __metadata("design:type", String)
+], Product.prototype, "dataMode", void 0);
 __decorate([
     (0, mongoose_1.Prop)({
         type: {

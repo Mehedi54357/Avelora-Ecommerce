@@ -23,6 +23,15 @@ let FinanceController = class FinanceController {
     constructor(financeService) {
         this.financeService = financeService;
     }
+    async getBusinessPerformance(query) {
+        return this.financeService.getBusinessPerformance(query);
+    }
+    async exportBusinessPerformance(res) {
+        const csvData = await this.financeService.exportReportCsv('business-performance');
+        res.setHeader('Content-Type', 'text/csv');
+        res.setHeader('Content-Disposition', `attachment; filename="avelora-business-performance-${Date.now()}.csv"`);
+        return res.send(csvData);
+    }
     async getAnalytics() {
         return this.financeService.getFinancialAnalytics();
     }
@@ -65,6 +74,22 @@ let FinanceController = class FinanceController {
     }
 };
 exports.FinanceController = FinanceController;
+__decorate([
+    (0, common_1.Get)('business-performance'),
+    (0, roles_decorator_1.Roles)(user_schema_1.UserRole.SUPER_ADMIN, user_schema_1.UserRole.ADMIN, user_schema_1.UserRole.MANAGER),
+    __param(0, (0, common_1.Query)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", Promise)
+], FinanceController.prototype, "getBusinessPerformance", null);
+__decorate([
+    (0, common_1.Get)('business-performance/export'),
+    (0, roles_decorator_1.Roles)(user_schema_1.UserRole.SUPER_ADMIN, user_schema_1.UserRole.ADMIN, user_schema_1.UserRole.MANAGER),
+    __param(0, (0, common_1.Res)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", Promise)
+], FinanceController.prototype, "exportBusinessPerformance", null);
 __decorate([
     (0, common_1.Get)('analytics'),
     (0, roles_decorator_1.Roles)(user_schema_1.UserRole.SUPER_ADMIN, user_schema_1.UserRole.ADMIN, user_schema_1.UserRole.MANAGER),

@@ -10,6 +10,7 @@ import { InventoryModule } from '../inventory/inventory.module';
 import { CouponsModule } from '../coupons/coupons.module';
 import { SettingsModule } from '../settings/settings.module';
 import { AuthModule } from '../auth/auth.module';
+import { AuditLogModule } from '../audit-log/audit-log.module';
 
 @Module({
   imports: [
@@ -23,6 +24,7 @@ import { AuthModule } from '../auth/auth.module';
     CouponsModule,
     SettingsModule,
     AuthModule,
+    AuditLogModule,
   ],
   providers: [OrdersService],
   controllers: [OrdersController],

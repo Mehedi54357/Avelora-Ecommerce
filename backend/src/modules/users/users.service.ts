@@ -61,20 +61,28 @@ export class UsersService implements OnModuleInit {
     return this.userModel.findByIdAndUpdate(id, { isActive }, { new: true }).select('-passwordHash').exec();
   }
 
+  async updateLastLogin(id: string, ip?: string) {
+    return this.userModel.findByIdAndUpdate(id, { lastLogin: new Date() }, { new: true }).exec();
+  }
+
   private async seedSuperAdmin() {
-    const existingAdmin = await this.userModel.findOne({ role: UserRole.SUPER_ADMIN });
-    if (!existingAdmin) {
-      const email = this.configService.get<string>('INITIAL_ADMIN_EMAIL') || 'admin@avelora.com';
-      const password = this.configService.get<string>('INITIAL_ADMIN_PASSWORD') || 'admin123';
+    const email = (this.configService.get<string>('INITIAL_ADMIN_EMAIL') || 'aveloraelegance@gmail.com').toLowerCase().trim();
+    const existing = await this.userModel.findOne({ email });
+    if (!existing) {
+      const password = this.configService.get<string>('INITIAL_ADMIN_PASSWORD') || 'Admin@123456';
       const passwordHash = await bcrypt.hash(password, 10);
       await this.userModel.create({
-        name: 'Super Admin',
-        email: email.toLowerCase().trim(),
+        name: 'AVELORA Super Admin',
+        email,
         passwordHash,
         role: UserRole.SUPER_ADMIN,
         isActive: true,
       });
       this.logger.log(`Initialized default SUPER_ADMIN account: ${email}`);
+    } else if (existing.role !== UserRole.SUPER_ADMIN) {
+      existing.role = UserRole.SUPER_ADMIN;
+      existing.isActive = true;
+      await existing.save();
     }
   }
 }

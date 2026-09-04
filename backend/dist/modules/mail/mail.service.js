@@ -1,0 +1,304 @@
+"use strict";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
+    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
+    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
+    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
+    return c > 3 && r && Object.defineProperty(target, key, r), r;
+};
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
+var __metadata = (this && this.__metadata) || function (k, v) {
+    if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
+};
+var MailService_1;
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.MailService = void 0;
+const common_1 = require("@nestjs/common");
+const config_1 = require("@nestjs/config");
+const nodemailer = __importStar(require("nodemailer"));
+function maskEmail(email) {
+    if (!email || !email.includes('@'))
+        return '******';
+    const [user, domain] = email.split('@');
+    if (user.length <= 2)
+        return `${user[0]}*@${domain}`;
+    return `${user[0]}${'*'.repeat(Math.min(user.length - 2, 6))}${user[user.length - 1]}@${domain}`;
+}
+let MailService = MailService_1 = class MailService {
+    constructor(configService) {
+        this.configService = configService;
+        this.logger = new common_1.Logger(MailService_1.name);
+        this.transporter = null;
+        this.isVerified = false;
+        this.initTransporter();
+    }
+    async onModuleInit() {
+        await this.verifyTransporter();
+    }
+    initTransporter() {
+        const rawUser = this.configService.get('SMTP_USER');
+        const rawPass = this.configService.get('SMTP_PASS');
+        const rawHost = this.configService.get('SMTP_HOST');
+        const rawPort = this.configService.get('SMTP_PORT');
+        const rawSecure = this.configService.get('SMTP_SECURE');
+        if (!rawUser || !rawPass) {
+            this.transporter = null;
+            this.isVerified = false;
+            return;
+        }
+        const user = rawUser.trim();
+        const pass = rawPass.replace(/\s+/g, '');
+        const isGmail = user.toLowerCase().endsWith('@gmail.com') || (rawHost && rawHost.includes('gmail'));
+        const host = rawHost ? rawHost.trim() : (isGmail ? 'smtp.gmail.com' : undefined);
+        let port = Number(rawPort);
+        if (!port || isNaN(port)) {
+            port = rawSecure === 'true' ? 465 : 587;
+        }
+        const secure = rawSecure === 'true' || port === 465;
+        if (host && user && pass) {
+            this.transporter = nodemailer.createTransport({
+                host,
+                port,
+                secure,
+                auth: { user, pass },
+                connectionTimeout: 10000,
+                greetingTimeout: 10000,
+                socketTimeout: 15000,
+            });
+        }
+        else {
+            this.transporter = null;
+            this.isVerified = false;
+        }
+    }
+    async verifyTransporter() {
+        if (!this.transporter) {
+            this.logger.log('Mail transport: NOT configured');
+            return;
+        }
+        try {
+            await this.transporter.verify();
+            this.isVerified = true;
+            this.logger.log('Mail transport: configured');
+        }
+        catch (err) {
+            this.isVerified = false;
+            const safeCode = err.code || (err.responseCode ? `HTTP ${err.responseCode}` : 'Verification failed');
+            const authFail = err.message && (err.message.includes('Invalid login') || err.message.includes('Username and Password not accepted') || err.code === 'EAUTH');
+            if (authFail) {
+                this.logger.warn('Mail transport: NOT configured (SMTP Authentication Failed — Google App Password required)');
+            }
+            else {
+                this.logger.warn(`Mail transport: NOT configured (${safeCode})`);
+            }
+        }
+    }
+    isConfigured() {
+        return this.transporter !== null && this.isVerified;
+    }
+    async sendAdminOtpEmail(toEmail, otpCode, adminName = 'Administrator') {
+        if (!this.transporter) {
+            this.logger.warn(`[MailService] Attempted to send Admin OTP to ${maskEmail(toEmail)}, but SMTP is not configured.`);
+            return {
+                success: false,
+                message: 'SMTP not configured — verification email could not be dispatched.',
+                configured: false,
+            };
+        }
+        const smtpUser = this.configService.get('SMTP_USER') || 'aveloraelegance@gmail.com';
+        const from = this.configService.get('MAIL_FROM') || `"AVELORA Security" <${smtpUser}>`;
+        const subject = 'AVELORA Admin Verification Code';
+        const html = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AVELORA Admin Security Verification</title>
+</head>
+<body style="margin: 0; padding: 0; background-color: #0B0F19; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #FAFAF8;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color: #0B0F19; padding: 40px 16px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="100%" style="max-width: 520px; background-color: #111827; border: 1px solid rgba(212, 175, 55, 0.3); border-radius: 16px; overflow: hidden; box-shadow: 0 20px 40px rgba(0,0,0,0.6);">
+          
+          <!-- Header Branding -->
+          <tr>
+            <td style="padding: 36px 32px 24px; text-align: center; border-bottom: 1px solid rgba(212, 175, 55, 0.2); background: linear-gradient(180deg, #161F30 0%, #111827 100%);">
+              <h1 style="margin: 0; font-family: 'Playfair Display', Georgia, serif; font-size: 26px; letter-spacing: 0.3em; color: #FAFAF8; text-transform: uppercase;">AVELORA</h1>
+              <p style="margin: 6px 0 0; font-size: 10px; letter-spacing: 0.35em; color: #D4AF37; text-transform: uppercase; font-weight: 700;">ELEGANCE &bull; ADMIN SECURITY</p>
+            </td>
+          </tr>
+
+          <!-- Main Body -->
+          <tr>
+            <td style="padding: 36px 32px; text-align: center;">
+              <p style="margin: 0 0 10px; font-size: 14px; color: #9CA3AF;">Dear ${adminName},</p>
+              <h2 style="margin: 0 0 16px; font-size: 19px; font-weight: 700; color: #FAFAF8;">Your verification code:</h2>
+              <p style="margin: 0 0 28px; font-size: 13px; line-height: 1.5; color: #9CA3AF;">
+                Use the one-time verification code below to complete your secure administration sign-in:
+              </p>
+              
+              <!-- High-Security OTP Box -->
+              <div style="background-color: #0B0F19; border: 1px solid rgba(212, 175, 55, 0.5); border-radius: 12px; padding: 22px 0; margin: 0 auto 28px; max-width: 320px; box-shadow: inset 0 2px 8px rgba(0,0,0,0.5);">
+                <span style="font-family: 'Courier New', monospace; font-size: 36px; font-weight: 800; letter-spacing: 0.4em; color: #D4AF37; text-shadow: 0 0 14px rgba(212, 175, 55, 0.35); padding-left: 0.4em;">${otpCode}</span>
+              </div>
+
+              <!-- Expiry & Security Notice -->
+              <p style="margin: 0 0 8px; font-size: 13px; color: #E5E7EB; font-weight: 600;">
+                This code expires in <strong style="color: #D4AF37;">5 minutes</strong>.
+              </p>
+              <p style="margin: 0 0 24px; font-size: 12px; color: #EF4444; font-weight: 500;">
+                Never share this verification code with anyone.
+              </p>
+
+              <div style="border-top: 1px solid rgba(255, 255, 255, 0.08); padding-top: 22px;">
+                <p style="margin: 0; font-size: 11px; color: #6B7280; line-height: 1.5;">
+                  If you did not attempt to sign in to AVELORA Administration, please ignore this email and review your account security immediately.
+                </p>
+              </div>
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="padding: 22px 32px; text-align: center; background-color: #0B0F19; border-top: 1px solid rgba(255, 255, 255, 0.06);">
+              <p style="margin: 0; font-size: 10px; letter-spacing: 0.2em; color: #6B7280; text-transform: uppercase;">
+                AVELORA ELEGANCE &bull; SECURE ADMINISTRATION PORTAL
+              </p>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+`;
+        try {
+            await this.transporter.sendMail({
+                from,
+                to: toEmail,
+                subject,
+                html,
+            });
+            this.logger.log(`[MailService] OTP email successfully dispatched to ${maskEmail(toEmail)}`);
+            return { success: true, message: 'Verification code dispatched to your registered email.', configured: true };
+        }
+        catch (err) {
+            this.logger.error(`[MailService] Failed to send OTP email to ${maskEmail(toEmail)}: ${err.message}`);
+            return { success: false, message: 'Verification email could not be sent. Please try again.', configured: true };
+        }
+    }
+    async sendPasswordResetEmail(toEmail, resetCode, adminName = 'Administrator') {
+        if (!this.transporter) {
+            this.logger.warn(`[MailService] Attempted to send Password Reset to ${maskEmail(toEmail)}, but SMTP is not configured.`);
+            return {
+                success: false,
+                message: 'SMTP not configured — email delivery unavailable.',
+                configured: false,
+            };
+        }
+        const smtpUser = this.configService.get('SMTP_USER') || 'aveloraelegance@gmail.com';
+        const from = this.configService.get('MAIL_FROM') || `"AVELORA Security" <${smtpUser}>`;
+        const subject = 'AVELORA Password Reset Code';
+        const html = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>AVELORA Password Reset</title>
+</head>
+<body style="margin: 0; padding: 0; background-color: #0B0F19; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #FAFAF8;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color: #0B0F19; padding: 40px 16px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="100%" style="max-width: 520px; background-color: #111827; border: 1px solid rgba(212, 175, 55, 0.3); border-radius: 16px; overflow: hidden;">
+          <tr>
+            <td style="padding: 36px 32px 24px; text-align: center; border-bottom: 1px solid rgba(212, 175, 55, 0.2); background: linear-gradient(180deg, #161F30 0%, #111827 100%);">
+              <h1 style="margin: 0; font-family: 'Playfair Display', Georgia, serif; font-size: 26px; letter-spacing: 0.3em; color: #FAFAF8;">AVELORA</h1>
+              <p style="margin: 6px 0 0; font-size: 10px; letter-spacing: 0.35em; color: #D4AF37; text-transform: uppercase; font-weight: 700;">PASSWORD RESET</p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 36px 32px; text-align: center;">
+              <p style="margin: 0 0 10px; font-size: 14px; color: #9CA3AF;">Dear ${adminName},</p>
+              <h2 style="margin: 0 0 16px; font-size: 19px; font-weight: 700; color: #FAFAF8;">Reset Your Password</h2>
+              <p style="margin: 0 0 28px; font-size: 13px; line-height: 1.5; color: #9CA3AF;">Use this verification code to set a new secure password for your account:</p>
+              
+              <div style="background-color: #0B0F19; border: 1px solid rgba(212, 175, 55, 0.5); border-radius: 12px; padding: 22px 0; margin: 0 auto 28px; max-width: 320px;">
+                <span style="font-family: 'Courier New', monospace; font-size: 36px; font-weight: 800; letter-spacing: 0.4em; color: #D4AF37; padding-left: 0.4em;">${resetCode}</span>
+              </div>
+
+              <p style="margin: 0 0 8px; font-size: 13px; color: #E5E7EB; font-weight: 600;">This code expires in <strong style="color: #D4AF37;">10 minutes</strong>.</p>
+              <p style="margin: 0 0 24px; font-size: 12px; color: #6B7280;">If you did not request a password reset, please secure your account immediately.</p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 22px 32px; text-align: center; background-color: #0B0F19; border-top: 1px solid rgba(255, 255, 255, 0.06);">
+              <p style="margin: 0; font-size: 10px; letter-spacing: 0.2em; color: #6B7280; text-transform: uppercase;">
+                AVELORA ELEGANCE &bull; SECURE ADMINISTRATION PORTAL
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+`;
+        try {
+            await this.transporter.sendMail({
+                from,
+                to: toEmail,
+                subject,
+                html,
+            });
+            this.logger.log(`[MailService] Password reset email dispatched to ${maskEmail(toEmail)}`);
+            return { success: true, message: 'Password reset instructions sent to your email.', configured: true };
+        }
+        catch (err) {
+            this.logger.error(`[MailService] Failed to send reset email to ${maskEmail(toEmail)}: ${err.message}`);
+            return { success: false, message: 'Password reset email could not be sent. Please try again.', configured: true };
+        }
+    }
+};
+exports.MailService = MailService;
+exports.MailService = MailService = MailService_1 = __decorate([
+    (0, common_1.Injectable)(),
+    __metadata("design:paramtypes", [config_1.ConfigService])
+], MailService);
+//# sourceMappingURL=mail.service.js.map

@@ -73,6 +73,7 @@ const ADMIN_NAV_SECTIONS: NavSection[] = [
   {
     title: 'Finance & Accounting',
     items: [
+      { name: 'Business Performance', href: '/admin/finance/business-performance', icon: TrendingUp, roles: ['SUPER_ADMIN', 'ADMIN', 'MANAGER'] },
       { name: 'Statement of P&L', href: '/admin/finance/pnl', icon: FileSpreadsheet, roles: ['SUPER_ADMIN', 'ADMIN'] },
       { name: 'Cash Flow', href: '/admin/finance/cash-flow', icon: Wallet, roles: ['SUPER_ADMIN', 'ADMIN'] },
       { name: 'Capital & Investment', href: '/admin/finance/capital', icon: Landmark, roles: ['SUPER_ADMIN', 'ADMIN'] },

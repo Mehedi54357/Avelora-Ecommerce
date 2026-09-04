@@ -3,6 +3,7 @@ import {
   Post,
   Get,
   Patch,
+  Delete,
   Body,
   Param,
   Query,
@@ -14,6 +15,7 @@ import { AuthGuard } from '../auth/auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { UserRole } from '../../schemas/user.schema';
+import { FulfillmentMethod } from '../../schemas/order.schema';
 
 @Controller('orders')
 export class OrdersController {
@@ -31,17 +33,36 @@ export class OrdersController {
     return this.ordersService.trackOrder(orderId, mobile);
   }
 
-  // Admin: Get All Orders with Pagination & Filters
+  // Admin: Get All Orders with Pagination & Multi-Filters
   @Get('admin')
   @UseGuards(AuthGuard, RolesGuard)
   @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.MANAGER, UserRole.STAFF)
   async getAdminOrders(
     @Query('status') status?: string,
+    @Query('paymentStatus') paymentStatus?: string,
+    @Query('fulfillmentMethod') fulfillmentMethod?: string,
+    @Query('dataMode') dataMode?: string,
+    @Query('courier') courier?: string,
+    @Query('dateRange') dateRange?: string,
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
     @Query('search') search?: string,
     @Query('page') page?: number,
     @Query('limit') limit?: number,
   ) {
-    return this.ordersService.getAdminOrders({ status, search, page, limit });
+    return this.ordersService.getAdminOrders({
+      status,
+      paymentStatus,
+      fulfillmentMethod,
+      dataMode,
+      courier,
+      dateRange,
+      startDate,
+      endDate,
+      search,
+      page,
+      limit,
+    });
   }
 
   // Admin: Get Single Order Details
@@ -63,6 +84,69 @@ export class OrdersController {
   ) {
     const actor = req.user?.name || req.user?.role || 'STAFF';
     return this.ordersService.updateOrderStatus(id, body.status, body.paymentStatus, actor, body.note);
+  }
+
+  // Admin: Update Fulfillment Method
+  @Patch('admin/:id/fulfillment-method')
+  @UseGuards(AuthGuard, RolesGuard)
+  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.MANAGER)
+  async updateFulfillmentMethod(
+    @Param('id') id: string,
+    @Body() body: { fulfillmentMethod: FulfillmentMethod },
+    @Req() req: any,
+  ) {
+    const actorId = req.user?.sub;
+    const actor = req.user?.name || req.user?.role || 'ADMIN';
+    return this.ordersService.updateFulfillmentMethod(id, body.fulfillmentMethod, actorId, actor);
+  }
+
+  // Admin: Confirm Direct Hand Delivery
+  @Post('admin/:id/confirm-direct-delivery')
+  @UseGuards(AuthGuard, RolesGuard)
+  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.MANAGER)
+  async confirmDirectDelivery(@Param('id') id: string, @Body() body: any, @Req() req: any) {
+    const actorId = req.user?.sub;
+    const actor = req.user?.name || req.user?.role || 'ADMIN';
+    return this.ordersService.confirmDirectDelivery(id, body, actorId, actor);
+  }
+
+  // Admin: Confirm Customer Pickup
+  @Post('admin/:id/confirm-customer-pickup')
+  @UseGuards(AuthGuard, RolesGuard)
+  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.MANAGER)
+  async confirmCustomerPickup(@Param('id') id: string, @Body() body: any, @Req() req: any) {
+    const actorId = req.user?.sub;
+    const actor = req.user?.name || req.user?.role || 'ADMIN';
+    return this.ordersService.confirmCustomerPickup(id, body, actorId, actor);
+  }
+
+  // Admin: Record Manual Payment (Partial / Full)
+  @Post('admin/:id/record-payment')
+  @UseGuards(AuthGuard, RolesGuard)
+  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.MANAGER)
+  async recordPayment(@Param('id') id: string, @Body() body: any, @Req() req: any) {
+    const actorId = req.user?.sub;
+    const actor = req.user?.name || req.user?.role || 'ADMIN';
+    return this.ordersService.recordOrderPayment(id, body, actorId, actor);
+  }
+
+  // Admin: Reset TEST Order
+  @Post('admin/:id/reset-test')
+  @UseGuards(AuthGuard, RolesGuard)
+  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN)
+  async resetTestOrder(@Param('id') id: string, @Req() req: any) {
+    const actorId = req.user?.sub;
+    const actor = req.user?.name || req.user?.role || 'ADMIN';
+    return this.ordersService.resetTestOrder(id, actorId, actor);
+  }
+
+  // Admin: Delete TEST Order
+  @Delete('admin/:id/test')
+  @UseGuards(AuthGuard, RolesGuard)
+  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN)
+  async deleteTestOrder(@Param('id') id: string, @Req() req: any) {
+    const actorId = req.user?.sub;
+    return this.ordersService.deleteTestOrder(id, actorId);
   }
 
   // Admin: Update Payment Details

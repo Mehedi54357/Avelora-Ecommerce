@@ -4,96 +4,101 @@ import React, { useState, useEffect, Suspense } from 'react';
 import Link from 'next/link';
 import { useSearchParams, useRouter } from 'next/navigation';
 import ProductCard from '../../components/product-card';
-import { Search, Filter, SlidersHorizontal, Sparkles, X, RotateCcw, ChevronRight, ArrowLeft } from 'lucide-react';
 import { API_BASE_URL } from '../../utils/api-config';
+import {
+  Search,
+  Filter,
+  ArrowUpDown,
+  Sparkles,
+  ChevronRight,
+  RotateCcw,
+  SlidersHorizontal,
+  ArrowLeft,
+  X,
+} from 'lucide-react';
+
+interface Category {
+  _id: string;
+  name: string;
+  slug: string;
+  department?: string;
+}
+
+interface Product {
+  _id: string;
+  name: string;
+  slug: string;
+  images: string[];
+  originalPrice: number;
+  discountPercentage?: number;
+  salePrice: number;
+  badge?: string;
+  categoryId?: any;
+  variants: any[];
+}
 
 const DEPARTMENTS = [
-  { id: '', label: 'All Departments' },
-  { id: 'women', label: 'Women' },
-  { id: 'men', label: 'Men' },
-  { id: 'kids', label: 'Kids' },
+  { id: '', name: 'All Departments' },
+  { id: 'women', name: 'Women' },
+  { id: 'men', name: 'Men' },
+  { id: 'kids', name: 'Kids' },
 ];
 
 function ProductsCatalogContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
 
-  const [products, setProducts] = useState<any[]>([]);
-  const [categories, setCategories] = useState<any[]>([]);
+  // URL state
+  const departmentParam = searchParams.get('department') || '';
+  const categoryParam = searchParams.get('category') || '';
+  const searchParam = searchParams.get('search') || '';
+  const sortParam = searchParams.get('sort') || 'popular';
+
+  const [products, setProducts] = useState<Product[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Filter States
-  const [selectedDepartment, setSelectedDepartment] = useState<string>('');
-  const [selectedCategory, setSelectedCategory] = useState<string>('');
-  const [search, setSearch] = useState<string>('');
-  const [sort, setSort] = useState<string>('popular');
+  const [selectedDepartment, setSelectedDepartment] = useState(departmentParam);
+  const [selectedCategory, setSelectedCategory] = useState(categoryParam);
+  const [search, setSearch] = useState(searchParam);
+  const [sort, setSort] = useState(sortParam);
 
-  // Sync state from URL query parameters whenever searchParams changes
+  // Sync state when URL params change
   useEffect(() => {
-    const dept = searchParams.get('department') || '';
-    const cat = searchParams.get('category') || '';
-    const q = searchParams.get('search') || '';
-    const s = searchParams.get('sort') || 'popular';
+    setSelectedDepartment(departmentParam);
+    setSelectedCategory(categoryParam);
+    setSearch(searchParam);
+    setSort(sortParam);
+  }, [departmentParam, categoryParam, searchParam, sortParam]);
 
-    setSelectedDepartment(dept);
-    setSelectedCategory(cat);
-    setSearch(q);
-    setSort(s);
-  }, [searchParams]);
-
-  // Fetch available categories list once
+  // Fetch Categories
   useEffect(() => {
     fetch(`${API_BASE_URL}/api/categories`)
       .then((res) => (res.ok ? res.json() : []))
-      .then((data) => {
-        if (Array.isArray(data)) {
-          setCategories(data);
-        }
-      })
-      .catch((err) => console.error('Failed to fetch categories:', err));
+      .then((data) => setCategories(data))
+      .catch((err) => console.error('Error loading categories', err));
   }, []);
 
-  // If a category is selected from URL but department is empty, auto-detect department from category
-  useEffect(() => {
-    if (selectedCategory && !selectedDepartment && categories.length > 0) {
-      const match = categories.find((c) => c.slug === selectedCategory);
-      if (match && match.department) {
-        setSelectedDepartment(match.department);
-      }
-    }
-  }, [selectedCategory, selectedDepartment, categories]);
-
-  // Categories visible in subcategory pills based on current department
-  const visibleCategories = selectedDepartment
-    ? categories.filter((c) => c.department === selectedDepartment)
-    : categories;
-
-  // Fetch products from backend whenever filters change
+  // Fetch Products based on URL query
   useEffect(() => {
     setLoading(true);
-    const params = new URLSearchParams();
+    const query = new URLSearchParams();
+    if (selectedDepartment) query.set('department', selectedDepartment);
+    if (selectedCategory) query.set('category', selectedCategory);
+    if (search) query.set('search', search);
+    if (sort && sort !== 'popular') query.set('sort', sort);
 
-    if (selectedCategory) {
-      params.set('category', selectedCategory);
-    } else if (selectedDepartment) {
-      params.set('department', selectedDepartment);
-    }
-
-    if (search.trim()) {
-      params.set('search', search.trim());
-    }
-
-    if (sort) {
-      params.set('sort', sort);
-    }
-
-    fetch(`${API_BASE_URL}/api/products?${params.toString()}`)
-      .then((res) => (res.ok ? res.json() : { products: [] }))
+    fetch(`${API_BASE_URL}/api/products?${query.toString()}`)
+      .then((res) => {
+        if (!res.ok) throw new Error('Failed to fetch products');
+        return res.json();
+      })
       .then((data) => {
         setProducts(data.products || []);
       })
       .catch((err) => {
-        console.error('Failed to fetch products:', err);
+        console.error(err);
         setProducts([]);
       })
       .finally(() => setLoading(false));
@@ -102,7 +107,7 @@ function ProductsCatalogContent() {
   // Handler: Change Department
   const handleDepartmentChange = (deptId: string) => {
     setSelectedDepartment(deptId);
-    setSelectedCategory(''); // Reset subcategory when switching department
+    setSelectedCategory('');
 
     const newParams = new URLSearchParams();
     if (deptId) newParams.set('department', deptId);
@@ -120,7 +125,6 @@ function ProductsCatalogContent() {
     const newParams = new URLSearchParams();
     if (catSlug) {
       newParams.set('category', catSlug);
-      // Retain department if available
       if (selectedDepartment) newParams.set('department', selectedDepartment);
     } else if (selectedDepartment) {
       newParams.set('department', selectedDepartment);
@@ -154,6 +158,13 @@ function ProductsCatalogContent() {
     router.push('/products', { scroll: false });
   };
 
+  // Filter Subcategories by Department
+  const filteredCategories = categories.filter((c) => {
+    if (!selectedDepartment) return true;
+    const catDept = (c.department || '').toLowerCase();
+    return catDept === selectedDepartment.toLowerCase() || c.slug.startsWith(selectedDepartment);
+  });
+
   // Header Title
   const activeCategoryObj = categories.find((c) => c.slug === selectedCategory);
   const headerTitle = activeCategoryObj
@@ -163,20 +174,20 @@ function ProductsCatalogContent() {
     : 'THE HAUTE LUXURY COLLECTION';
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+    <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-8 space-y-4 sm:space-y-6">
       {/* 0. Elegant Breadcrumb & Quick Back Navigation Bar */}
-      <div className="flex flex-wrap items-center justify-between gap-4 bg-white px-5 py-3 rounded-2xl border border-gray-200/80 shadow-sm text-xs">
-        <nav className="flex items-center gap-2 text-gray-500 font-medium overflow-x-auto scrollbar-none py-1">
+      <div className="flex flex-wrap items-center justify-between gap-3 bg-white px-3 sm:px-5 py-2.5 sm:py-3 rounded-2xl border border-gray-200/80 shadow-2xs text-xs">
+        <nav className="flex items-center gap-1.5 sm:gap-2 text-gray-500 font-medium overflow-x-auto scrollbar-none py-1">
           <Link
             href="/"
-            className="flex items-center gap-1 hover:text-[#C5A059] transition text-gray-700 font-semibold"
+            className="flex items-center gap-1 hover:text-[#C5A059] transition text-gray-700 font-semibold flex-shrink-0"
           >
             <span>Home</span>
           </Link>
           <ChevronRight className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
           <button
             onClick={handleResetFilters}
-            className={`hover:text-[#C5A059] transition ${
+            className={`hover:text-[#C5A059] transition flex-shrink-0 ${
               !selectedDepartment && !selectedCategory ? 'text-gray-900 font-bold' : ''
             }`}
           >
@@ -188,7 +199,7 @@ function ProductsCatalogContent() {
               <ChevronRight className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
               <button
                 onClick={() => handleDepartmentChange(selectedDepartment)}
-                className={`hover:text-[#C5A059] transition capitalize ${
+                className={`hover:text-[#C5A059] transition capitalize flex-shrink-0 ${
                   !selectedCategory ? 'text-gray-900 font-bold' : ''
                 }`}
               >
@@ -200,29 +211,29 @@ function ProductsCatalogContent() {
           {selectedCategory && (
             <>
               <ChevronRight className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
-              <span className="text-[#997B21] font-bold truncate max-w-[200px]">
+              <span className="text-[#997B21] font-bold truncate max-w-[120px] sm:max-w-[200px] flex-shrink-0">
                 {activeCategoryObj?.name || selectedCategory}
               </span>
             </>
           )}
         </nav>
 
-        {/* Action Buttons: Back to Home & Back to Department */}
+        {/* Action Buttons */}
         <div className="flex items-center gap-2">
           {selectedCategory ? (
             <button
               onClick={() => handleDepartmentChange(selectedDepartment || '')}
-              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold text-xs transition"
+              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold text-[11px] sm:text-xs transition"
             >
-              <ArrowLeft className="w-3.5 h-3.5" />
+              <ArrowLeft className="w-3 h-3" />
               <span>Back to {selectedDepartment ? `${selectedDepartment}` : 'All Catalog'}</span>
             </button>
           ) : (
             <Link
               href="/"
-              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold text-xs transition"
+              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold text-[11px] sm:text-xs transition"
             >
-              <ArrowLeft className="w-3.5 h-3.5" />
+              <ArrowLeft className="w-3 h-3" />
               <span>Back to Home</span>
             </Link>
           )}
@@ -230,15 +241,15 @@ function ProductsCatalogContent() {
       </div>
 
       {/* Header Banner */}
-      <div className="text-center space-y-3 py-10 bg-[#0B0F19] text-white rounded-3xl border border-[#D4AF37]/20 relative overflow-hidden px-4">
-        <div className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-white/10 text-[#E6CA85] text-[10px] font-bold uppercase tracking-widest border border-[#D4AF37]/30">
+      <div className="text-center space-y-2 sm:space-y-3 py-6 sm:py-10 bg-[#0B0F19] text-white rounded-2xl sm:rounded-3xl border border-[#D4AF37]/20 relative overflow-hidden px-4">
+        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/10 text-[#E6CA85] text-[9px] sm:text-[10px] font-bold uppercase tracking-widest border border-[#D4AF37]/30">
           <Sparkles className="w-3 h-3" />
           <span>AVELORA Haute Collection</span>
         </div>
-        <h1 className="text-2xl sm:text-4xl md:text-5xl font-bold font-serif-luxury text-white">
+        <h1 className="text-xl sm:text-3xl md:text-5xl font-bold font-serif-luxury text-white">
           {headerTitle}
         </h1>
-        <p className="text-xs sm:text-sm text-gray-300 max-w-2xl mx-auto font-light">
+        <p className="text-[11px] sm:text-sm text-gray-300 max-w-2xl mx-auto font-light leading-relaxed">
           {selectedCategory
             ? `Showing exclusive handcrafted pieces in ${activeCategoryObj?.name || 'this collection'}.`
             : selectedDepartment
@@ -248,36 +259,38 @@ function ProductsCatalogContent() {
       </div>
 
       {/* 1. Main Department Switcher Tabs */}
-      <div className="flex items-center justify-center gap-2 sm:gap-4 border-b border-gray-200 pb-4 overflow-x-auto scrollbar-none">
-        {DEPARTMENTS.map((dept) => {
-          const isActive = selectedDepartment === dept.id;
-          return (
-            <button
-              key={dept.id}
-              onClick={() => handleDepartmentChange(dept.id)}
-              className={`px-5 sm:px-7 py-2.5 rounded-full text-xs font-bold uppercase tracking-[0.15em] transition-all whitespace-nowrap ${
-                isActive
-                  ? 'bg-slate-950 text-white shadow-lg scale-105 border border-slate-950'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200 border border-transparent'
-              }`}
-            >
-              {dept.label}
-            </button>
-          );
-        })}
+      <div className="bg-white p-2 sm:p-2.5 rounded-2xl border border-gray-200 shadow-2xs">
+        <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto scrollbar-none">
+          {DEPARTMENTS.map((dept) => {
+            const isSelected = selectedDepartment.toLowerCase() === dept.id.toLowerCase();
+            return (
+              <button
+                key={dept.id}
+                onClick={() => handleDepartmentChange(dept.id)}
+                className={`flex-1 min-w-[100px] py-2 sm:py-2.5 px-3 rounded-xl text-xs sm:text-sm font-bold tracking-wider uppercase transition-all whitespace-nowrap min-h-[40px] flex items-center justify-center ${
+                  isSelected
+                    ? 'bg-slate-950 text-[#E6CA85] shadow-md border-b-2 border-[#C5A059]'
+                    : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+                }`}
+              >
+                {dept.name}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
-      {/* 2. Filter, Search & Subcategory Controls */}
-      <div className="bg-white p-4 sm:p-6 rounded-2xl border border-gray-200/80 shadow-sm space-y-4">
-        <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-          {/* Search Input Form */}
-          <form onSubmit={handleSearchSubmit} className="relative w-full md:w-96">
+      {/* 2. Search & Sort Bar */}
+      <div className="bg-white p-3 sm:p-4 rounded-2xl border border-gray-200 shadow-2xs space-y-3">
+        <div className="flex flex-col md:flex-row gap-3 items-stretch md:items-center justify-between">
+          {/* Search Input Box */}
+          <form onSubmit={handleSearchSubmit} className="relative flex-1">
             <input
               type="text"
-              placeholder="Search products by name or style..."
+              placeholder="Search Hijabs, কাঁচের চুড়ি, nagras, kurtis..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-10 pr-10 py-2.5 rounded-xl border border-gray-300 focus:outline-none focus:border-[#C5A059] text-xs sm:text-sm text-gray-900 bg-gray-50/50"
+              className="w-full pl-9 pr-10 py-2.5 bg-gray-50 border border-gray-300 rounded-xl text-xs sm:text-sm focus:outline-none focus:border-[#C5A059] text-gray-900"
             />
             <Search className="w-4 h-4 text-gray-400 absolute left-3 top-3" />
             {search && (
@@ -285,10 +298,9 @@ function ProductsCatalogContent() {
                 type="button"
                 onClick={() => {
                   setSearch('');
-                  const newParams = new URLSearchParams();
-                  if (selectedCategory) newParams.set('category', selectedCategory);
-                  else if (selectedDepartment) newParams.set('department', selectedDepartment);
-                  router.push(`/products${newParams.toString() ? `?${newParams.toString()}` : ''}`, { scroll: false });
+                  const newParams = new URLSearchParams(searchParams.toString());
+                  newParams.delete('search');
+                  router.push(`/products?${newParams.toString()}`, { scroll: false });
                 }}
                 className="absolute right-3 top-3 text-gray-400 hover:text-gray-600"
               >
@@ -297,57 +309,58 @@ function ProductsCatalogContent() {
             )}
           </form>
 
-          {/* Sort Selector & Active Count */}
-          <div className="flex items-center gap-4 w-full md:w-auto justify-between md:justify-end">
-            <span className="text-xs text-gray-500 font-medium">
-              {loading ? 'Searching...' : `${products.length} Products`}
-            </span>
-            <div className="flex items-center gap-2">
-              <div className="flex items-center gap-1.5 text-xs text-gray-500 font-medium">
-                <SlidersHorizontal className="w-3.5 h-3.5 text-gray-400" />
-                <span className="hidden sm:inline">Sort:</span>
-              </div>
-              <select
-                value={sort}
-                onChange={(e) => {
-                  setSort(e.target.value);
-                  const newParams = new URLSearchParams();
-                  if (selectedCategory) newParams.set('category', selectedCategory);
-                  else if (selectedDepartment) newParams.set('department', selectedDepartment);
-                  if (search) newParams.set('search', search);
-                  if (e.target.value !== 'popular') newParams.set('sort', e.target.value);
-                  router.push(`/products${newParams.toString() ? `?${newParams.toString()}` : ''}`, { scroll: false });
-                }}
-                className="px-3 py-2 border border-gray-300 rounded-lg text-xs font-semibold text-gray-800 bg-white focus:outline-none focus:border-[#C5A059]"
-              >
-                <option value="popular">Most Popular</option>
-                <option value="price_asc">Price: Low to High</option>
-                <option value="price_desc">Price: High to Low</option>
-              </select>
+          {/* Sort Selector */}
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5 text-xs text-gray-500 font-bold uppercase tracking-wider flex-shrink-0">
+              <ArrowUpDown className="w-3.5 h-3.5 text-[#C5A059]" />
+              <span className="hidden sm:inline">Sort:</span>
             </div>
+            <select
+              value={sort}
+              onChange={(e) => {
+                const val = e.target.value;
+                setSort(val);
+                const newParams = new URLSearchParams(searchParams.toString());
+                if (val && val !== 'popular') newParams.set('sort', val);
+                else newParams.delete('sort');
+                router.push(`/products?${newParams.toString()}`, { scroll: false });
+              }}
+              className="flex-1 sm:flex-initial py-2.5 px-3 bg-gray-50 border border-gray-300 rounded-xl text-xs font-semibold text-gray-800 focus:outline-none focus:border-[#C5A059]"
+            >
+              <option value="popular">Most Popular</option>
+              <option value="newest">Newest Arrivals</option>
+              <option value="price_asc">Price: Low to High</option>
+              <option value="price_desc">Price: High to Low</option>
+            </select>
           </div>
         </div>
 
-        {/* 3. Subcategory Pills Bar */}
-        {visibleCategories.length > 0 && (
-          <div className="flex items-center gap-2 overflow-x-auto pb-2 pt-2 border-t border-gray-100 scrollbar-none">
+        {/* 3. Subcategories Horizontal Scroll Filter Chips */}
+        {filteredCategories.length > 0 && (
+          <div className="pt-2 border-t border-gray-100 flex items-center gap-2 overflow-x-auto scrollbar-none py-1">
+            <span className="text-[10px] font-bold uppercase tracking-widest text-[#997B21] flex-shrink-0 flex items-center gap-1">
+              <SlidersHorizontal className="w-3 h-3" />
+              <span>Subcategories:</span>
+            </span>
+
             <button
               onClick={() => handleCategoryChange('')}
-              className={`px-4 py-1.5 rounded-full text-xs font-semibold uppercase tracking-wider transition-all whitespace-nowrap ${
-                selectedCategory === ''
-                  ? 'bg-slate-900 text-white shadow-md'
+              className={`px-3 py-1.5 rounded-full text-xs font-semibold uppercase tracking-wider transition-all whitespace-nowrap min-h-[32px] ${
+                !selectedCategory
+                  ? 'bg-slate-900 text-white font-bold shadow-xs'
                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
               }`}
             >
-              {selectedDepartment ? `All ${selectedDepartment}` : 'All Categories'}
+              All {selectedDepartment ? `${selectedDepartment}` : 'Pieces'}
             </button>
-            {visibleCategories.map((cat) => {
+
+            {filteredCategories.map((cat) => {
               const isSelected = selectedCategory === cat.slug;
               return (
                 <button
-                  key={cat.slug}
+                  key={cat._id}
                   onClick={() => handleCategoryChange(cat.slug)}
-                  className={`px-4 py-1.5 rounded-full text-xs font-semibold uppercase tracking-wider transition-all whitespace-nowrap ${
+                  className={`px-3.5 py-1.5 rounded-full text-xs font-semibold uppercase tracking-wider transition-all whitespace-nowrap min-h-[32px] ${
                     isSelected
                       ? 'bg-[#C5A059] text-slate-950 font-bold shadow-md'
                       : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
@@ -363,9 +376,9 @@ function ProductsCatalogContent() {
 
       {/* 4. Products Grid Showcase */}
       {loading ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 py-12">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-6 lg:gap-8 py-8">
           {[...Array(8)].map((_, i) => (
-            <div key={i} className="bg-white rounded-2xl h-96 animate-pulse border border-gray-100 p-4 space-y-4">
+            <div key={i} className="bg-white rounded-2xl h-80 sm:h-96 animate-pulse border border-gray-100 p-3 sm:p-4 space-y-3">
               <div className="bg-gray-200 aspect-[4/5] rounded-xl w-full" />
               <div className="h-4 bg-gray-200 rounded w-3/4" />
               <div className="h-4 bg-gray-200 rounded w-1/2" />
@@ -373,14 +386,14 @@ function ProductsCatalogContent() {
           ))}
         </div>
       ) : products.length === 0 ? (
-        <div className="text-center py-20 bg-white rounded-3xl border border-gray-200 space-y-4">
-          <div className="w-16 h-16 rounded-full bg-[#FAFAF8] border border-[#D4AF37]/30 flex items-center justify-center text-[#C5A059] mx-auto">
-            <Filter className="w-8 h-8" />
+        <div className="text-center py-16 sm:py-20 bg-white rounded-3xl border border-gray-200 space-y-4 px-4">
+          <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-[#FAFAF8] border border-[#D4AF37]/30 flex items-center justify-center text-[#C5A059] mx-auto">
+            <Filter className="w-7 h-7 sm:w-8 sm:h-8" />
           </div>
-          <h3 className="text-lg font-bold font-serif-luxury text-gray-900 uppercase tracking-wider">
+          <h3 className="text-base sm:text-lg font-bold font-serif-luxury text-gray-900 uppercase tracking-wider">
             No Luxury Pieces Found
           </h3>
-          <p className="text-xs text-gray-500 max-w-sm mx-auto">
+          <p className="text-xs text-gray-500 max-w-sm mx-auto leading-relaxed">
             {selectedCategory
               ? `No products currently available in "${activeCategoryObj?.name || selectedCategory}".`
               : 'Try adjusting your search terms or selecting a different department.'}
@@ -394,17 +407,15 @@ function ProductsCatalogContent() {
           </button>
         </div>
       ) : (
-        <div
-          className={
-            products.length === 1
-              ? 'grid grid-cols-1 max-w-sm sm:max-w-md mx-auto sm:mx-0'
-              : products.length === 2
-              ? 'grid grid-cols-1 sm:grid-cols-2 max-w-2xl gap-6 sm:gap-8'
-              : products.length === 3
-              ? 'grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 max-w-5xl gap-6 sm:gap-8'
-              : 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 sm:gap-8'
-          }
-        >
+        /*
+          Adaptive Grid Breakpoints:
+          - Small mobile (320-374px): 1-col
+          - Standard mobile (375-767px): 2-col (min-[375px]:grid-cols-2)
+          - Tablet (768-1023px): 2-col (md:grid-cols-2)
+          - Laptop (1024-1439px): 3-col (lg:grid-cols-3)
+          - Large Desktop (1440px+): 4-col (xl:grid-cols-4)
+        */
+        <div className="grid grid-cols-1 min-[375px]:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-6 lg:gap-8">
           {products.map((product) => (
             <ProductCard key={product._id} product={product} />
           ))}

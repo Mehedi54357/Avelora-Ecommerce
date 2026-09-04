@@ -29,11 +29,14 @@ export declare class ProductsController {
     getProductById(id: string): Promise<Product>;
     createProduct(body: Partial<Product>): Promise<Product>;
     updateProduct(id: string, body: Partial<Product>): Promise<Product>;
+    archiveProduct(id: string, req: any): Promise<Product>;
+    restoreProduct(id: string, req: any): Promise<Product>;
     clearAllProducts(): Promise<{
         success: boolean;
         deletedCount: number;
     }>;
-    deleteProduct(id: string): Promise<{
+    deleteProduct(id: string, req: any): Promise<{
         success: boolean;
+        message: string;
     }>;
 }

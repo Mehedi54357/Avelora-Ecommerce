@@ -1,11 +1,12 @@
 import { Model, Types } from 'mongoose';
-import { Order, OrderDocument, OrderStatus, PaymentStatus, FulfillmentStatus } from '../../schemas/order.schema';
+import { Order, OrderDocument, OrderStatus, PaymentStatus, FulfillmentStatus, FulfillmentMethod } from '../../schemas/order.schema';
 import { ProductDocument } from '../../schemas/product.schema';
 import { CustomerDocument } from '../../schemas/customer.schema';
 import { PaymentDocument } from '../../schemas/payment.schema';
 import { InventoryService } from '../inventory/inventory.service';
 import { CouponsService } from '../coupons/coupons.service';
 import { SettingsService } from '../settings/settings.service';
+import { AuditLogService } from '../audit-log/audit-log.service';
 export declare class OrdersService {
     private orderModel;
     private productModel;
@@ -14,8 +15,9 @@ export declare class OrdersService {
     private readonly inventoryService;
     private readonly couponsService;
     private readonly settingsService;
+    private readonly auditLogService;
     private readonly logger;
-    constructor(orderModel: Model<OrderDocument>, productModel: Model<ProductDocument>, customerModel: Model<CustomerDocument>, paymentModel: Model<PaymentDocument>, inventoryService: InventoryService, couponsService: CouponsService, settingsService: SettingsService);
+    constructor(orderModel: Model<OrderDocument>, productModel: Model<ProductDocument>, customerModel: Model<CustomerDocument>, paymentModel: Model<PaymentDocument>, inventoryService: InventoryService, couponsService: CouponsService, settingsService: SettingsService, auditLogService: AuditLogService);
     checkout(data: {
         customerDetails: {
             name: string;
@@ -39,6 +41,8 @@ export declare class OrdersService {
         paidAmount?: number;
         couponCode?: string;
         notes?: string;
+        dataMode?: string;
+        fulfillmentMethod?: FulfillmentMethod;
     }): Promise<import("mongoose").Document<unknown, {}, OrderDocument, {}, import("mongoose").DefaultSchemaOptions> & Order & import("mongoose").Document<Types.ObjectId, any, any, Record<string, any>, {}> & Required<{
         _id: Types.ObjectId;
     }> & {
@@ -51,6 +55,7 @@ export declare class OrdersService {
         status: OrderStatus;
         paymentStatus: PaymentStatus;
         fulfillmentStatus: FulfillmentStatus;
+        fulfillmentMethod: FulfillmentMethod;
         paymentMethod: string;
         createdAt: any;
         customerName: string;
@@ -81,6 +86,13 @@ export declare class OrdersService {
     }>;
     getAdminOrders(query: {
         status?: string;
+        paymentStatus?: string;
+        fulfillmentMethod?: string;
+        dataMode?: string;
+        courier?: string;
+        dateRange?: string;
+        startDate?: string;
+        endDate?: string;
         search?: string;
         page?: number;
         limit?: number;
@@ -100,6 +112,54 @@ export declare class OrdersService {
         };
     }>;
     getOrderById(id: string): Promise<Order>;
+    updateFulfillmentMethod(id: string, method: FulfillmentMethod, actorId?: string, actor?: string): Promise<import("mongoose").Document<unknown, {}, OrderDocument, {}, import("mongoose").DefaultSchemaOptions> & Order & import("mongoose").Document<Types.ObjectId, any, any, Record<string, any>, {}> & Required<{
+        _id: Types.ObjectId;
+    }> & {
+        __v: number;
+    } & {
+        id: string;
+    }>;
+    confirmDirectDelivery(id: string, payload: {
+        paymentReceived: boolean;
+        amount?: number;
+        paymentMethod?: string;
+        transactionReference?: string;
+        account?: string;
+        notes?: string;
+    }, actorId?: string, actor?: string): Promise<import("mongoose").Document<unknown, {}, OrderDocument, {}, import("mongoose").DefaultSchemaOptions> & Order & import("mongoose").Document<Types.ObjectId, any, any, Record<string, any>, {}> & Required<{
+        _id: Types.ObjectId;
+    }> & {
+        __v: number;
+    } & {
+        id: string;
+    }>;
+    confirmCustomerPickup(id: string, payload: {
+        paymentReceived: boolean;
+        amount?: number;
+        paymentMethod?: string;
+        transactionReference?: string;
+        account?: string;
+        notes?: string;
+    }, actorId?: string, actor?: string): Promise<import("mongoose").Document<unknown, {}, OrderDocument, {}, import("mongoose").DefaultSchemaOptions> & Order & import("mongoose").Document<Types.ObjectId, any, any, Record<string, any>, {}> & Required<{
+        _id: Types.ObjectId;
+    }> & {
+        __v: number;
+    } & {
+        id: string;
+    }>;
+    recordOrderPayment(id: string, payload: {
+        amount: number;
+        paymentMethod: string;
+        transactionReference?: string;
+        account?: string;
+        notes?: string;
+    }, actorId?: string, actor?: string): Promise<import("mongoose").Document<unknown, {}, OrderDocument, {}, import("mongoose").DefaultSchemaOptions> & Order & import("mongoose").Document<Types.ObjectId, any, any, Record<string, any>, {}> & Required<{
+        _id: Types.ObjectId;
+    }> & {
+        __v: number;
+    } & {
+        id: string;
+    }>;
     updateOrderStatus(id: string, newStatus: OrderStatus, paymentStatus?: PaymentStatus, actor?: string, note?: string): Promise<import("mongoose").Document<unknown, {}, OrderDocument, {}, import("mongoose").DefaultSchemaOptions> & Order & import("mongoose").Document<Types.ObjectId, any, any, Record<string, any>, {}> & Required<{
         _id: Types.ObjectId;
     }> & {
@@ -145,5 +205,16 @@ export declare class OrdersService {
         __v: number;
     } & {
         id: string;
+    }>;
+    resetTestOrder(id: string, actorId?: string, actor?: string): Promise<import("mongoose").Document<unknown, {}, OrderDocument, {}, import("mongoose").DefaultSchemaOptions> & Order & import("mongoose").Document<Types.ObjectId, any, any, Record<string, any>, {}> & Required<{
+        _id: Types.ObjectId;
+    }> & {
+        __v: number;
+    } & {
+        id: string;
+    }>;
+    deleteTestOrder(id: string, actorId?: string): Promise<{
+        success: boolean;
+        message: string;
     }>;
 }

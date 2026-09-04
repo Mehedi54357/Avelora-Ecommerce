@@ -33,7 +33,9 @@ const courier_module_1 = require("./modules/courier/courier.module");
 const purchases_module_1 = require("./modules/purchases/purchases.module");
 const capital_module_1 = require("./modules/capital/capital.module");
 const dashboard_module_1 = require("./modules/dashboard/dashboard.module");
+const mail_module_1 = require("./modules/mail/mail.module");
 const user_schema_1 = require("./schemas/user.schema");
+const auth_challenge_schema_1 = require("./schemas/auth-challenge.schema");
 const customer_schema_1 = require("./schemas/customer.schema");
 const category_schema_1 = require("./schemas/category.schema");
 const product_schema_1 = require("./schemas/product.schema");
@@ -101,10 +103,12 @@ exports.AppModule = AppModule = __decorate([
                 { name: courier_settlement_schema_1.CourierSettlement.name, schema: courier_settlement_schema_1.CourierSettlementSchema },
                 { name: pathao_token_schema_1.PathaoToken.name, schema: pathao_token_schema_1.PathaoTokenSchema },
                 { name: review_schema_1.Review.name, schema: review_schema_1.ReviewSchema },
+                { name: auth_challenge_schema_1.AuthChallenge.name, schema: auth_challenge_schema_1.AuthChallengeSchema },
             ]),
             audit_log_module_1.AuditLogModule,
             users_module_1.UsersModule,
             auth_module_1.AuthModule,
+            mail_module_1.MailModule,
             upload_module_1.UploadModule,
             categories_module_1.CategoriesModule,
             products_module_1.ProductsModule,

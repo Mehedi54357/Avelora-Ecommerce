@@ -25,8 +25,10 @@ import { CourierModule } from './modules/courier/courier.module';
 import { PurchasesModule } from './modules/purchases/purchases.module';
 import { CapitalModule } from './modules/capital/capital.module';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
+import { MailModule } from './modules/mail/mail.module';
 
 import { User, UserSchema } from './schemas/user.schema';
+import { AuthChallenge, AuthChallengeSchema } from './schemas/auth-challenge.schema';
 import { Customer, CustomerSchema } from './schemas/customer.schema';
 import { Category, CategorySchema } from './schemas/category.schema';
 import { Product, ProductSchema } from './schemas/product.schema';
@@ -91,10 +93,12 @@ import { Review, ReviewSchema } from './schemas/review.schema';
       { name: CourierSettlement.name, schema: CourierSettlementSchema },
       { name: PathaoToken.name, schema: PathaoTokenSchema },
       { name: Review.name, schema: ReviewSchema },
+      { name: AuthChallenge.name, schema: AuthChallengeSchema },
     ]),
     AuditLogModule,
     UsersModule,
     AuthModule,
+    MailModule,
     UploadModule,
     CategoriesModule,
     ProductsModule,

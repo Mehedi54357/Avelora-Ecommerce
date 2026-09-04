@@ -39,6 +39,11 @@ export declare enum FulfillmentStatus {
     DELIVERED = "DELIVERED",
     RETURNED = "RETURNED"
 }
+export declare enum FulfillmentMethod {
+    COURIER = "COURIER",
+    DIRECT_HAND_DELIVERY = "DIRECT_HAND_DELIVERY",
+    CUSTOMER_PICKUP = "CUSTOMER_PICKUP"
+}
 export declare class OrderItem {
     productId: MongooseSchema.Types.ObjectId;
     productName: string;
@@ -165,6 +170,7 @@ export declare class CustomerDetailsSnapshot {
     name: string;
     mobile: string;
     altMobile?: string;
+    email?: string;
     address: string;
     division?: string;
     district: string;
@@ -199,6 +205,15 @@ export declare const CustomerDetailsSnapshotSchema: MongooseSchema<CustomerDetai
         id: string;
     }>>;
     altMobile?: import("mongoose").SchemaDefinitionProperty<string, CustomerDetailsSnapshot, Document<unknown, {}, CustomerDetailsSnapshot, {
+        id: string;
+    }, import("mongoose").DefaultSchemaOptions> & Omit<CustomerDetailsSnapshot & {
+        _id: import("mongoose").Types.ObjectId;
+    } & {
+        __v: number;
+    }, "id"> & import("mongoose").HydratedDocumentOverrides<{
+        id: string;
+    }>>;
+    email?: import("mongoose").SchemaDefinitionProperty<string, CustomerDetailsSnapshot, Document<unknown, {}, CustomerDetailsSnapshot, {
         id: string;
     }, import("mongoose").DefaultSchemaOptions> & Omit<CustomerDetailsSnapshot & {
         _id: import("mongoose").Types.ObjectId;
@@ -305,8 +320,94 @@ export declare const OrderTimelineEntrySchema: MongooseSchema<OrderTimelineEntry
         id: string;
     }>>;
 }, OrderTimelineEntry>;
+export declare class ManualPaymentRecord {
+    amount: number;
+    paymentMethod: string;
+    transactionReference?: string;
+    account?: string;
+    paymentDate: Date;
+    recordedBy?: string;
+    notes?: string;
+}
+export declare const ManualPaymentRecordSchema: MongooseSchema<ManualPaymentRecord, import("mongoose").Model<ManualPaymentRecord, any, any, any, any, any, ManualPaymentRecord>, {}, {}, {}, {}, import("mongoose").DefaultSchemaOptions, ManualPaymentRecord, Document<unknown, {}, ManualPaymentRecord, {
+    id: string;
+}, import("mongoose").DefaultSchemaOptions> & Omit<ManualPaymentRecord & {
+    _id: import("mongoose").Types.ObjectId;
+} & {
+    __v: number;
+}, "id"> & import("mongoose").HydratedDocumentOverrides<{
+    id: string;
+}>, {
+    amount?: import("mongoose").SchemaDefinitionProperty<number, ManualPaymentRecord, Document<unknown, {}, ManualPaymentRecord, {
+        id: string;
+    }, import("mongoose").DefaultSchemaOptions> & Omit<ManualPaymentRecord & {
+        _id: import("mongoose").Types.ObjectId;
+    } & {
+        __v: number;
+    }, "id"> & import("mongoose").HydratedDocumentOverrides<{
+        id: string;
+    }>>;
+    paymentMethod?: import("mongoose").SchemaDefinitionProperty<string, ManualPaymentRecord, Document<unknown, {}, ManualPaymentRecord, {
+        id: string;
+    }, import("mongoose").DefaultSchemaOptions> & Omit<ManualPaymentRecord & {
+        _id: import("mongoose").Types.ObjectId;
+    } & {
+        __v: number;
+    }, "id"> & import("mongoose").HydratedDocumentOverrides<{
+        id: string;
+    }>>;
+    transactionReference?: import("mongoose").SchemaDefinitionProperty<string, ManualPaymentRecord, Document<unknown, {}, ManualPaymentRecord, {
+        id: string;
+    }, import("mongoose").DefaultSchemaOptions> & Omit<ManualPaymentRecord & {
+        _id: import("mongoose").Types.ObjectId;
+    } & {
+        __v: number;
+    }, "id"> & import("mongoose").HydratedDocumentOverrides<{
+        id: string;
+    }>>;
+    account?: import("mongoose").SchemaDefinitionProperty<string, ManualPaymentRecord, Document<unknown, {}, ManualPaymentRecord, {
+        id: string;
+    }, import("mongoose").DefaultSchemaOptions> & Omit<ManualPaymentRecord & {
+        _id: import("mongoose").Types.ObjectId;
+    } & {
+        __v: number;
+    }, "id"> & import("mongoose").HydratedDocumentOverrides<{
+        id: string;
+    }>>;
+    paymentDate?: import("mongoose").SchemaDefinitionProperty<Date, ManualPaymentRecord, Document<unknown, {}, ManualPaymentRecord, {
+        id: string;
+    }, import("mongoose").DefaultSchemaOptions> & Omit<ManualPaymentRecord & {
+        _id: import("mongoose").Types.ObjectId;
+    } & {
+        __v: number;
+    }, "id"> & import("mongoose").HydratedDocumentOverrides<{
+        id: string;
+    }>>;
+    recordedBy?: import("mongoose").SchemaDefinitionProperty<string, ManualPaymentRecord, Document<unknown, {}, ManualPaymentRecord, {
+        id: string;
+    }, import("mongoose").DefaultSchemaOptions> & Omit<ManualPaymentRecord & {
+        _id: import("mongoose").Types.ObjectId;
+    } & {
+        __v: number;
+    }, "id"> & import("mongoose").HydratedDocumentOverrides<{
+        id: string;
+    }>>;
+    notes?: import("mongoose").SchemaDefinitionProperty<string, ManualPaymentRecord, Document<unknown, {}, ManualPaymentRecord, {
+        id: string;
+    }, import("mongoose").DefaultSchemaOptions> & Omit<ManualPaymentRecord & {
+        _id: import("mongoose").Types.ObjectId;
+    } & {
+        __v: number;
+    }, "id"> & import("mongoose").HydratedDocumentOverrides<{
+        id: string;
+    }>>;
+}, ManualPaymentRecord>;
 export declare class Order {
     orderId: string;
+    dataMode: string;
+    fulfillmentMethod: FulfillmentMethod;
+    courierSettlementStatus?: CourierSettlementStatus;
+    manualPayments?: ManualPaymentRecord[];
     customerId?: MongooseSchema.Types.ObjectId;
     customerDetails: CustomerDetailsSnapshot;
     status: OrderStatus;
@@ -373,6 +474,42 @@ export declare const OrderSchema: MongooseSchema<Order, import("mongoose").Model
     id: string;
 }>, {
     orderId?: import("mongoose").SchemaDefinitionProperty<string, Order, Document<unknown, {}, Order, {
+        id: string;
+    }, import("mongoose").DefaultSchemaOptions> & Omit<Order & {
+        _id: import("mongoose").Types.ObjectId;
+    } & {
+        __v: number;
+    }, "id"> & import("mongoose").HydratedDocumentOverrides<{
+        id: string;
+    }>>;
+    dataMode?: import("mongoose").SchemaDefinitionProperty<string, Order, Document<unknown, {}, Order, {
+        id: string;
+    }, import("mongoose").DefaultSchemaOptions> & Omit<Order & {
+        _id: import("mongoose").Types.ObjectId;
+    } & {
+        __v: number;
+    }, "id"> & import("mongoose").HydratedDocumentOverrides<{
+        id: string;
+    }>>;
+    fulfillmentMethod?: import("mongoose").SchemaDefinitionProperty<FulfillmentMethod, Order, Document<unknown, {}, Order, {
+        id: string;
+    }, import("mongoose").DefaultSchemaOptions> & Omit<Order & {
+        _id: import("mongoose").Types.ObjectId;
+    } & {
+        __v: number;
+    }, "id"> & import("mongoose").HydratedDocumentOverrides<{
+        id: string;
+    }>>;
+    courierSettlementStatus?: import("mongoose").SchemaDefinitionProperty<CourierSettlementStatus, Order, Document<unknown, {}, Order, {
+        id: string;
+    }, import("mongoose").DefaultSchemaOptions> & Omit<Order & {
+        _id: import("mongoose").Types.ObjectId;
+    } & {
+        __v: number;
+    }, "id"> & import("mongoose").HydratedDocumentOverrides<{
+        id: string;
+    }>>;
+    manualPayments?: import("mongoose").SchemaDefinitionProperty<ManualPaymentRecord[], Order, Document<unknown, {}, Order, {
         id: string;
     }, import("mongoose").DefaultSchemaOptions> & Omit<Order & {
         _id: import("mongoose").Types.ObjectId;

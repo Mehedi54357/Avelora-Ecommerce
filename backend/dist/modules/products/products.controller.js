@@ -41,11 +41,20 @@ let ProductsController = class ProductsController {
     async updateProduct(id, body) {
         return this.productsService.update(id, body);
     }
+    async archiveProduct(id, req) {
+        const actorId = req.user?.sub;
+        return this.productsService.archiveProduct(id, actorId);
+    }
+    async restoreProduct(id, req) {
+        const actorId = req.user?.sub;
+        return this.productsService.restoreProduct(id, actorId);
+    }
     async clearAllProducts() {
         return this.productsService.clearAll();
     }
-    async deleteProduct(id) {
-        return this.productsService.delete(id);
+    async deleteProduct(id, req) {
+        const actorId = req.user?.sub;
+        return this.productsService.delete(id, actorId);
     }
 };
 exports.ProductsController = ProductsController;
@@ -103,6 +112,26 @@ __decorate([
 __decorate([
     (0, common_1.UseGuards)(auth_guard_1.AuthGuard, roles_guard_1.RolesGuard),
     (0, roles_decorator_1.Roles)(user_schema_1.UserRole.ADMIN, user_schema_1.UserRole.SUPER_ADMIN),
+    (0, common_1.Patch)('admin/products/:id/archive'),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:returntype", Promise)
+], ProductsController.prototype, "archiveProduct", null);
+__decorate([
+    (0, common_1.UseGuards)(auth_guard_1.AuthGuard, roles_guard_1.RolesGuard),
+    (0, roles_decorator_1.Roles)(user_schema_1.UserRole.ADMIN, user_schema_1.UserRole.SUPER_ADMIN),
+    (0, common_1.Patch)('admin/products/:id/restore'),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:returntype", Promise)
+], ProductsController.prototype, "restoreProduct", null);
+__decorate([
+    (0, common_1.UseGuards)(auth_guard_1.AuthGuard, roles_guard_1.RolesGuard),
+    (0, roles_decorator_1.Roles)(user_schema_1.UserRole.ADMIN, user_schema_1.UserRole.SUPER_ADMIN),
     (0, common_1.Delete)('admin/products-clear-all'),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", []),
@@ -113,8 +142,9 @@ __decorate([
     (0, roles_decorator_1.Roles)(user_schema_1.UserRole.ADMIN, user_schema_1.UserRole.SUPER_ADMIN),
     (0, common_1.Delete)('admin/products/:id'),
     __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.Req)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String]),
+    __metadata("design:paramtypes", [String, Object]),
     __metadata("design:returntype", Promise)
 ], ProductsController.prototype, "deleteProduct", null);
 exports.ProductsController = ProductsController = __decorate([

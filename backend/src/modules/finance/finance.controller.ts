@@ -22,6 +22,32 @@ import type { Response } from 'express';
 export class FinanceController {
   constructor(private readonly financeService: FinanceService) {}
 
+  @Get('business-performance')
+  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.MANAGER)
+  async getBusinessPerformance(
+    @Query()
+    query: {
+      range?: string;
+      startDate?: string;
+      endDate?: string;
+      categoryId?: string;
+      productId?: string;
+      variantSku?: string;
+      search?: string;
+    },
+  ) {
+    return this.financeService.getBusinessPerformance(query);
+  }
+
+  @Get('business-performance/export')
+  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.MANAGER)
+  async exportBusinessPerformance(@Res() res: Response) {
+    const csvData = await this.financeService.exportReportCsv('business-performance');
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', `attachment; filename="avelora-business-performance-${Date.now()}.csv"`);
+    return res.send(csvData);
+  }
+
   @Get('analytics')
   @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.MANAGER)
   async getAnalytics() {

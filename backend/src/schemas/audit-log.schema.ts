@@ -5,8 +5,8 @@ export type AuditLogDocument = AuditLog & Document;
 
 @Schema({ timestamps: { createdAt: 'timestamp', updatedAt: false } })
 export class AuditLog {
-  @Prop({ type: MongooseSchema.Types.ObjectId, ref: 'User', required: true, index: true })
-  adminId: MongooseSchema.Types.ObjectId;
+  @Prop({ type: MongooseSchema.Types.ObjectId, ref: 'User', required: false, index: true })
+  adminId?: MongooseSchema.Types.ObjectId;
 
   @Prop({ required: true })
   action: string; // e.g., UPDATE_PRODUCT, CHANGE_ORDER_STATUS

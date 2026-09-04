@@ -1,8 +1,17 @@
 import { Controller, Post, Body, Res, Get, Req, UseGuards } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { ConfigService } from '@nestjs/config';
-import type { Response } from 'express';
+import type { Response, Request } from 'express';
 import { AuthGuard } from './auth.guard';
+
+function extractClientInfo(req: Request) {
+  const ip =
+    (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() ||
+    req.socket?.remoteAddress ||
+    '127.0.0.1';
+  const userAgent = req.headers['user-agent'] || 'Unknown';
+  return { ip, userAgent };
+}
 
 @Controller('auth')
 export class AuthController {
@@ -30,29 +39,68 @@ export class AuthController {
   }
 
   @Post('login')
-  async login(@Body() body: any, @Res({ passthrough: true }) res: Response) {
-    const user = await this.authService.validateUser(body.email, body.password);
-    const { token, user: userData } = await this.authService.login(user);
+  async login(
+    @Body() body: any,
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const { ip, userAgent } = extractClientInfo(req);
+    const user = await this.authService.validateUser(body.email, body.password, ip, userAgent);
+    const result = await this.authService.initiateLogin(user, ip, userAgent);
 
-    const cookieOptions = this.getCookieOptions();
-    try {
-      res.cookie('token', token, cookieOptions);
-    } catch {}
+    if ('token' in result && (result as any).token) {
+      const cookieOptions = this.getCookieOptions();
+      try {
+        res.cookie('token', (result as any).token, cookieOptions);
+      } catch {}
+    }
 
-    return {
-      message: 'Logged in successfully',
-      token,
-      user: {
-        id: userData._id,
-        name: userData.name,
-        email: userData.email,
-        role: userData.role,
-      },
-    };
+    return result;
+  }
+
+  @Post('verify-otp')
+  async verifyOtp(
+    @Body() body: { challengeId: string; otpCode: string },
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const { ip, userAgent } = extractClientInfo(req);
+    const result = await this.authService.verifyOtp(body.challengeId, body.otpCode, ip, userAgent);
+
+    if (result.token) {
+      const cookieOptions = this.getCookieOptions();
+      try {
+        res.cookie('token', result.token, cookieOptions);
+      } catch {}
+    }
+
+    return result;
+  }
+
+  @Post('resend-otp')
+  async resendOtp(@Body() body: { challengeId: string }, @Req() req: Request) {
+    const { ip, userAgent } = extractClientInfo(req);
+    return this.authService.resendOtp(body.challengeId, ip, userAgent);
+  }
+
+  @Post('forgot-password')
+  async forgotPassword(@Body() body: { email: string }, @Req() req: Request) {
+    const { ip, userAgent } = extractClientInfo(req);
+    return this.authService.forgotPassword(body.email, ip, userAgent);
+  }
+
+  @Post('reset-password')
+  async resetPassword(@Body() body: any, @Req() req: Request) {
+    const { ip, userAgent } = extractClientInfo(req);
+    return this.authService.resetPassword(body, ip, userAgent);
   }
 
   @Post('logout')
-  async logout(@Res({ passthrough: true }) res: Response) {
+  async logout(
+    @Req() req: any,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const { ip, userAgent } = extractClientInfo(req);
     const cookieOptions = this.getCookieOptions();
     res.clearCookie('token', {
       httpOnly: cookieOptions.httpOnly,
@@ -61,7 +109,10 @@ export class AuthController {
       domain: cookieOptions.domain,
       path: '/',
     });
-    return { message: 'Logged out successfully' };
+
+    const token = req.cookies?.token;
+    const adminId = req.user?.sub;
+    return this.authService.logout(token, adminId, ip, userAgent);
   }
 
   @Post('refresh')
@@ -89,4 +140,3 @@ export class AuthController {
     };
   }
 }
-

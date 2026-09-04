@@ -364,6 +364,13 @@ export class PathaoService {
       throw new BadRequestException('Order not found');
     }
 
+    // Server-side check: Pathao booking is strictly restricted to COURIER orders
+    if (order.fulfillmentMethod && order.fulfillmentMethod !== 'COURIER') {
+      throw new BadRequestException(
+        `This order is designated for "${order.fulfillmentMethod}". Courier booking is only permitted for COURIER fulfillment.`,
+      );
+    }
+
     // Duplicate booking prevention
     if (order.courier?.consignmentId && order.courier?.provider === 'Pathao') {
       throw new BadRequestException(

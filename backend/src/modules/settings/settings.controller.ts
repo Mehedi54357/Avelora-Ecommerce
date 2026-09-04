@@ -1,5 +1,17 @@
-import { Controller, Get, Put, Post, Delete, Body, Param, Query, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Put,
+  Post,
+  Delete,
+  Body,
+  Param,
+  Query,
+  UseGuards,
+  Req,
+} from '@nestjs/common';
 import { SettingsService } from './settings.service';
+import { DataManagementService } from './data-management.service';
 import { AuthGuard } from '../auth/auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
@@ -7,7 +19,10 @@ import { UserRole } from '../../schemas/user.schema';
 
 @Controller('settings')
 export class SettingsController {
-  constructor(private readonly settingsService: SettingsService) {}
+  constructor(
+    private readonly settingsService: SettingsService,
+    private readonly dataManagementService: DataManagementService,
+  ) {}
 
   // Public: Get Store Settings (Name, Social, Delivery Charges)
   @Get('public')
@@ -78,5 +93,23 @@ export class SettingsController {
   @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN)
   async deleteDeliveryZone(@Param('id') id: string) {
     return this.settingsService.deleteDeliveryZone(id);
+  }
+
+  // =========================================================================
+  // TEST & DEMO DATA MANAGEMENT CENTER
+  // =========================================================================
+  @Get('admin/test-data/summary')
+  @UseGuards(AuthGuard, RolesGuard)
+  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN)
+  async getTestDataSummary() {
+    return this.dataManagementService.getTestDataSummary();
+  }
+
+  @Post('admin/test-data/cleanup')
+  @UseGuards(AuthGuard, RolesGuard)
+  @Roles(UserRole.SUPER_ADMIN)
+  async cleanupTestData(@Body() body: any, @Req() req: any) {
+    const actorId = req.user?.sub;
+    return this.dataManagementService.cleanupTestData(body, actorId);
   }
 }

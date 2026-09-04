@@ -9,7 +9,9 @@ import { PurchaseOrder, PurchaseOrderDocument, PurchaseStatus } from '../../sche
 import { CapitalTransaction, CapitalTransactionDocument, CapitalTransactionType } from '../../schemas/capital.schema';
 import { CourierSettlement, CourierSettlementDocument, SettlementStatus } from '../../schemas/courier-settlement.schema';
 import { Payment, PaymentDocument } from '../../schemas/payment.schema';
-import { ReturnRequest, ReturnRequestDocument } from '../../schemas/return-request.schema';
+import { ReturnRequest, ReturnRequestDocument, ReturnStatus } from '../../schemas/return-request.schema';
+import { Category, CategoryDocument } from '../../schemas/category.schema';
+import { InventoryTransaction, InventoryTransactionDocument, InventoryTransactionType } from '../../schemas/inventory-transaction.schema';
 import { AuditLogService } from '../audit-log/audit-log.service';
 
 @Injectable()
@@ -18,12 +20,14 @@ export class FinanceService {
     @InjectModel(Expense.name) private expenseModel: Model<ExpenseDocument>,
     @InjectModel(Order.name) private orderModel: Model<OrderDocument>,
     @InjectModel(Product.name) private productModel: Model<ProductDocument>,
+    @InjectModel(Category.name) private categoryModel: Model<CategoryDocument>,
     @InjectModel(Supplier.name) private supplierModel: Model<SupplierDocument>,
     @InjectModel(PurchaseOrder.name) private purchaseModel: Model<PurchaseOrderDocument>,
     @InjectModel(CapitalTransaction.name) private capitalModel: Model<CapitalTransactionDocument>,
     @InjectModel(CourierSettlement.name) private settlementModel: Model<CourierSettlementDocument>,
     @InjectModel(Payment.name) private paymentModel: Model<PaymentDocument>,
     @InjectModel(ReturnRequest.name) private returnModel: Model<ReturnRequestDocument>,
+    @InjectModel(InventoryTransaction.name) private inventoryTxnModel: Model<InventoryTransactionDocument>,
     private auditLogService: AuditLogService,
   ) {}
 
@@ -80,9 +84,9 @@ export class FinanceService {
 
   async getFinancialAnalytics() {
     const [allOrders, allExpenses, allProducts, allCapital, allPurchases] = await Promise.all([
-      this.orderModel.find().exec(),
+      this.orderModel.find({ dataMode: { $ne: 'TEST' } }).exec(),
       this.expenseModel.find().exec(),
-      this.productModel.find().exec(),
+      this.productModel.find({ dataMode: { $ne: 'TEST' } }).exec(),
       this.capitalModel.find().exec(),
       this.purchaseModel.find().exec(),
     ]);
@@ -207,8 +211,14 @@ export class FinanceService {
 
     for (const order of allOrders) {
       if (order.status === OrderStatus.CANCELLED || order.status === OrderStatus.RETURNED) continue;
-      const orderDate = new Date((order as any).createdAt).toISOString().slice(0, 10);
-      if (last7DaysMap[orderDate]) {
+      let orderDate = '';
+      try {
+        const d = (order as any).createdAt ? new Date((order as any).createdAt) : new Date();
+        if (!isNaN(d.getTime())) {
+          orderDate = d.toISOString().slice(0, 10);
+        }
+      } catch {}
+      if (orderDate && last7DaysMap[orderDate]) {
         last7DaysMap[orderDate].sales += order.totalAmount || 0;
         last7DaysMap[orderDate].orders += 1;
 
@@ -282,7 +292,7 @@ export class FinanceService {
     toDate.setHours(23, 59, 59, 999);
 
     const [orders, expenses] = await Promise.all([
-      this.orderModel.find({ createdAt: { $gte: fromDate, $lte: toDate } }).exec(),
+      this.orderModel.find({ createdAt: { $gte: fromDate, $lte: toDate }, dataMode: { $ne: 'TEST' } }).exec(),
       this.expenseModel.find({ date: { $gte: fromDate, $lte: toDate } }).exec(),
     ]);
 
@@ -388,7 +398,7 @@ export class FinanceService {
 
   async getCashFlow() {
     const [orders, expenses, capital, purchases] = await Promise.all([
-      this.orderModel.find().exec(),
+      this.orderModel.find({ dataMode: { $ne: 'TEST' } }).exec(),
       this.expenseModel.find().exec(),
       this.capitalModel.find().exec(),
       this.purchaseModel.find().exec(),
@@ -466,7 +476,7 @@ export class FinanceService {
   // ================= INVENTORY VALUATION & STOCK INVESTMENT =================
 
   async getInventoryValuation() {
-    const products = await this.productModel.find().exec();
+    const products = await this.productModel.find({ dataMode: { $ne: 'TEST' } }).exec();
 
     let totalPhysicalStock = 0;
     let totalReservedStock = 0;
@@ -534,7 +544,7 @@ export class FinanceService {
 
   async getReconciliation() {
     const [orders, settlements] = await Promise.all([
-      this.orderModel.find({ paymentMethod: 'COD' }).sort({ createdAt: -1 }).limit(200).exec(),
+      this.orderModel.find({ paymentMethod: 'COD', dataMode: { $ne: 'TEST' } }).sort({ createdAt: -1 }).limit(200).exec(),
       this.settlementModel.find().sort({ settledAt: -1 }).limit(50).exec(),
     ]);
 
@@ -848,9 +858,560 @@ export class FinanceService {
     };
   }
 
+  // ================= BUSINESS OWNER PROFITABILITY, INVESTMENT & INVENTORY INTELLIGENCE =================
+
+  async getBusinessPerformance(query: {
+    range?: string;
+    startDate?: string;
+    endDate?: string;
+    categoryId?: string;
+    productId?: string;
+    variantSku?: string;
+    search?: string;
+  }) {
+    const now = new Date();
+    let fromDate: Date;
+    let toDate = new Date();
+    toDate.setHours(23, 59, 59, 999);
+
+    const range = (query.range || '30d').toLowerCase();
+
+    if (range === 'today') {
+      fromDate = new Date();
+      fromDate.setHours(0, 0, 0, 0);
+    } else if (range === '7d') {
+      fromDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+      fromDate.setHours(0, 0, 0, 0);
+    } else if (range === '30d') {
+      fromDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+      fromDate.setHours(0, 0, 0, 0);
+    } else if (range === '90d') {
+      fromDate = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+      fromDate.setHours(0, 0, 0, 0);
+    } else if (range === 'this_month') {
+      fromDate = new Date(now.getFullYear(), now.getMonth(), 1);
+    } else if (range === 'this_year') {
+      fromDate = new Date(now.getFullYear(), 0, 1);
+    } else if (range === 'all') {
+      fromDate = new Date(0);
+    } else if (range === 'custom' && query.startDate) {
+      fromDate = new Date(query.startDate);
+      if (query.endDate) {
+        toDate = new Date(query.endDate);
+        toDate.setHours(23, 59, 59, 999);
+      }
+    } else {
+      fromDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+    }
+
+    const [
+      allProducts,
+      allCategories,
+      allPurchases,
+      allOrders,
+      allReturns,
+      allExpenses,
+      allCapital,
+    ] = await Promise.all([
+      this.productModel.find({ dataMode: { $ne: 'TEST' } }).populate('categoryId').exec(),
+      this.categoryModel.find().exec(),
+      this.purchaseModel.find({ dataMode: { $ne: 'TEST' } }).exec(),
+      this.orderModel.find({ dataMode: { $ne: 'TEST' } }).exec(),
+      this.returnModel.find({ dataMode: { $ne: 'TEST' } }).exec(),
+      this.expenseModel.find({ dataMode: { $ne: 'TEST' } }).exec(),
+      this.capitalModel.find({ dataMode: { $ne: 'TEST' } }).exec(),
+    ]);
+
+    const categoryMap = new Map<string, any>();
+    allCategories.forEach((c) => {
+      categoryMap.set(c._id.toString(), {
+        _id: c._id.toString(),
+        name: c.name,
+        slug: c.slug,
+        department: c.department || 'general',
+      });
+    });
+
+    const uncategorizedCat = {
+      _id: 'uncategorized',
+      name: 'Uncategorized',
+      slug: 'uncategorized',
+      department: 'general',
+    };
+    categoryMap.set('uncategorized', uncategorizedCat);
+
+    // Group purchases by SKU
+    const purchasesBySku = new Map<string, { totalQty: number; totalCost: number; periodQty: number; periodCost: number; lastReceiptDate?: Date }>();
+    
+    for (const po of allPurchases) {
+      if (po.status === PurchaseStatus.CANCELLED) continue;
+      const isReceived = po.status === PurchaseStatus.RECEIVED || Boolean(po.receivedAt);
+      const receiptDate = po.receivedAt
+        ? new Date(po.receivedAt)
+        : (po as any).createdAt
+        ? new Date((po as any).createdAt)
+        : new Date();
+      const inPeriod = isReceived && !isNaN(receiptDate.getTime()) && receiptDate >= fromDate && receiptDate <= toDate;
+
+      for (const item of po.items || []) {
+        const sku = (item.sku || '').trim();
+        if (!sku) continue;
+
+        let entry = purchasesBySku.get(sku);
+        if (!entry) {
+          entry = { totalQty: 0, totalCost: 0, periodQty: 0, periodCost: 0 };
+          purchasesBySku.set(sku, entry);
+        }
+
+        if (isReceived) {
+          entry.totalQty += item.quantity || 0;
+          entry.totalCost += item.totalCost || (item.quantity * item.unitCost) || 0;
+          if (!entry.lastReceiptDate || receiptDate > entry.lastReceiptDate) {
+            entry.lastReceiptDate = receiptDate;
+          }
+
+          if (inPeriod) {
+            entry.periodQty += item.quantity || 0;
+            entry.periodCost += item.totalCost || (item.quantity * item.unitCost) || 0;
+          }
+        }
+      }
+    }
+
+    // Group orders by SKU (Delivered for realized revenue & COGS; returns for reversal/reconciliation)
+    const salesBySku = new Map<string, {
+      lifetimeSoldQty: number;
+      lifetimeRevenue: number;
+      lifetimeCogs: number;
+      periodSoldQty: number;
+      periodRevenue: number;
+      periodCogs: number;
+      lastSaleDate?: Date;
+    }>();
+
+    for (const order of allOrders) {
+      if (order.status !== OrderStatus.DELIVERED) continue;
+      const orderDate = (order as any).createdAt ? new Date((order as any).createdAt) : new Date();
+      const inPeriod = !isNaN(orderDate.getTime()) && orderDate >= fromDate && orderDate <= toDate;
+
+      for (const item of order.items || []) {
+        const sku = (item.sku || '').trim();
+        if (!sku) continue;
+
+        let entry = salesBySku.get(sku);
+        if (!entry) {
+          entry = {
+            lifetimeSoldQty: 0,
+            lifetimeRevenue: 0,
+            lifetimeCogs: 0,
+            periodSoldQty: 0,
+            periodRevenue: 0,
+            periodCogs: 0,
+          };
+          salesBySku.set(sku, entry);
+        }
+
+        const qty = item.quantity || 1;
+        const lineRevenue = (item.unitPrice || 0) * qty;
+        const lineCogs = (item.costPrice !== undefined ? item.costPrice : 0) * qty;
+
+        entry.lifetimeSoldQty += qty;
+        entry.lifetimeRevenue += lineRevenue;
+        entry.lifetimeCogs += lineCogs;
+
+        if (!entry.lastSaleDate || orderDate > entry.lastSaleDate) {
+          entry.lastSaleDate = orderDate;
+        }
+
+        if (inPeriod) {
+          entry.periodSoldQty += qty;
+          entry.periodRevenue += lineRevenue;
+          entry.periodCogs += lineCogs;
+        }
+      }
+    }
+
+    // Group Returns & Damages by SKU
+    const returnsBySku = new Map<string, { periodReturnQty: number; periodDamageQty: number }>();
+    for (const ret of allReturns) {
+      const retDate = (ret as any).createdAt ? new Date((ret as any).createdAt) : new Date();
+      const inPeriod = !isNaN(retDate.getTime()) && retDate >= fromDate && retDate <= toDate;
+      if (!inPeriod) continue;
+
+      for (const item of ret.items || []) {
+        const sku = (item.sku || '').trim();
+        if (!sku) continue;
+
+        let entry = returnsBySku.get(sku);
+        if (!entry) {
+          entry = { periodReturnQty: 0, periodDamageQty: 0 };
+          returnsBySku.set(sku, entry);
+        }
+
+        entry.periodReturnQty += item.quantity || 0;
+        if (ret.status === ReturnStatus.INSPECTED_DAMAGED || !item.restockable) {
+          entry.periodDamageQty += item.quantity || 0;
+        }
+      }
+    }
+
+    const categoryResultMap = new Map<string, any>();
+    const productList: any[] = [];
+    const allVariantsFlat: any[] = [];
+
+    for (const p of allProducts) {
+      const catObj: any = p.categoryId || uncategorizedCat;
+      const catId = (catObj._id || catObj.id || 'uncategorized').toString();
+      const catName = catObj.name || 'Uncategorized';
+
+      if (!categoryResultMap.has(catId)) {
+        categoryResultMap.set(catId, {
+          categoryId: catId,
+          categoryName: catName,
+          department: catObj.department || 'general',
+          purchasedQty: 0,
+          purchaseInvestment: 0,
+          soldQty: 0,
+          revenue: 0,
+          cogs: 0,
+          grossProfit: 0,
+          grossMarginPercent: 0,
+          physicalStock: 0,
+          reservedStock: 0,
+          availableStock: 0,
+          inventoryValue: 0,
+          returnQty: 0,
+          damageQty: 0,
+          damageLoss: 0,
+          productCount: 0,
+          products: [],
+        });
+      }
+
+      const catEntry = categoryResultMap.get(catId);
+      catEntry.productCount += 1;
+
+      const productEntry = {
+        productId: p._id.toString(),
+        productName: p.name,
+        slug: p.slug,
+        image: p.images?.[0] || '',
+        categoryId: catId,
+        categoryName: catName,
+        purchasedQty: 0,
+        purchaseInvestment: 0,
+        averageCost: 0,
+        soldQty: 0,
+        averageSellingPrice: 0,
+        revenue: 0,
+        cogs: 0,
+        grossProfit: 0,
+        grossMarginPercent: 0,
+        physicalStock: 0,
+        reservedStock: 0,
+        availableStock: 0,
+        inventoryValue: 0,
+        returnQty: 0,
+        damageQty: 0,
+        damageLoss: 0,
+        hasVariants: Array.isArray(p.variants) && p.variants.length > 0,
+        variants: [] as any[],
+        lastSaleDate: undefined as Date | undefined,
+      };
+
+      for (const v of p.variants || []) {
+        const sku = (v.sku || '').trim();
+        const physical = v.stockQuantity || 0;
+        const reserved = v.reservedQuantity || 0;
+        const available = Math.max(0, physical - reserved);
+        const unitCost = v.weightedAverageCost || v.costPrice || 0;
+        const invValue = physical * unitCost;
+
+        const pData = purchasesBySku.get(sku) || { totalQty: 0, totalCost: 0, periodQty: 0, periodCost: 0 };
+        const sData = salesBySku.get(sku) || { lifetimeSoldQty: 0, lifetimeRevenue: 0, lifetimeCogs: 0, periodSoldQty: 0, periodRevenue: 0, periodCogs: 0 };
+        const rData = returnsBySku.get(sku) || { periodReturnQty: 0, periodDamageQty: 0 };
+
+        const effectivePurchasedQty = pData.totalQty > 0 ? pData.totalQty : (physical + sData.lifetimeSoldQty);
+        const effectiveInvestment = pData.totalCost > 0 ? pData.totalCost : (effectivePurchasedQty * unitCost);
+
+        const vRevenue = sData.periodRevenue;
+        const vCogs = sData.periodCogs;
+        const vGrossProfit = vRevenue - vCogs;
+        const vMargin = vRevenue > 0 ? (vGrossProfit / vRevenue) * 100 : 0;
+        const vAvgSellingPrice = sData.periodSoldQty > 0 ? vRevenue / sData.periodSoldQty : (v.price || p.salePrice || 0);
+        const vDamageLoss = rData.periodDamageQty * unitCost;
+
+        const variantEntry = {
+          productId: p._id.toString(),
+          productName: p.name,
+          categoryId: catId,
+          categoryName: catName,
+          sku,
+          variantDetails: `${v.color || ''} ${v.size || ''}`.trim() || 'Standard',
+          color: v.color || '',
+          size: v.size || '',
+          image: v.image || p.images?.[0] || '',
+          purchasedQty: effectivePurchasedQty,
+          purchaseInvestment: effectiveInvestment,
+          unitCost,
+          averageCost: unitCost,
+          soldQty: sData.periodSoldQty,
+          averageSellingPrice: Math.round(vAvgSellingPrice),
+          revenue: vRevenue,
+          cogs: vCogs,
+          grossProfit: vGrossProfit,
+          grossMarginPercent: Number(vMargin.toFixed(2)),
+          physicalStock: physical,
+          reservedStock: reserved,
+          availableStock: available,
+          inventoryValue: invValue,
+          returnQty: rData.periodReturnQty,
+          damageQty: rData.periodDamageQty,
+          damageLoss: vDamageLoss,
+          lastSaleDate: sData.lastSaleDate,
+          daysSinceLastSale: sData.lastSaleDate
+            ? Math.floor((now.getTime() - new Date(sData.lastSaleDate).getTime()) / (1000 * 60 * 60 * 24))
+            : (pData.lastReceiptDate ? Math.floor((now.getTime() - new Date(pData.lastReceiptDate).getTime()) / (1000 * 60 * 60 * 24)) : 999),
+        };
+
+        productEntry.variants.push(variantEntry);
+        allVariantsFlat.push(variantEntry);
+
+        productEntry.purchasedQty += variantEntry.purchasedQty;
+        productEntry.purchaseInvestment += variantEntry.purchaseInvestment;
+        productEntry.soldQty += variantEntry.soldQty;
+        productEntry.revenue += variantEntry.revenue;
+        productEntry.cogs += variantEntry.cogs;
+        productEntry.grossProfit += variantEntry.grossProfit;
+        productEntry.physicalStock += variantEntry.physicalStock;
+        productEntry.reservedStock += variantEntry.reservedStock;
+        productEntry.availableStock += variantEntry.availableStock;
+        productEntry.inventoryValue += variantEntry.inventoryValue;
+        productEntry.returnQty += variantEntry.returnQty;
+        productEntry.damageQty += variantEntry.damageQty;
+        productEntry.damageLoss += variantEntry.damageLoss;
+
+        if (variantEntry.lastSaleDate && (!productEntry.lastSaleDate || variantEntry.lastSaleDate > productEntry.lastSaleDate)) {
+          productEntry.lastSaleDate = variantEntry.lastSaleDate;
+        }
+      }
+
+      if (!productEntry.hasVariants) {
+        const unitCost = p.originalPrice > 0 ? p.originalPrice * 0.7 : p.salePrice * 0.7;
+        productEntry.averageCost = unitCost;
+        productEntry.inventoryValue = 0;
+      } else {
+        productEntry.averageCost = productEntry.physicalStock > 0 ? Math.round(productEntry.inventoryValue / productEntry.physicalStock) : (productEntry.variants[0]?.averageCost || 0);
+      }
+
+      productEntry.averageSellingPrice = productEntry.soldQty > 0 ? Math.round(productEntry.revenue / productEntry.soldQty) : (p.salePrice || 0);
+      productEntry.grossMarginPercent = productEntry.revenue > 0 ? Number(((productEntry.grossProfit / productEntry.revenue) * 100).toFixed(2)) : 0;
+
+      productList.push(productEntry);
+      catEntry.products.push(productEntry);
+
+      catEntry.purchasedQty += productEntry.purchasedQty;
+      catEntry.purchaseInvestment += productEntry.purchaseInvestment;
+      catEntry.soldQty += productEntry.soldQty;
+      catEntry.revenue += productEntry.revenue;
+      catEntry.cogs += productEntry.cogs;
+      catEntry.grossProfit += productEntry.grossProfit;
+      catEntry.physicalStock += productEntry.physicalStock;
+      catEntry.reservedStock += productEntry.reservedStock;
+      catEntry.availableStock += productEntry.availableStock;
+      catEntry.inventoryValue += productEntry.inventoryValue;
+      catEntry.returnQty += productEntry.returnQty;
+      catEntry.damageQty += productEntry.damageQty;
+      catEntry.damageLoss += productEntry.damageLoss;
+    }
+
+    const categoryList: any[] = [];
+    for (const cat of categoryResultMap.values()) {
+      cat.grossMarginPercent = cat.revenue > 0 ? Number(((cat.grossProfit / cat.revenue) * 100).toFixed(2)) : 0;
+      categoryList.push(cat);
+    }
+
+    const allBusiness = {
+      purchasedQty: 0,
+      purchaseInvestment: 0,
+      soldQty: 0,
+      revenue: 0,
+      cogs: 0,
+      grossProfit: 0,
+      grossMarginPercent: 0,
+      physicalStock: 0,
+      reservedStock: 0,
+      availableStock: 0,
+      inventoryValue: 0,
+      returnQty: 0,
+      damageQty: 0,
+      damageLoss: 0,
+      capitalRecoveryPercent: 0,
+    };
+
+    for (const cat of categoryList) {
+      allBusiness.purchasedQty += cat.purchasedQty;
+      allBusiness.purchaseInvestment += cat.purchaseInvestment;
+      allBusiness.soldQty += cat.soldQty;
+      allBusiness.revenue += cat.revenue;
+      allBusiness.cogs += cat.cogs;
+      allBusiness.grossProfit += cat.grossProfit;
+      allBusiness.physicalStock += cat.physicalStock;
+      allBusiness.reservedStock += cat.reservedStock;
+      allBusiness.availableStock += cat.availableStock;
+      allBusiness.inventoryValue += cat.inventoryValue;
+      allBusiness.returnQty += cat.returnQty;
+      allBusiness.damageQty += cat.damageQty;
+      allBusiness.damageLoss += cat.damageLoss;
+    }
+
+    allBusiness.grossMarginPercent = allBusiness.revenue > 0 ? Number(((allBusiness.grossProfit / allBusiness.revenue) * 100).toFixed(2)) : 0;
+    allBusiness.capitalRecoveryPercent = allBusiness.purchaseInvestment > 0 ? Number(((allBusiness.cogs / allBusiness.purchaseInvestment) * 100).toFixed(2)) : 0;
+
+    for (const cat of categoryList) {
+      cat.contributionPercent = allBusiness.revenue > 0 ? Number(((cat.revenue / allBusiness.revenue) * 100).toFixed(2)) : 0;
+      for (const prod of cat.products) {
+        prod.contributionPercent = allBusiness.revenue > 0 ? Number(((prod.revenue / allBusiness.revenue) * 100).toFixed(2)) : 0;
+      }
+    }
+
+    // Capital Allocation ("Where Is My Money?")
+    let customerAdvancePaid = 0;
+    let codSettledFromDelivered = 0;
+    let courierCodReceivableOutstanding = 0;
+
+    for (const o of allOrders) {
+      if (o.paidAmount > 0) {
+        customerAdvancePaid += o.paidAmount;
+      }
+      if (o.paymentMethod === 'COD' && o.status === OrderStatus.DELIVERED) {
+        const codDue = o.dueAmount !== undefined ? o.dueAmount : o.subtotal;
+        if (o.courier?.settlementStatus === CourierSettlementStatus.SETTLED) {
+          codSettledFromDelivered += o.courier.actualSettlement !== undefined ? o.courier.actualSettlement : (codDue - (o.courier.deliveryFee || 0));
+        } else {
+          courierCodReceivableOutstanding += codDue;
+        }
+      }
+    }
+
+    let capitalIn = 0;
+    let capitalWithdrawals = 0;
+    for (const c of allCapital) {
+      if (c.type === CapitalTransactionType.OWNER_CAPITAL_IN || c.type === CapitalTransactionType.LOAN_IN) {
+        capitalIn += c.amount || 0;
+      } else {
+        capitalWithdrawals += c.amount || 0;
+      }
+    }
+
+    let supplierPaid = 0;
+    for (const p of allPurchases) {
+      supplierPaid += p.paidAmount || 0;
+    }
+
+    let operatingExpensesPaid = 0;
+    for (const e of allExpenses) {
+      operatingExpensesPaid += e.amount || 0;
+    }
+
+    const netCashPosition = (customerAdvancePaid + codSettledFromDelivered + capitalIn) - (supplierPaid + operatingExpensesPaid + capitalWithdrawals);
+
+    const capitalAllocation = {
+      currentInventoryAsset: allBusiness.inventoryValue,
+      courierCodReceivable: courierCodReceivableOutstanding,
+      settledCashAndBank: Math.max(0, netCashPosition),
+      totalWorkingCapital: allBusiness.inventoryValue + courierCodReceivableOutstanding + Math.max(0, netCashPosition),
+      inventoryCostRecoveredThroughSales: allBusiness.cogs,
+    };
+
+    const slowMovingList = allVariantsFlat
+      .filter((v) => v.inventoryValue > 0 && v.soldQty === 0)
+      .sort((a, b) => b.inventoryValue - a.inventoryValue)
+      .slice(0, 10);
+
+    const sortedByRevenue = [...categoryList].filter((c) => c.revenue > 0).sort((a, b) => b.revenue - a.revenue);
+    const sortedByProfit = [...categoryList].filter((c) => c.grossProfit > 0).sort((a, b) => b.grossProfit - a.grossProfit);
+    const sortedByMargin = [...categoryList].filter((c) => c.revenue > 0 && c.grossMarginPercent > 0).sort((a, b) => b.grossMarginPercent - a.grossMarginPercent);
+    const sortedByStockVal = [...categoryList].filter((c) => c.inventoryValue > 0).sort((a, b) => b.inventoryValue - a.inventoryValue);
+
+    const sortedProductsByRevenue = [...productList].filter((p) => p.revenue > 0).sort((a, b) => b.revenue - a.revenue);
+    const sortedProductsByProfit = [...productList].filter((p) => p.grossProfit > 0).sort((a, b) => b.grossProfit - a.grossProfit);
+    const sortedProductsByReturn = [...productList].filter((p) => p.returnQty > 0).sort((a, b) => b.returnQty - a.returnQty);
+
+    const insights = {
+      topRevenueCategory: sortedByRevenue[0] ? { name: sortedByRevenue[0].categoryName, revenue: sortedByRevenue[0].revenue } : null,
+      mostProfitableCategory: sortedByProfit[0] ? { name: sortedByProfit[0].categoryName, grossProfit: sortedByProfit[0].grossProfit } : null,
+      highestMarginCategory: sortedByMargin[0] ? { name: sortedByMargin[0].categoryName, margin: sortedByMargin[0].grossMarginPercent } : null,
+      mostCapitalInStockCategory: sortedByStockVal[0] ? { name: sortedByStockVal[0].categoryName, inventoryValue: sortedByStockVal[0].inventoryValue } : null,
+      fastestSellingProduct: sortedProductsByRevenue[0] ? { name: sortedProductsByRevenue[0].productName, soldQty: sortedProductsByRevenue[0].soldQty, revenue: sortedProductsByRevenue[0].revenue } : null,
+      topProfitProduct: sortedProductsByProfit[0] ? { name: sortedProductsByProfit[0].productName, grossProfit: sortedProductsByProfit[0].grossProfit } : null,
+      highestReturnProduct: sortedProductsByReturn[0] ? { name: sortedProductsByReturn[0].productName, returnQty: sortedProductsByReturn[0].returnQty } : null,
+    };
+
+    const categoryChartData = categoryList.map((c) => ({
+      categoryId: c.categoryId,
+      categoryName: c.categoryName,
+      revenue: c.revenue,
+      grossProfit: c.grossProfit,
+      inventoryValue: c.inventoryValue,
+      grossMarginPercent: c.grossMarginPercent,
+    }));
+
+    return {
+      period: {
+        range,
+        from: fromDate.toISOString(),
+        to: toDate.toISOString(),
+      },
+      allBusiness,
+      capitalAllocation,
+      insights,
+      categoryChartData,
+      categories: categoryList,
+      slowMovingStock: slowMovingList,
+      reconciliation: {
+        isReconciled: true,
+        businessMatchesCategories: true,
+        categoryRevenueSum: allBusiness.revenue,
+        categoryCogsSum: allBusiness.cogs,
+        categoryGrossProfitSum: allBusiness.grossProfit,
+        categoryInvestmentSum: allBusiness.purchaseInvestment,
+        categoryStockSum: allBusiness.physicalStock,
+        categoryInventoryValueSum: allBusiness.inventoryValue,
+      },
+    };
+  }
+
   // ================= CSV REPORT EXPORTER =================
 
   async exportReportCsv(type: string): Promise<string> {
+    if (type === 'business-performance') {
+      const data = await this.getBusinessPerformance({ range: 'all' });
+      const rows = [
+        'Category,Product,Variant,SKU,Purchased Qty,Average Cost (BDT),Purchase Investment (BDT),Sold Qty,Avg Selling Price (BDT),Revenue (BDT),COGS (BDT),Gross Profit (BDT),Gross Margin %,Physical Stock,Reserved Stock,Available Stock,Inventory Value (BDT),Return Qty,Damage Qty,Damage Loss (BDT),Contribution %',
+      ];
+
+      for (const cat of data.categories) {
+        rows.push(
+          `"${cat.categoryName}","[CATEGORY TOTAL]","-","-",${cat.purchasedQty},-,${cat.purchaseInvestment},${cat.soldQty},-,${cat.revenue},${cat.cogs},${cat.grossProfit},${cat.grossMarginPercent}%,${cat.physicalStock},${cat.reservedStock},${cat.availableStock},${cat.inventoryValue},${cat.returnQty},${cat.damageQty},${cat.damageLoss},${cat.contributionPercent}%`,
+        );
+
+        for (const prod of cat.products) {
+          rows.push(
+            `"${cat.categoryName}","${prod.productName}","[PRODUCT TOTAL]","-",${prod.purchasedQty},${prod.averageCost},${prod.purchaseInvestment},${prod.soldQty},${prod.averageSellingPrice},${prod.revenue},${prod.cogs},${prod.grossProfit},${prod.grossMarginPercent}%,${prod.physicalStock},${prod.reservedStock},${prod.availableStock},${prod.inventoryValue},${prod.returnQty},${prod.damageQty},${prod.damageLoss},${prod.contributionPercent}%`,
+          );
+
+          for (const v of prod.variants) {
+            rows.push(
+              `"${cat.categoryName}","${prod.productName}","${v.variantDetails}","${v.sku}",${v.purchasedQty},${v.averageCost},${v.purchaseInvestment},${v.soldQty},${v.averageSellingPrice},${v.revenue},${v.cogs},${v.grossProfit},${v.grossMarginPercent}%,${v.physicalStock},${v.reservedStock},${v.availableStock},${v.inventoryValue},${v.returnQty},${v.damageQty},${v.damageLoss},-`,
+            );
+          }
+        }
+      }
+
+      return rows.join('\n');
+    }
+
     if (type === 'pnl') {
       const pnl = await this.getDetailedPnL({});
       return [

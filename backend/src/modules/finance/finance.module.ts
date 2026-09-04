@@ -11,6 +11,8 @@ import { CapitalTransaction, CapitalTransactionSchema } from '../../schemas/capi
 import { CourierSettlement, CourierSettlementSchema } from '../../schemas/courier-settlement.schema';
 import { Payment, PaymentSchema } from '../../schemas/payment.schema';
 import { ReturnRequest, ReturnRequestSchema } from '../../schemas/return-request.schema';
+import { Category, CategorySchema } from '../../schemas/category.schema';
+import { InventoryTransaction, InventoryTransactionSchema } from '../../schemas/inventory-transaction.schema';
 import { AuthModule } from '../auth/auth.module';
 import { AuditLogModule } from '../audit-log/audit-log.module';
 
@@ -20,12 +22,14 @@ import { AuditLogModule } from '../audit-log/audit-log.module';
       { name: Expense.name, schema: ExpenseSchema },
       { name: Order.name, schema: OrderSchema },
       { name: Product.name, schema: ProductSchema },
+      { name: Category.name, schema: CategorySchema },
       { name: Supplier.name, schema: SupplierSchema },
       { name: PurchaseOrder.name, schema: PurchaseOrderSchema },
       { name: CapitalTransaction.name, schema: CapitalTransactionSchema },
       { name: CourierSettlement.name, schema: CourierSettlementSchema },
       { name: Payment.name, schema: PaymentSchema },
       { name: ReturnRequest.name, schema: ReturnRequestSchema },
+      { name: InventoryTransaction.name, schema: InventoryTransactionSchema },
     ]),
     AuthModule,
     AuditLogModule,

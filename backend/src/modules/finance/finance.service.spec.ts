@@ -12,17 +12,22 @@ import { Payment } from '../../schemas/payment.schema';
 import { ReturnRequest } from '../../schemas/return-request.schema';
 import { AuditLogService } from '../audit-log/audit-log.service';
 
+import { Category } from '../../schemas/category.schema';
+import { InventoryTransaction } from '../../schemas/inventory-transaction.schema';
+
 describe('FinanceService - Management P&L and Working Capital', () => {
   let service: FinanceService;
   let mockExpenseModel: any;
   let mockOrderModel: any;
   let mockProductModel: any;
+  let mockCategoryModel: any;
   let mockSupplierModel: any;
   let mockPurchaseModel: any;
   let mockCapitalModel: any;
   let mockSettlementModel: any;
   let mockPaymentModel: any;
   let mockReturnModel: any;
+  let mockInventoryTxnModel: any;
   let mockAuditLogService: any;
 
   beforeEach(async () => {
@@ -35,6 +40,9 @@ describe('FinanceService - Management P&L and Working Capital', () => {
       find: jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue([]) }),
     };
     mockProductModel = {
+      find: jest.fn().mockReturnValue({ populate: jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue([]) }), exec: jest.fn().mockResolvedValue([]) }),
+    };
+    mockCategoryModel = {
       find: jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue([]) }),
     };
     mockSupplierModel = {
@@ -55,6 +63,9 @@ describe('FinanceService - Management P&L and Working Capital', () => {
     mockReturnModel = {
       find: jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue([]) }),
     };
+    mockInventoryTxnModel = {
+      find: jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue([]) }),
+    };
     mockAuditLogService = {
       logAction: jest.fn().mockResolvedValue(true),
     };
@@ -65,12 +76,14 @@ describe('FinanceService - Management P&L and Working Capital', () => {
         { provide: getModelToken(Expense.name), useValue: mockExpenseModel },
         { provide: getModelToken(Order.name), useValue: mockOrderModel },
         { provide: getModelToken(Product.name), useValue: mockProductModel },
+        { provide: getModelToken(Category.name), useValue: mockCategoryModel },
         { provide: getModelToken(Supplier.name), useValue: mockSupplierModel },
         { provide: getModelToken(PurchaseOrder.name), useValue: mockPurchaseModel },
         { provide: getModelToken(CapitalTransaction.name), useValue: mockCapitalModel },
         { provide: getModelToken(CourierSettlement.name), useValue: mockSettlementModel },
         { provide: getModelToken(Payment.name), useValue: mockPaymentModel },
         { provide: getModelToken(ReturnRequest.name), useValue: mockReturnModel },
+        { provide: getModelToken(InventoryTransaction.name), useValue: mockInventoryTxnModel },
         { provide: AuditLogService, useValue: mockAuditLogService },
       ],
     }).compile();

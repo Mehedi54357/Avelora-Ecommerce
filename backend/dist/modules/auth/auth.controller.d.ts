@@ -1,36 +1,77 @@
 import { AuthService } from './auth.service';
 import { ConfigService } from '@nestjs/config';
-import type { Response } from 'express';
+import type { Response, Request } from 'express';
 export declare class AuthController {
     private readonly authService;
     private readonly configService;
     constructor(authService: AuthService, configService: ConfigService);
     private getCookieOptions;
-    login(body: any, res: Response): Promise<{
-        message: string;
+    login(body: any, req: Request, res: Response): Promise<{
         token: string;
+        refreshToken: string;
         user: {
-            id: any;
+            _id: any;
             name: any;
             email: any;
             role: any;
+            permissions: any;
+        };
+    } | {
+        requiresOtp: boolean;
+        challengeId: string;
+        maskedEmail: string;
+        pendingToken: string;
+        message: string;
+    }>;
+    verifyOtp(body: {
+        challengeId: string;
+        otpCode: string;
+    }, req: Request, res: Response): Promise<{
+        token: string;
+        refreshToken: string;
+        user: {
+            _id: any;
+            name: any;
+            email: any;
+            role: any;
+            permissions: any;
         };
     }>;
-    logout(res: Response): Promise<{
+    resendOtp(body: {
+        challengeId: string;
+    }, req: Request): Promise<{
+        challengeId: string;
+        message: string;
+    }>;
+    forgotPassword(body: {
+        email: string;
+    }, req: Request): Promise<{
+        success: boolean;
+        message: string;
+    } | {
+        challengeId: string;
+        success: boolean;
+        message: string;
+    }>;
+    resetPassword(body: any, req: Request): Promise<{
+        success: boolean;
+        message: string;
+    }>;
+    logout(req: any, res: Response): Promise<{
+        success: boolean;
         message: string;
     }>;
     refresh(body: {
         refreshToken: string;
     }): Promise<{
         token: string;
-        accessToken: string;
         refreshToken: string;
-        expiresIn: number;
         user: {
-            _id: import("mongoose").Types.ObjectId;
-            name: string;
-            email: string;
-            role: import("../../schemas/user.schema").UserRole;
+            _id: any;
+            name: any;
+            email: any;
+            role: any;
+            permissions: any;
         };
     }>;
     changePassword(req: any, body: any): Promise<{

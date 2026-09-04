@@ -393,6 +393,12 @@ export default function AdminExecutiveDashboard() {
             <h2 className="text-xs font-bold uppercase tracking-wider text-gray-500">
               Executive Summary <span className="text-gray-400 font-normal">({timeRange === '7D' ? 'This Week' : timeRange})</span>
             </h2>
+            <Link
+              href="/admin/finance/business-performance"
+              className="inline-flex items-center gap-1 text-[11px] font-bold text-[#997B21] hover:underline"
+            >
+              <span>Business Performance →</span>
+            </Link>
           </div>
 
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">

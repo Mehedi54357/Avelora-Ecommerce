@@ -65,11 +65,20 @@ let AuthGuard = class AuthGuard {
         try {
             const secret = this.configService.get('JWT_SECRET');
             const decoded = jwt.verify(token, secret);
+            if (decoded.type === 'PENDING_2FA') {
+                throw new common_1.UnauthorizedException('Two-factor OTP verification required to access this resource.');
+            }
+            if (decoded.type !== 'ACCESS') {
+                throw new common_1.UnauthorizedException('Invalid token type.');
+            }
             request.user = decoded;
             return true;
         }
         catch (error) {
-            throw new common_1.UnauthorizedException('Invalid token');
+            if (error instanceof common_1.UnauthorizedException) {
+                throw error;
+            }
+            throw new common_1.UnauthorizedException('Invalid or expired authentication session.');
         }
     }
 };

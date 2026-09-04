@@ -1,4 +1,16 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, Query, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Put,
+  Patch,
+  Delete,
+  Body,
+  Param,
+  Query,
+  UseGuards,
+  Req,
+} from '@nestjs/common';
 import { ProductsService } from './products.service';
 import { AuthGuard } from '../auth/auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
@@ -52,6 +64,22 @@ export class ProductsController {
 
   @UseGuards(AuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
+  @Patch('admin/products/:id/archive')
+  async archiveProduct(@Param('id') id: string, @Req() req: any) {
+    const actorId = req.user?.sub;
+    return this.productsService.archiveProduct(id, actorId);
+  }
+
+  @UseGuards(AuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
+  @Patch('admin/products/:id/restore')
+  async restoreProduct(@Param('id') id: string, @Req() req: any) {
+    const actorId = req.user?.sub;
+    return this.productsService.restoreProduct(id, actorId);
+  }
+
+  @UseGuards(AuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
   @Delete('admin/products-clear-all')
   async clearAllProducts() {
     return this.productsService.clearAll();
@@ -60,7 +88,8 @@ export class ProductsController {
   @UseGuards(AuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
   @Delete('admin/products/:id')
-  async deleteProduct(@Param('id') id: string) {
-    return this.productsService.delete(id);
+  async deleteProduct(@Param('id') id: string, @Req() req: any) {
+    const actorId = req.user?.sub;
+    return this.productsService.delete(id, actorId);
   }
 }

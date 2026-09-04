@@ -20,6 +20,8 @@ const capital_schema_1 = require("../../schemas/capital.schema");
 const courier_settlement_schema_1 = require("../../schemas/courier-settlement.schema");
 const payment_schema_1 = require("../../schemas/payment.schema");
 const return_request_schema_1 = require("../../schemas/return-request.schema");
+const category_schema_1 = require("../../schemas/category.schema");
+const inventory_transaction_schema_1 = require("../../schemas/inventory-transaction.schema");
 const auth_module_1 = require("../auth/auth.module");
 const audit_log_module_1 = require("../audit-log/audit-log.module");
 let FinanceModule = class FinanceModule {
@@ -32,12 +34,14 @@ exports.FinanceModule = FinanceModule = __decorate([
                 { name: expense_schema_1.Expense.name, schema: expense_schema_1.ExpenseSchema },
                 { name: order_schema_1.Order.name, schema: order_schema_1.OrderSchema },
                 { name: product_schema_1.Product.name, schema: product_schema_1.ProductSchema },
+                { name: category_schema_1.Category.name, schema: category_schema_1.CategorySchema },
                 { name: supplier_schema_1.Supplier.name, schema: supplier_schema_1.SupplierSchema },
                 { name: purchase_schema_1.PurchaseOrder.name, schema: purchase_schema_1.PurchaseOrderSchema },
                 { name: capital_schema_1.CapitalTransaction.name, schema: capital_schema_1.CapitalTransactionSchema },
                 { name: courier_settlement_schema_1.CourierSettlement.name, schema: courier_settlement_schema_1.CourierSettlementSchema },
                 { name: payment_schema_1.Payment.name, schema: payment_schema_1.PaymentSchema },
                 { name: return_request_schema_1.ReturnRequest.name, schema: return_request_schema_1.ReturnRequestSchema },
+                { name: inventory_transaction_schema_1.InventoryTransaction.name, schema: inventory_transaction_schema_1.InventoryTransactionSchema },
             ]),
             auth_module_1.AuthModule,
             audit_log_module_1.AuditLogModule,

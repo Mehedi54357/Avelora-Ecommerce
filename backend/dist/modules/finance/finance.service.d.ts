@@ -8,19 +8,23 @@ import { CapitalTransactionDocument } from '../../schemas/capital.schema';
 import { CourierSettlement, CourierSettlementDocument } from '../../schemas/courier-settlement.schema';
 import { PaymentDocument } from '../../schemas/payment.schema';
 import { ReturnRequestDocument } from '../../schemas/return-request.schema';
+import { CategoryDocument } from '../../schemas/category.schema';
+import { InventoryTransactionDocument } from '../../schemas/inventory-transaction.schema';
 import { AuditLogService } from '../audit-log/audit-log.service';
 export declare class FinanceService {
     private expenseModel;
     private orderModel;
     private productModel;
+    private categoryModel;
     private supplierModel;
     private purchaseModel;
     private capitalModel;
     private settlementModel;
     private paymentModel;
     private returnModel;
+    private inventoryTxnModel;
     private auditLogService;
-    constructor(expenseModel: Model<ExpenseDocument>, orderModel: Model<OrderDocument>, productModel: Model<ProductDocument>, supplierModel: Model<SupplierDocument>, purchaseModel: Model<PurchaseOrderDocument>, capitalModel: Model<CapitalTransactionDocument>, settlementModel: Model<CourierSettlementDocument>, paymentModel: Model<PaymentDocument>, returnModel: Model<ReturnRequestDocument>, auditLogService: AuditLogService);
+    constructor(expenseModel: Model<ExpenseDocument>, orderModel: Model<OrderDocument>, productModel: Model<ProductDocument>, categoryModel: Model<CategoryDocument>, supplierModel: Model<SupplierDocument>, purchaseModel: Model<PurchaseOrderDocument>, capitalModel: Model<CapitalTransactionDocument>, settlementModel: Model<CourierSettlementDocument>, paymentModel: Model<PaymentDocument>, returnModel: Model<ReturnRequestDocument>, inventoryTxnModel: Model<InventoryTransactionDocument>, auditLogService: AuditLogService);
     getExpenses(query: {
         category?: string;
         limit?: number;
@@ -246,6 +250,96 @@ export declare class FinanceService {
         totalNetRemitted: number;
         reconciledOrdersCount: number;
         updatedOrders: string[];
+    }>;
+    getBusinessPerformance(query: {
+        range?: string;
+        startDate?: string;
+        endDate?: string;
+        categoryId?: string;
+        productId?: string;
+        variantSku?: string;
+        search?: string;
+    }): Promise<{
+        period: {
+            range: string;
+            from: string;
+            to: string;
+        };
+        allBusiness: {
+            purchasedQty: number;
+            purchaseInvestment: number;
+            soldQty: number;
+            revenue: number;
+            cogs: number;
+            grossProfit: number;
+            grossMarginPercent: number;
+            physicalStock: number;
+            reservedStock: number;
+            availableStock: number;
+            inventoryValue: number;
+            returnQty: number;
+            damageQty: number;
+            damageLoss: number;
+            capitalRecoveryPercent: number;
+        };
+        capitalAllocation: {
+            currentInventoryAsset: number;
+            courierCodReceivable: number;
+            settledCashAndBank: number;
+            totalWorkingCapital: number;
+            inventoryCostRecoveredThroughSales: number;
+        };
+        insights: {
+            topRevenueCategory: {
+                name: any;
+                revenue: any;
+            };
+            mostProfitableCategory: {
+                name: any;
+                grossProfit: any;
+            };
+            highestMarginCategory: {
+                name: any;
+                margin: any;
+            };
+            mostCapitalInStockCategory: {
+                name: any;
+                inventoryValue: any;
+            };
+            fastestSellingProduct: {
+                name: any;
+                soldQty: any;
+                revenue: any;
+            };
+            topProfitProduct: {
+                name: any;
+                grossProfit: any;
+            };
+            highestReturnProduct: {
+                name: any;
+                returnQty: any;
+            };
+        };
+        categoryChartData: {
+            categoryId: any;
+            categoryName: any;
+            revenue: any;
+            grossProfit: any;
+            inventoryValue: any;
+            grossMarginPercent: any;
+        }[];
+        categories: any[];
+        slowMovingStock: any[];
+        reconciliation: {
+            isReconciled: boolean;
+            businessMatchesCategories: boolean;
+            categoryRevenueSum: number;
+            categoryCogsSum: number;
+            categoryGrossProfitSum: number;
+            categoryInvestmentSum: number;
+            categoryStockSum: number;
+            categoryInventoryValueSum: number;
+        };
     }>;
     exportReportCsv(type: string): Promise<string>;
 }

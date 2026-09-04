@@ -3,6 +3,97 @@ import type { Response } from 'express';
 export declare class FinanceController {
     private readonly financeService;
     constructor(financeService: FinanceService);
+    getBusinessPerformance(query: {
+        range?: string;
+        startDate?: string;
+        endDate?: string;
+        categoryId?: string;
+        productId?: string;
+        variantSku?: string;
+        search?: string;
+    }): Promise<{
+        period: {
+            range: string;
+            from: string;
+            to: string;
+        };
+        allBusiness: {
+            purchasedQty: number;
+            purchaseInvestment: number;
+            soldQty: number;
+            revenue: number;
+            cogs: number;
+            grossProfit: number;
+            grossMarginPercent: number;
+            physicalStock: number;
+            reservedStock: number;
+            availableStock: number;
+            inventoryValue: number;
+            returnQty: number;
+            damageQty: number;
+            damageLoss: number;
+            capitalRecoveryPercent: number;
+        };
+        capitalAllocation: {
+            currentInventoryAsset: number;
+            courierCodReceivable: number;
+            settledCashAndBank: number;
+            totalWorkingCapital: number;
+            inventoryCostRecoveredThroughSales: number;
+        };
+        insights: {
+            topRevenueCategory: {
+                name: any;
+                revenue: any;
+            };
+            mostProfitableCategory: {
+                name: any;
+                grossProfit: any;
+            };
+            highestMarginCategory: {
+                name: any;
+                margin: any;
+            };
+            mostCapitalInStockCategory: {
+                name: any;
+                inventoryValue: any;
+            };
+            fastestSellingProduct: {
+                name: any;
+                soldQty: any;
+                revenue: any;
+            };
+            topProfitProduct: {
+                name: any;
+                grossProfit: any;
+            };
+            highestReturnProduct: {
+                name: any;
+                returnQty: any;
+            };
+        };
+        categoryChartData: {
+            categoryId: any;
+            categoryName: any;
+            revenue: any;
+            grossProfit: any;
+            inventoryValue: any;
+            grossMarginPercent: any;
+        }[];
+        categories: any[];
+        slowMovingStock: any[];
+        reconciliation: {
+            isReconciled: boolean;
+            businessMatchesCategories: boolean;
+            categoryRevenueSum: number;
+            categoryCogsSum: number;
+            categoryGrossProfitSum: number;
+            categoryInvestmentSum: number;
+            categoryStockSum: number;
+            categoryInventoryValueSum: number;
+        };
+    }>;
+    exportBusinessPerformance(res: Response): Promise<Response<any, Record<string, any>>>;
     getAnalytics(): Promise<{
         summary: {
             totalOrders: number;

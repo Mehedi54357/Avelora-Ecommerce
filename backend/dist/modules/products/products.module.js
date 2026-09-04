@@ -13,7 +13,12 @@ const products_service_1 = require("./products.service");
 const products_controller_1 = require("./products.controller");
 const product_schema_1 = require("../../schemas/product.schema");
 const category_schema_1 = require("../../schemas/category.schema");
+const order_schema_1 = require("../../schemas/order.schema");
+const purchase_schema_1 = require("../../schemas/purchase.schema");
+const inventory_transaction_schema_1 = require("../../schemas/inventory-transaction.schema");
+const return_request_schema_1 = require("../../schemas/return-request.schema");
 const auth_module_1 = require("../auth/auth.module");
+const audit_log_module_1 = require("../audit-log/audit-log.module");
 let ProductsModule = class ProductsModule {
 };
 exports.ProductsModule = ProductsModule;
@@ -23,8 +28,13 @@ exports.ProductsModule = ProductsModule = __decorate([
             mongoose_1.MongooseModule.forFeature([
                 { name: product_schema_1.Product.name, schema: product_schema_1.ProductSchema },
                 { name: category_schema_1.Category.name, schema: category_schema_1.CategorySchema },
+                { name: order_schema_1.Order.name, schema: order_schema_1.OrderSchema },
+                { name: purchase_schema_1.PurchaseOrder.name, schema: purchase_schema_1.PurchaseOrderSchema },
+                { name: inventory_transaction_schema_1.InventoryTransaction.name, schema: inventory_transaction_schema_1.InventoryTransactionSchema },
+                { name: return_request_schema_1.ReturnRequest.name, schema: return_request_schema_1.ReturnRequestSchema },
             ]),
             auth_module_1.AuthModule,
+            audit_log_module_1.AuditLogModule,
         ],
         controllers: [products_controller_1.ProductsController],
         providers: [products_service_1.ProductsService],

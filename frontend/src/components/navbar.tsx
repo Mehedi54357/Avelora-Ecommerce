@@ -1,14 +1,14 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import Link from 'next/link';
 import { useCart } from '../context/cart-context';
-import { ShoppingBag, Search, Menu, X, Compass, ShieldCheck, ChevronDown, Sparkles, ArrowRight } from 'lucide-react';
+import { ShoppingBag, Search, Menu, X, Compass, ChevronDown, ChevronRight, Sparkles, ArrowRight } from 'lucide-react';
 
 export const AveloraLogo = ({ className = 'h-10' }: { className?: string }) => (
   <div className={`flex flex-col items-center justify-center select-none ${className}`}>
     <div className="flex items-center justify-center">
-      <svg viewBox="0 0 120 90" className="w-9 h-9" xmlns="http://www.w3.org/2000/svg">
+      <svg viewBox="0 0 120 90" className="w-8 h-8 sm:w-9 sm:h-9" xmlns="http://www.w3.org/2000/svg">
         {/* Classical Serif 'A' Body */}
         <path
           d="M 60 8 L 36 74 L 46 74 L 52 56 L 68 56 L 74 74 L 84 74 Z M 55 46 L 60 25 L 65 46 Z"
@@ -31,10 +31,10 @@ export const AveloraLogo = ({ className = 'h-10' }: { className?: string }) => (
         <path d="M 85 52 Q 94 53 98 48 Q 91 50 85 52 Z" fill="#C5A059" />
       </svg>
     </div>
-    <span className="text-xl md:text-2xl font-bold tracking-[0.28em] text-[#0B0F19] font-serif-luxury leading-tight mt-0.5">
+    <span className="text-lg sm:text-xl md:text-2xl font-bold tracking-[0.24em] sm:tracking-[0.28em] text-[#0B0F19] font-serif-luxury leading-tight mt-0.5">
       AVELORA
     </span>
-    <span className="text-[7px] md:text-[8px] tracking-[0.35em] text-[#C5A059] uppercase font-semibold">
+    <span className="text-[6.5px] sm:text-[7px] md:text-[8px] tracking-[0.3em] sm:tracking-[0.35em] text-[#C5A059] uppercase font-semibold">
       Elegance in every choice
     </span>
   </div>
@@ -135,23 +135,23 @@ export default function Navbar() {
   return (
     <>
       {/* Top Notification Announcement Bar */}
-      <div className="bg-[#0B0F19] text-[#E6CA85] text-[11px] font-medium tracking-widest uppercase py-2 px-4 text-center border-b border-[#D4AF37]/20 flex items-center justify-center gap-2">
-        <span className="inline-block w-1.5 h-1.5 rounded-full bg-[#D4AF37] animate-pulse"></span>
-        <span>Complimentary Signature Gift Packaging & Express Delivery Nationwide</span>
+      <div className="bg-[#0B0F19] text-[#E6CA85] text-[10px] sm:text-[11px] font-medium tracking-widest uppercase py-1.5 sm:py-2 px-3 sm:px-4 text-center border-b border-[#D4AF37]/20 flex items-center justify-center gap-2">
+        <span className="inline-block w-1.5 h-1.5 rounded-full bg-[#D4AF37] animate-pulse flex-shrink-0"></span>
+        <span className="truncate">Complimentary Signature Gift Packaging & Express Delivery Nationwide</span>
       </div>
 
       {/* Main Luxury Header */}
       <header
-        className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-gray-200/80 transition-all duration-300 shadow-sm"
+        className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-gray-200/80 transition-all duration-300 shadow-2xs"
         onMouseLeave={() => setActiveHoverMenu(null)}
       >
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-20">
+        <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-16 sm:h-20">
             {/* Left: Mobile Hamburger & Desktop Mega Menu Triggers */}
-            <div className="flex items-center gap-8">
+            <div className="flex items-center gap-4 lg:gap-8">
               <button
                 onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                className="lg:hidden p-2 text-gray-700 hover:text-[#C5A059] transition"
+                className="lg:hidden p-2 text-gray-700 hover:text-[#C5A059] transition min-w-[44px] min-h-[44px] flex items-center justify-center -ml-2"
                 aria-label="Toggle Navigation Menu"
               >
                 {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
@@ -223,10 +223,10 @@ export default function Navbar() {
             </div>
 
             {/* Right: Actions (Search, Track Order, Cart) */}
-            <div className="flex items-center gap-3 sm:gap-5">
+            <div className="flex items-center gap-1.5 sm:gap-4">
               <button
                 onClick={() => setSearchOpen(!searchOpen)}
-                className="p-2 text-gray-700 hover:text-[#C5A059] transition"
+                className="p-2 text-gray-700 hover:text-[#C5A059] transition min-w-[40px] min-h-[40px] flex items-center justify-center"
                 aria-label="Search"
               >
                 <Search className="w-5 h-5" />
@@ -243,7 +243,7 @@ export default function Navbar() {
               {/* Shopping Bag Trigger with Animated Badge */}
               <button
                 onClick={() => setIsCartOpen(true)}
-                className="relative p-2.5 bg-slate-950 text-white rounded-full hover:bg-[#C5A059] transition shadow-md group"
+                className="relative p-2.5 bg-slate-950 text-white rounded-full hover:bg-[#C5A059] transition shadow-md group min-w-[42px] min-h-[42px] flex items-center justify-center"
                 aria-label="Shopping Bag"
               >
                 <ShoppingBag className="w-4 h-4 transition-transform group-hover:scale-110" />
@@ -257,7 +257,7 @@ export default function Navbar() {
           </div>
         </div>
 
-        {/* Aarong-Style Full Mega Menu Dropdown */}
+        {/* Desktop Mega Menu Dropdown */}
         {activeHoverMenu && MEGA_MENU[activeHoverMenu as keyof typeof MEGA_MENU] && (
           <div
             className="hidden lg:block absolute top-full left-0 w-full bg-white border-b border-gray-200 shadow-2xl animate-fadeIn"
@@ -329,29 +329,29 @@ export default function Navbar() {
 
         {/* Expandable Search Overlay Bar */}
         {searchOpen && (
-          <div className="bg-white border-t border-gray-200 py-4 px-4 shadow-md animate-fadeIn">
-            <form onSubmit={handleSearchSubmit} className="max-w-3xl mx-auto flex items-center gap-3">
+          <div className="bg-white border-t border-gray-200 py-3 sm:py-4 px-3 sm:px-4 shadow-md animate-fadeIn">
+            <form onSubmit={handleSearchSubmit} className="max-w-3xl mx-auto flex items-center gap-2 sm:gap-3">
               <div className="relative flex-1">
                 <input
                   type="text"
-                  placeholder="Search silk Hijabs, কাঁচের ও রেশমি চুড়ি, jewellery, nagras, kids' frocks..."
+                  placeholder="Search silk Hijabs, কাঁচের চুড়ি, nagras, kids' frocks..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2.5 rounded-full border border-gray-300 focus:outline-none focus:border-[#C5A059] text-xs sm:text-sm text-gray-900 bg-[#FAFAF8]"
+                  className="w-full pl-9 sm:pl-10 pr-4 py-2 sm:py-2.5 rounded-full border border-gray-300 focus:outline-none focus:border-[#C5A059] text-xs sm:text-sm text-gray-900 bg-[#FAFAF8]"
                   autoFocus
                 />
-                <Search className="w-4 h-4 text-gray-400 absolute left-3.5 top-3" />
+                <Search className="w-4 h-4 text-gray-400 absolute left-3 top-2.5 sm:top-3" />
               </div>
               <button
                 type="submit"
-                className="px-5 py-2.5 bg-slate-950 text-white text-xs font-bold uppercase tracking-wider rounded-full hover:bg-[#C5A059] transition"
+                className="px-4 sm:px-5 py-2 sm:py-2.5 bg-slate-950 text-white text-xs font-bold uppercase tracking-wider rounded-full hover:bg-[#C5A059] transition min-h-[38px]"
               >
                 Search
               </button>
               <button
                 type="button"
                 onClick={() => setSearchOpen(false)}
-                className="p-2 text-gray-400 hover:text-gray-700"
+                className="p-2 text-gray-400 hover:text-gray-700 min-w-[36px] min-h-[36px] flex items-center justify-center"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -361,77 +361,110 @@ export default function Navbar() {
 
         {/* Mobile Navigation Drawer */}
         {mobileMenuOpen && (
-          <div className="lg:hidden bg-white border-t border-gray-200 px-6 py-6 space-y-6 shadow-xl max-h-[85vh] overflow-y-auto">
+          <div className="lg:hidden bg-white border-t border-gray-200 px-5 py-5 space-y-5 shadow-2xl max-h-[85vh] overflow-y-auto animate-fadeIn">
+            {/* Quick Catalog Link */}
+            <Link
+              href="/products"
+              onClick={() => setMobileMenuOpen(false)}
+              className="flex items-center justify-between py-2 px-3 bg-gray-50 rounded-xl text-xs font-bold uppercase tracking-wider text-gray-900 hover:bg-gray-100"
+            >
+              <span>Explore All Catalog</span>
+              <ChevronRight className="w-4 h-4 text-[#C5A059]" />
+            </Link>
+
             {/* Women */}
             <div className="space-y-2">
-              <span className="text-[11px] font-bold uppercase tracking-widest text-[#997B21]">Women</span>
+              <Link
+                href="/products?department=women"
+                onClick={() => setMobileMenuOpen(false)}
+                className="text-xs font-bold uppercase tracking-widest text-[#997B21] flex items-center justify-between"
+              >
+                <span>Women Haute Collection</span>
+                <ChevronRight className="w-3.5 h-3.5" />
+              </Link>
               <div className="pl-2 space-y-1.5 text-xs text-gray-700">
-                <Link href="/products?category=women-hijab" onClick={() => setMobileMenuOpen(false)} className="block py-1">
+                <Link href="/products?category=women-hijab" onClick={() => setMobileMenuOpen(false)} className="block py-1.5 hover:text-[#C5A059]">
                   • Hijab Collection
                 </Link>
-                <Link href="/products?category=women-churi-bangles" onClick={() => setMobileMenuOpen(false)} className="block py-1">
+                <Link href="/products?category=women-churi-bangles" onClick={() => setMobileMenuOpen(false)} className="block py-1.5 hover:text-[#C5A059]">
                   • Churi & Bangles (কাঁচের ও রেশমি চুড়ি)
                 </Link>
-                <Link href="/products?category=women-hair-accessories" onClick={() => setMobileMenuOpen(false)} className="block py-1">
+                <Link href="/products?category=women-hair-accessories" onClick={() => setMobileMenuOpen(false)} className="block py-1.5 hover:text-[#C5A059]">
                   • Hair Accessories
                 </Link>
-                <Link href="/products?category=women-dresses" onClick={() => setMobileMenuOpen(false)} className="block py-1">
+                <Link href="/products?category=women-dresses" onClick={() => setMobileMenuOpen(false)} className="block py-1.5 hover:text-[#C5A059]">
                   • Dresses & Modest Wear
                 </Link>
-                <Link href="/products?category=women-shoes" onClick={() => setMobileMenuOpen(false)} className="block py-1">
+                <Link href="/products?category=women-shoes" onClick={() => setMobileMenuOpen(false)} className="block py-1.5 hover:text-[#C5A059]">
                   • Shoes & Nagras
                 </Link>
-                <Link href="/products?category=women-accessories" onClick={() => setMobileMenuOpen(false)} className="block py-1">
+                <Link href="/products?category=women-accessories" onClick={() => setMobileMenuOpen(false)} className="block py-1.5 hover:text-[#C5A059]">
                   • Accessories & Fine Jewellery
                 </Link>
               </div>
             </div>
 
             {/* Men */}
-            <div className="space-y-2 pt-2 border-t">
-              <span className="text-[11px] font-bold uppercase tracking-widest text-[#997B21]">Men</span>
+            <div className="space-y-2 pt-2 border-t border-gray-100">
+              <Link
+                href="/products?department=men"
+                onClick={() => setMobileMenuOpen(false)}
+                className="text-xs font-bold uppercase tracking-widest text-[#997B21] flex items-center justify-between"
+              >
+                <span>Men Atelier</span>
+                <ChevronRight className="w-3.5 h-3.5" />
+              </Link>
               <div className="pl-2 space-y-1.5 text-xs text-gray-700">
-                <Link href="/products?category=men-shoes" onClick={() => setMobileMenuOpen(false)} className="block py-1">
+                <Link href="/products?category=men-shoes" onClick={() => setMobileMenuOpen(false)} className="block py-1.5 hover:text-[#C5A059]">
                   • Shoes & Leather Loafers
                 </Link>
-                <Link href="/products?category=men-clothing" onClick={() => setMobileMenuOpen(false)} className="block py-1">
+                <Link href="/products?category=men-clothing" onClick={() => setMobileMenuOpen(false)} className="block py-1.5 hover:text-[#C5A059]">
                   • Clothing & Panjabi
                 </Link>
-                <Link href="/products?category=men-accessories" onClick={() => setMobileMenuOpen(false)} className="block py-1">
+                <Link href="/products?category=men-accessories" onClick={() => setMobileMenuOpen(false)} className="block py-1.5 hover:text-[#C5A059]">
                   • Wallets & Belts
                 </Link>
               </div>
             </div>
 
             {/* Kids */}
-            <div className="space-y-2 pt-2 border-t">
-              <span className="text-[11px] font-bold uppercase tracking-widest text-[#997B21]">Kids</span>
+            <div className="space-y-2 pt-2 border-t border-gray-100">
+              <Link
+                href="/products?department=kids"
+                onClick={() => setMobileMenuOpen(false)}
+                className="text-xs font-bold uppercase tracking-widest text-[#997B21] flex items-center justify-between"
+              >
+                <span>Kids Collection</span>
+                <ChevronRight className="w-3.5 h-3.5" />
+              </Link>
               <div className="pl-2 space-y-1.5 text-xs text-gray-700">
-                <Link href="/products?category=kids-girls-dresses" onClick={() => setMobileMenuOpen(false)} className="block py-1">
+                <Link href="/products?category=kids-girls-dresses" onClick={() => setMobileMenuOpen(false)} className="block py-1.5 hover:text-[#C5A059]">
                   • Girls' Festive Dresses
                 </Link>
-                <Link href="/products?category=kids-girls-shoes" onClick={() => setMobileMenuOpen(false)} className="block py-1">
+                <Link href="/products?category=kids-girls-shoes" onClick={() => setMobileMenuOpen(false)} className="block py-1.5 hover:text-[#C5A059]">
                   • Girls' Shoes
                 </Link>
-                <Link href="/products?category=kids-boys-clothing" onClick={() => setMobileMenuOpen(false)} className="block py-1">
+                <Link href="/products?category=kids-boys-clothing" onClick={() => setMobileMenuOpen(false)} className="block py-1.5 hover:text-[#C5A059]">
                   • Boys' Clothing & Panjabi
                 </Link>
-                <Link href="/products?category=kids-boys-shoes" onClick={() => setMobileMenuOpen(false)} className="block py-1">
+                <Link href="/products?category=kids-boys-shoes" onClick={() => setMobileMenuOpen(false)} className="block py-1.5 hover:text-[#C5A059]">
                   • Boys' Shoes
                 </Link>
-                <Link href="/products?category=kids-accessories" onClick={() => setMobileMenuOpen(false)} className="block py-1">
+                <Link href="/products?category=kids-accessories" onClick={() => setMobileMenuOpen(false)} className="block py-1.5 hover:text-[#C5A059]">
                   • Kids' Accessories
                 </Link>
               </div>
             </div>
 
-            <div className="pt-4 border-t border-gray-100 flex items-center justify-between">
+            {/* Track Order & Help */}
+            <div className="pt-3 border-t border-gray-100 flex items-center justify-between">
               <Link
                 href="/track-order"
                 onClick={() => setMobileMenuOpen(false)}
-                className="text-xs font-bold uppercase tracking-wider text-[#C5A059]"
+                className="text-xs font-bold uppercase tracking-wider text-[#C5A059] flex items-center gap-1.5"
               >
-                Track Your Order →
+                <Compass className="w-4 h-4" />
+                <span>Track Your Order</span>
               </Link>
             </div>
           </div>

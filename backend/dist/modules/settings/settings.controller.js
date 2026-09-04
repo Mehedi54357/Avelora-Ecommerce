@@ -15,13 +15,15 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.SettingsController = void 0;
 const common_1 = require("@nestjs/common");
 const settings_service_1 = require("./settings.service");
+const data_management_service_1 = require("./data-management.service");
 const auth_guard_1 = require("../auth/auth.guard");
 const roles_guard_1 = require("../auth/roles.guard");
 const roles_decorator_1 = require("../auth/roles.decorator");
 const user_schema_1 = require("../../schemas/user.schema");
 let SettingsController = class SettingsController {
-    constructor(settingsService) {
+    constructor(settingsService, dataManagementService) {
         this.settingsService = settingsService;
+        this.dataManagementService = dataManagementService;
     }
     async getPublicSettings() {
         const settings = await this.settingsService.getSettings();
@@ -57,6 +59,13 @@ let SettingsController = class SettingsController {
     }
     async deleteDeliveryZone(id) {
         return this.settingsService.deleteDeliveryZone(id);
+    }
+    async getTestDataSummary() {
+        return this.dataManagementService.getTestDataSummary();
+    }
+    async cleanupTestData(body, req) {
+        const actorId = req.user?.sub;
+        return this.dataManagementService.cleanupTestData(body, actorId);
     }
 };
 exports.SettingsController = SettingsController;
@@ -127,8 +136,27 @@ __decorate([
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", Promise)
 ], SettingsController.prototype, "deleteDeliveryZone", null);
+__decorate([
+    (0, common_1.Get)('admin/test-data/summary'),
+    (0, common_1.UseGuards)(auth_guard_1.AuthGuard, roles_guard_1.RolesGuard),
+    (0, roles_decorator_1.Roles)(user_schema_1.UserRole.SUPER_ADMIN, user_schema_1.UserRole.ADMIN),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", []),
+    __metadata("design:returntype", Promise)
+], SettingsController.prototype, "getTestDataSummary", null);
+__decorate([
+    (0, common_1.Post)('admin/test-data/cleanup'),
+    (0, common_1.UseGuards)(auth_guard_1.AuthGuard, roles_guard_1.RolesGuard),
+    (0, roles_decorator_1.Roles)(user_schema_1.UserRole.SUPER_ADMIN),
+    __param(0, (0, common_1.Body)()),
+    __param(1, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, Object]),
+    __metadata("design:returntype", Promise)
+], SettingsController.prototype, "cleanupTestData", null);
 exports.SettingsController = SettingsController = __decorate([
     (0, common_1.Controller)('settings'),
-    __metadata("design:paramtypes", [settings_service_1.SettingsService])
+    __metadata("design:paramtypes", [settings_service_1.SettingsService,
+        data_management_service_1.DataManagementService])
 ], SettingsController);
 //# sourceMappingURL=settings.controller.js.map

@@ -9,7 +9,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.OrderSchema = exports.Order = exports.OrderTimelineEntrySchema = exports.OrderTimelineEntry = exports.CustomerDetailsSnapshotSchema = exports.CustomerDetailsSnapshot = exports.OrderItemSchema = exports.OrderItem = exports.FulfillmentStatus = exports.CourierSettlementStatus = exports.PaymentStatus = exports.OrderStatus = void 0;
+exports.OrderSchema = exports.Order = exports.ManualPaymentRecordSchema = exports.ManualPaymentRecord = exports.OrderTimelineEntrySchema = exports.OrderTimelineEntry = exports.CustomerDetailsSnapshotSchema = exports.CustomerDetailsSnapshot = exports.OrderItemSchema = exports.OrderItem = exports.FulfillmentMethod = exports.FulfillmentStatus = exports.CourierSettlementStatus = exports.PaymentStatus = exports.OrderStatus = void 0;
 const mongoose_1 = require("@nestjs/mongoose");
 const mongoose_2 = require("mongoose");
 var OrderStatus;
@@ -55,6 +55,12 @@ var FulfillmentStatus;
     FulfillmentStatus["DELIVERED"] = "DELIVERED";
     FulfillmentStatus["RETURNED"] = "RETURNED";
 })(FulfillmentStatus || (exports.FulfillmentStatus = FulfillmentStatus = {}));
+var FulfillmentMethod;
+(function (FulfillmentMethod) {
+    FulfillmentMethod["COURIER"] = "COURIER";
+    FulfillmentMethod["DIRECT_HAND_DELIVERY"] = "DIRECT_HAND_DELIVERY";
+    FulfillmentMethod["CUSTOMER_PICKUP"] = "CUSTOMER_PICKUP";
+})(FulfillmentMethod || (exports.FulfillmentMethod = FulfillmentMethod = {}));
 let OrderItem = class OrderItem {
 };
 exports.OrderItem = OrderItem;
@@ -122,6 +128,10 @@ __decorate([
     __metadata("design:type", String)
 ], CustomerDetailsSnapshot.prototype, "altMobile", void 0);
 __decorate([
+    (0, mongoose_1.Prop)({ required: false, default: '' }),
+    __metadata("design:type", String)
+], CustomerDetailsSnapshot.prototype, "email", void 0);
+__decorate([
     (0, mongoose_1.Prop)({ required: true }),
     __metadata("design:type", String)
 ], CustomerDetailsSnapshot.prototype, "address", void 0);
@@ -168,6 +178,41 @@ exports.OrderTimelineEntry = OrderTimelineEntry = __decorate([
     (0, mongoose_1.Schema)()
 ], OrderTimelineEntry);
 exports.OrderTimelineEntrySchema = mongoose_1.SchemaFactory.createForClass(OrderTimelineEntry);
+let ManualPaymentRecord = class ManualPaymentRecord {
+};
+exports.ManualPaymentRecord = ManualPaymentRecord;
+__decorate([
+    (0, mongoose_1.Prop)({ required: true }),
+    __metadata("design:type", Number)
+], ManualPaymentRecord.prototype, "amount", void 0);
+__decorate([
+    (0, mongoose_1.Prop)({ required: true, default: 'Cash' }),
+    __metadata("design:type", String)
+], ManualPaymentRecord.prototype, "paymentMethod", void 0);
+__decorate([
+    (0, mongoose_1.Prop)({ required: false, default: '' }),
+    __metadata("design:type", String)
+], ManualPaymentRecord.prototype, "transactionReference", void 0);
+__decorate([
+    (0, mongoose_1.Prop)({ required: false, default: 'Cash On Hand' }),
+    __metadata("design:type", String)
+], ManualPaymentRecord.prototype, "account", void 0);
+__decorate([
+    (0, mongoose_1.Prop)({ required: true, default: Date.now }),
+    __metadata("design:type", Date)
+], ManualPaymentRecord.prototype, "paymentDate", void 0);
+__decorate([
+    (0, mongoose_1.Prop)({ required: false, default: 'ADMIN' }),
+    __metadata("design:type", String)
+], ManualPaymentRecord.prototype, "recordedBy", void 0);
+__decorate([
+    (0, mongoose_1.Prop)({ required: false, default: '' }),
+    __metadata("design:type", String)
+], ManualPaymentRecord.prototype, "notes", void 0);
+exports.ManualPaymentRecord = ManualPaymentRecord = __decorate([
+    (0, mongoose_1.Schema)({ timestamps: true })
+], ManualPaymentRecord);
+exports.ManualPaymentRecordSchema = mongoose_1.SchemaFactory.createForClass(ManualPaymentRecord);
 let Order = class Order {
 };
 exports.Order = Order;
@@ -175,6 +220,22 @@ __decorate([
     (0, mongoose_1.Prop)({ required: true, unique: true, index: true }),
     __metadata("design:type", String)
 ], Order.prototype, "orderId", void 0);
+__decorate([
+    (0, mongoose_1.Prop)({ required: false, enum: ['PRODUCTION', 'TEST'], default: 'PRODUCTION', index: true }),
+    __metadata("design:type", String)
+], Order.prototype, "dataMode", void 0);
+__decorate([
+    (0, mongoose_1.Prop)({ required: false, enum: FulfillmentMethod, default: FulfillmentMethod.COURIER, index: true }),
+    __metadata("design:type", String)
+], Order.prototype, "fulfillmentMethod", void 0);
+__decorate([
+    (0, mongoose_1.Prop)({ required: false, enum: CourierSettlementStatus, default: CourierSettlementStatus.AWAITING_SETTLEMENT, index: true }),
+    __metadata("design:type", String)
+], Order.prototype, "courierSettlementStatus", void 0);
+__decorate([
+    (0, mongoose_1.Prop)({ type: [exports.ManualPaymentRecordSchema], default: [] }),
+    __metadata("design:type", Array)
+], Order.prototype, "manualPayments", void 0);
 __decorate([
     (0, mongoose_1.Prop)({ type: mongoose_2.Schema.Types.ObjectId, ref: 'Customer', required: false, index: true }),
     __metadata("design:type", mongoose_2.Schema.Types.ObjectId)
@@ -327,5 +388,12 @@ exports.Order = Order = __decorate([
 exports.OrderSchema = mongoose_1.SchemaFactory.createForClass(Order);
 exports.OrderSchema.index({ createdAt: -1 });
 exports.OrderSchema.index({ 'customerDetails.mobile': 1 });
+exports.OrderSchema.index({ 'customerDetails.name': 1 });
+exports.OrderSchema.index({ 'customerDetails.email': 1 });
 exports.OrderSchema.index({ status: 1, paymentStatus: 1 });
+exports.OrderSchema.index({ dataMode: 1, createdAt: -1 });
+exports.OrderSchema.index({ 'courier.consignmentId': 1 });
+exports.OrderSchema.index({ 'courier.provider': 1 });
+exports.OrderSchema.index({ 'items.sku': 1 });
+exports.OrderSchema.index({ transactionId: 1 });
 //# sourceMappingURL=order.schema.js.map

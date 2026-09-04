@@ -50,10 +50,10 @@ let DashboardService = class DashboardService {
         prevStartDate.setDate(startDate.getDate() - daysCount);
         prevStartDate.setHours(0, 0, 0, 0);
         const [allOrders, rangeOrders, prevRangeOrders, allProducts, recentAuditLogsRaw, rangeExpenses, prevRangeExpenses] = await Promise.all([
-            this.orderModel.find().sort({ createdAt: -1 }).limit(300).lean().exec(),
-            this.orderModel.find({ createdAt: { $gte: startDate } }).lean().exec(),
-            this.orderModel.find({ createdAt: { $gte: prevStartDate, $lt: startDate } }).lean().exec(),
-            this.productModel.find().lean().exec(),
+            this.orderModel.find({ dataMode: { $ne: 'TEST' } }).sort({ createdAt: -1 }).limit(300).lean().exec(),
+            this.orderModel.find({ createdAt: { $gte: startDate }, dataMode: { $ne: 'TEST' } }).lean().exec(),
+            this.orderModel.find({ createdAt: { $gte: prevStartDate, $lt: startDate }, dataMode: { $ne: 'TEST' } }).lean().exec(),
+            this.productModel.find({ dataMode: { $ne: 'TEST' } }).lean().exec(),
             this.auditLogService.getLogs({ limit: 6 }),
             this.expenseModel.find({ date: { $gte: startDate } }).lean().exec(),
             this.expenseModel.find({ date: { $gte: prevStartDate, $lt: startDate } }).lean().exec(),

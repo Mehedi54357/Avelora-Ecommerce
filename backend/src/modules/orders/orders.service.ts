@@ -5,8 +5,6 @@ import {
   UnauthorizedException,
   ConflictException,
   Logger,
-  forwardRef,
-  Inject,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
@@ -16,6 +14,8 @@ import {
   OrderStatus,
   PaymentStatus,
   FulfillmentStatus,
+  FulfillmentMethod,
+  CourierSettlementStatus,
 } from '../../schemas/order.schema';
 import { Product, ProductDocument } from '../../schemas/product.schema';
 import { Customer, CustomerDocument } from '../../schemas/customer.schema';
@@ -23,6 +23,8 @@ import { Payment, PaymentDocument } from '../../schemas/payment.schema';
 import { InventoryService } from '../inventory/inventory.service';
 import { CouponsService } from '../coupons/coupons.service';
 import { SettingsService } from '../settings/settings.service';
+import { AuditLogService } from '../audit-log/audit-log.service';
+import { evaluateProductPricing } from '../products/products.service';
 
 @Injectable()
 export class OrdersService {
@@ -36,6 +38,7 @@ export class OrdersService {
     private readonly inventoryService: InventoryService,
     private readonly couponsService: CouponsService,
     private readonly settingsService: SettingsService,
+    private readonly auditLogService: AuditLogService,
   ) {}
 
   // 1. Authoritative Checkout Calculation & Order Creation
@@ -58,6 +61,8 @@ export class OrdersService {
     paidAmount?: number;
     couponCode?: string;
     notes?: string;
+    dataMode?: string;
+    fulfillmentMethod?: FulfillmentMethod;
   }) {
     if (!data.items || data.items.length === 0) {
       throw new BadRequestException('Order must contain at least one item');
@@ -69,6 +74,8 @@ export class OrdersService {
 
     // Normalize phone number (handle +880 or 880 prefix)
     const cleanMobile = data.customerDetails.mobile.trim().replace(/[\s-]/g, '');
+    const isTestData = data.dataMode === 'TEST';
+    const chosenFulfillment = data.fulfillmentMethod || FulfillmentMethod.COURIER;
 
     // 1. Authoritative Line Item Verification & Snapshot Extraction
     const orderItems: any[] = [];
@@ -77,7 +84,7 @@ export class OrdersService {
 
     for (const reqItem of data.items) {
       const product = await this.productModel.findById(reqItem.productId).exec();
-      if (!product || product.status === 'ARCHIVED') {
+      if (!product || product.status === 'ARCHIVED' || (!isTestData && product.dataMode === 'TEST')) {
         throw new NotFoundException(`Product not found or unavailable`);
       }
 
@@ -94,16 +101,22 @@ export class OrdersService {
       }
 
       // Always calculate using database prices (never trust client-supplied prices)
-      const unitPrice = variant.price > 0 ? variant.price : product.salePrice;
-      const costPrice = variant.costPrice || 0;
-      const discount = product.originalPrice > unitPrice ? product.originalPrice - unitPrice : 0;
+      const pricing = evaluateProductPricing(product);
+      const baseProductPrice = pricing.effectivePrice;
+      const unitPrice = variant.price > 0 ? variant.price : baseProductPrice;
+      const costPrice = variant.weightedAverageCost || variant.costPrice || 0;
+      const discount = pricing.hasDiscount ? pricing.savingAmount : 0;
+
+      const itemTotal = unitPrice * reqItem.quantity;
+      subtotal += itemTotal;
+      totalDiscount += discount * reqItem.quantity;
 
       orderItems.push({
-        productId: product._id as any,
+        productId: product._id,
         productName: product.name,
-        productImage: variant.image || product.images?.[0] || '',
+        productImage: variant.image || (product.productImages && product.productImages[0]?.url) || (product.images && product.images[0]) || '',
         sku: variant.sku,
-        variant: `${variant.color || ''} ${variant.size || ''}`.trim(),
+        variant: `${variant.color || ''} ${variant.size || ''}`.trim() || 'Standard',
         color: variant.color || '',
         size: variant.size || '',
         quantity: reqItem.quantity,
@@ -111,60 +124,60 @@ export class OrdersService {
         costPrice,
         discount,
       });
-
-      subtotal += unitPrice * reqItem.quantity;
-      totalDiscount += discount * reqItem.quantity;
     }
 
-    // 2. Coupon Validation & Discount
+    // 2. Authoritative Coupon Validation & Calculation
     let couponDiscount = 0;
     let appliedCouponCode = '';
-    if (data.couponCode && data.couponCode.trim()) {
+
+    if (data.couponCode && data.couponCode.trim() !== '') {
       try {
-        const couponResult = await this.couponsService.validateCoupon(data.couponCode, subtotal);
-        if (couponResult.valid) {
-          couponDiscount = couponResult.discountAmount;
-          appliedCouponCode = couponResult.code;
+        const couponRes = await this.couponsService.validateCoupon(data.couponCode, subtotal);
+        if (couponRes && couponRes.valid && couponRes.discountAmount > 0) {
+          couponDiscount = couponRes.discountAmount;
+          appliedCouponCode = couponRes.code;
         }
-      } catch (couponErr) {
-        this.logger.warn(`Coupon application notice: ${couponErr.message}`);
+      } catch (couponErr: any) {
+        this.logger.warn(`Coupon evaluation note: ${couponErr.message}`);
       }
     }
 
-    // 3. Dynamic Delivery Charge via Settings / Delivery Zones
-    const districtName = data.customerDetails.district || 'Dhaka';
-    const deliveryCalc = await this.settingsService.calculateDeliveryCharge(districtName, subtotal);
-    const deliveryCharge = deliveryCalc.charge;
+    // 3. Authoritative Delivery Zone Charge Calculation
+    const districtLower = (data.customerDetails.district || '').trim().toLowerCase();
+    const isDhaka =
+      districtLower.includes('dhaka') ||
+      districtLower === 'dhaka' ||
+      (data.customerDetails.division || '').trim().toLowerCase().includes('dhaka');
 
-    const totalAmount = Math.max(0, subtotal - couponDiscount + deliveryCharge);
+    const storeSettings = await this.settingsService.getSettings();
+    const deliveryCharge = chosenFulfillment === FulfillmentMethod.CUSTOMER_PICKUP
+      ? 0
+      : isDhaka
+        ? (storeSettings.defaultDhakaDeliveryCharge || 70)
+        : (storeSettings.defaultOutsideDhakaDeliveryCharge || 130);
 
-    // 4. Payment Calculations
+    // 4. Final Total Calculation
+    const taxableSubtotal = Math.max(0, subtotal - couponDiscount);
+    const totalAmount = taxableSubtotal + deliveryCharge;
+
+    // 5. Payment Details
     const paymentMethod = data.paymentMethod || 'COD';
-    const paymentProvider = data.paymentProvider || (paymentMethod === 'COD' ? 'bKash' : paymentMethod);
-    const senderMobile = data.senderMobile || '';
-    const transactionId = data.transactionId || '';
+    const paymentProvider = data.paymentProvider || (paymentMethod === 'COD' ? 'CashOnDelivery' : 'bKash');
+    const senderMobile = data.senderMobile ? data.senderMobile.trim() : '';
+    const transactionId = data.transactionId ? data.transactionId.trim() : '';
+    const paidAmount = Number(data.paidAmount) || 0;
+    const isAdvancePaid = paidAmount > 0;
+    const dueAmount = Math.max(0, totalAmount - paidAmount);
 
-    let paidAmount = 0;
-    let dueAmount = totalAmount;
-    let isAdvancePaid = false;
-
-    if (paymentMethod === 'COD') {
-      // In Bangladesh luxury e-commerce, customer pays advance delivery fee (৳70/৳130) to confirm order
-      paidAmount = data.paidAmount !== undefined ? data.paidAmount : (transactionId ? deliveryCharge : 0);
-      dueAmount = Math.max(0, totalAmount - paidAmount);
-      isAdvancePaid = Boolean(transactionId || senderMobile || paidAmount > 0);
-    } else {
-      paidAmount = data.paidAmount !== undefined ? data.paidAmount : totalAmount;
-      dueAmount = Math.max(0, totalAmount - paidAmount);
-      isAdvancePaid = true;
-    }
-
-    // 5. Generate Collision-Safe Order ID (AVE-YYYYMMDD-XXXXX)
-    const todayStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+    // 6. Generate Unique Order ID
+    const today = new Date();
+    const yyyymmdd = today.toISOString().slice(0, 10).replace(/-/g, '');
     const randomSuffix = Math.floor(10000 + Math.random() * 90000);
-    const orderId = `AVE-${todayStr}-${randomSuffix}`;
+    const orderId = isTestData
+      ? `TST-${yyyymmdd}-${randomSuffix}`
+      : `AVE-${yyyymmdd}-${randomSuffix}`;
 
-    // 6. Atomically Reserve Inventory
+    // 7. Atomically Reserve Stock on Shelf
     for (const item of orderItems) {
       await this.inventoryService.reserveStock(
         item.productId.toString(),
@@ -174,46 +187,66 @@ export class OrdersService {
       );
     }
 
-    // 7. Customer Profile Update
+    // 8. Find or Update Customer Profile (for production orders)
     let customer: any = null;
-    try {
-      customer = await this.customerModel.findOne({ mobile: cleanMobile }).exec();
-      if (!customer) {
-        customer = await this.customerModel.create({
-          name: data.customerDetails.name,
-          mobile: cleanMobile,
-          addresses: [
-            {
-              district: data.customerDetails.district || 'Dhaka',
-              area: data.customerDetails.upazila || '',
-              fullAddress: data.customerDetails.address,
-            },
-          ],
-          totalOrders: 1,
-          totalSpent: totalAmount,
-          isGuest: true,
-        });
-      } else {
-        customer.totalOrders = (customer.totalOrders || 0) + 1;
-        customer.totalSpent = (customer.totalSpent || 0) + totalAmount;
-        await customer.save();
+    if (!isTestData) {
+      try {
+        customer = await this.customerModel.findOne({ mobile: cleanMobile }).exec();
+        if (!customer) {
+          customer = await this.customerModel.create({
+            name: data.customerDetails.name,
+            mobile: cleanMobile,
+            email: `${cleanMobile}@customer.avelora.com`,
+            addresses: [
+              {
+                district: data.customerDetails.district || 'Dhaka',
+                area: data.customerDetails.division || 'Dhaka',
+                fullAddress: data.customerDetails.address || '',
+              },
+            ],
+            totalOrders: 1,
+            totalSpent: totalAmount,
+          });
+        } else {
+          customer.totalOrders = (customer.totalOrders || 0) + 1;
+          customer.totalSpent = (customer.totalSpent || 0) + totalAmount;
+          await customer.save();
+        }
+      } catch (custErr: any) {
+        this.logger.warn(`Customer profile notice: ${custErr.message}`);
       }
-    } catch (custErr) {
-      this.logger.warn(`Non-critical customer profile update notice: ${custErr.message}`);
     }
 
-    // 8. Create Order Document with Initial Timeline
+    // 9. Initial Timeline
     const initialTimeline = [
       {
         status: OrderStatus.PENDING,
         at: new Date(),
-        actor: 'CUSTOMER',
-        note: `Order placed via Storefront Checkout. ${isAdvancePaid ? `Advance paid: ৳${paidAmount}` : 'Cash on Delivery'}`,
+        actor: isTestData ? 'ADMIN_TEST' : 'CUSTOMER',
+        note: `Order created (${chosenFulfillment}). ${isAdvancePaid ? `Advance paid: ৳${paidAmount}` : 'Cash on Delivery'}`,
       },
     ];
 
-    const orderDoc = {
+    const initialPayments: any[] = [];
+    if (paidAmount > 0) {
+      initialPayments.push({
+        amount: paidAmount,
+        paymentMethod: paymentMethod,
+        transactionReference: transactionId,
+        account: paymentProvider,
+        paymentDate: new Date(),
+        recordedBy: isTestData ? 'ADMIN_TEST' : 'STOREFRONT_CHECKOUT',
+        notes: 'Advance payment recorded at checkout',
+      });
+    }
+
+    const orderDoc: any = {
       orderId,
+      dataMode: isTestData ? 'TEST' : 'PRODUCTION',
+      fulfillmentMethod: chosenFulfillment,
+      courierSettlementStatus: chosenFulfillment === FulfillmentMethod.COURIER
+        ? CourierSettlementStatus.AWAITING_SETTLEMENT
+        : CourierSettlementStatus.NOT_APPLICABLE,
       customerId: customer?._id || undefined,
       customerDetails: {
         name: data.customerDetails.name,
@@ -226,7 +259,7 @@ export class OrdersService {
         union: data.customerDetails.union || '',
       },
       status: OrderStatus.PENDING,
-      paymentStatus: isAdvancePaid && paidAmount >= totalAmount ? PaymentStatus.PAID : (isAdvancePaid ? PaymentStatus.PENDING : PaymentStatus.UNPAID),
+      paymentStatus: paidAmount >= totalAmount ? PaymentStatus.PAID : (paidAmount > 0 ? PaymentStatus.PARTIALLY_PAID : PaymentStatus.UNPAID),
       fulfillmentStatus: FulfillmentStatus.UNFULFILLED,
       paymentMethod,
       paymentProvider,
@@ -235,6 +268,7 @@ export class OrdersService {
       senderMobile,
       transactionId,
       isAdvancePaid,
+      manualPayments: initialPayments,
       items: orderItems,
       subtotal,
       discount: totalDiscount,
@@ -248,29 +282,31 @@ export class OrdersService {
 
     const order = await this.orderModel.create(orderDoc);
 
-    // 9. Create Payment Record
-    try {
-      await this.paymentModel.create({
-        orderId: (order as any)._id,
-        transactionId: transactionId || `TXN-${orderId}-${Date.now()}`,
-        method: paymentMethod,
-        provider: paymentProvider,
-        amount: paidAmount > 0 ? paidAmount : totalAmount,
-        status: paidAmount >= totalAmount ? 'PAID' : (paidAmount > 0 ? 'PARTIAL' : 'PENDING'),
-      });
-    } catch (payErr) {
-      this.logger.warn(`Payment transaction log notice: ${payErr.message}`);
+    // 10. Create Payment Record in Ledger if applicable
+    if (paidAmount > 0) {
+      try {
+        await this.paymentModel.create({
+          orderId: (order as any)._id,
+          transactionId: transactionId || `TXN-${orderId}-${Date.now()}`,
+          method: paymentMethod,
+          provider: paymentProvider,
+          amount: paidAmount,
+          status: paidAmount >= totalAmount ? 'PAID' : 'PARTIAL',
+        });
+      } catch (payErr) {
+        this.logger.warn(`Payment transaction log notice: ${payErr.message}`);
+      }
     }
 
-    // 10. Record Coupon Usage
-    if (appliedCouponCode) {
+    // 11. Record Coupon Usage
+    if (appliedCouponCode && !isTestData) {
       await this.couponsService.recordUsage(appliedCouponCode);
     }
 
     return order;
   }
 
-  // 2. Secure Public Order Tracking (Privacy Protected - Sanitized Output)
+  // 2. Secure Public Order Tracking
   async trackOrder(orderId: string, mobile: string) {
     if (!orderId?.trim() || !mobile?.trim()) {
       throw new BadRequestException('Both Order ID and Recipient Mobile Number are required for tracking verification.');
@@ -285,24 +321,22 @@ export class OrdersService {
       throw new NotFoundException(`No order found matching Reference ID "${cleanOrderId}".`);
     }
 
-    // Two-factor phone number verification
     const orderPhone = order.customerDetails?.mobile?.replace(/[\s-]/g, '');
     if (orderPhone !== cleanMobile && !orderPhone?.endsWith(cleanMobile) && !cleanMobile.endsWith(orderPhone || '')) {
       throw new UnauthorizedException('The mobile number provided does not match the recipient on this order.');
     }
 
-    // Mask mobile number for privacy (e.g. 017****5678)
     const rawPhone = order.customerDetails.mobile;
     const maskedMobile = rawPhone.length >= 11
       ? `${rawPhone.slice(0, 3)}****${rawPhone.slice(-4)}`
       : '01XXXXXXXXX';
 
-    // Return sanitized tracking payload (Excluding internal notes, COGS, cost prices, full street address)
     return {
       orderId: order.orderId,
       status: order.status,
       paymentStatus: order.paymentStatus,
       fulfillmentStatus: order.fulfillmentStatus,
+      fulfillmentMethod: order.fulfillmentMethod,
       paymentMethod: order.paymentMethod,
       createdAt: (order as any).createdAt,
       customerName: order.customerDetails.name,
@@ -335,23 +369,146 @@ export class OrdersService {
     };
   }
 
-  // 3. Admin: Search & List Orders
-  async getAdminOrders(query: { status?: string; search?: string; page?: number; limit?: number }) {
+  // 3. Admin: Smart Search & List Orders with Multi-Filters
+  async getAdminOrders(query: {
+    status?: string;
+    paymentStatus?: string;
+    fulfillmentMethod?: string;
+    dataMode?: string;
+    courier?: string;
+    dateRange?: string;
+    startDate?: string;
+    endDate?: string;
+    search?: string;
+    page?: number;
+    limit?: number;
+  }) {
     const filter: any = {};
+
+    // 1. Order Status Filter
     if (query.status && query.status !== 'ALL') {
       filter.status = query.status;
     }
-    if (query.search) {
-      filter.$or = [
-        { orderId: { $regex: query.search, $options: 'i' } },
-        { 'customerDetails.name': { $regex: query.search, $options: 'i' } },
-        { 'customerDetails.mobile': { $regex: query.search, $options: 'i' } },
-        { transactionId: { $regex: query.search, $options: 'i' } },
+
+    // 2. Payment Status Filter
+    if (query.paymentStatus && query.paymentStatus !== 'ALL') {
+      filter.paymentStatus = query.paymentStatus;
+    }
+
+    // 3. Fulfillment Method Filter
+    if (query.fulfillmentMethod && query.fulfillmentMethod !== 'ALL') {
+      filter.fulfillmentMethod = query.fulfillmentMethod;
+    }
+
+    // 4. Data Mode Isolation Filter (Default: Production only)
+    if (query.dataMode === 'TEST') {
+      filter.dataMode = 'TEST';
+    } else if (query.dataMode === 'ALL') {
+      // Show all data
+    } else {
+      // Default to production
+      filter.dataMode = { $ne: 'TEST' };
+    }
+
+    // 5. Courier Provider Filter
+    if (query.courier && query.courier !== 'ALL') {
+      filter['courier.provider'] = { $regex: query.courier, $options: 'i' };
+    }
+
+    // 6. Date Range Filter
+    if (query.dateRange && query.dateRange !== 'ALL') {
+      const now = new Date();
+      let fromDate: Date | null = null;
+      let toDate: Date = new Date();
+      toDate.setHours(23, 59, 59, 999);
+
+      const range = query.dateRange.toUpperCase();
+      if (range === 'TODAY') {
+        fromDate = new Date();
+        fromDate.setHours(0, 0, 0, 0);
+      } else if (range === 'YESTERDAY') {
+        fromDate = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+        fromDate.setHours(0, 0, 0, 0);
+        toDate = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+        toDate.setHours(23, 59, 59, 999);
+      } else if (range === '7D' || range === '7_DAYS') {
+        fromDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+        fromDate.setHours(0, 0, 0, 0);
+      } else if (range === '30D' || range === '30_DAYS') {
+        fromDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+        fromDate.setHours(0, 0, 0, 0);
+      } else if (range === 'THIS_MONTH') {
+        fromDate = new Date(now.getFullYear(), now.getMonth(), 1);
+        fromDate.setHours(0, 0, 0, 0);
+      } else if (range === 'CUSTOM' && query.startDate) {
+        fromDate = new Date(query.startDate);
+        fromDate.setHours(0, 0, 0, 0);
+        if (query.endDate) {
+          toDate = new Date(query.endDate);
+          toDate.setHours(23, 59, 59, 999);
+        }
+      }
+
+      if (fromDate && !isNaN(fromDate.getTime())) {
+        filter.createdAt = { $gte: fromDate, $lte: toDate };
+      }
+    }
+
+    // 7. Smart Multi-Field Search Engine
+    if (query.search && query.search.trim()) {
+      const term = query.search.trim();
+      const escapedTerm = term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const orClauses: any[] = [
+        { orderId: { $regex: escapedTerm, $options: 'i' } },
+        { 'customerDetails.name': { $regex: escapedTerm, $options: 'i' } },
+        { 'customerDetails.email': { $regex: escapedTerm, $options: 'i' } },
+        { 'customerDetails.mobile': { $regex: escapedTerm, $options: 'i' } },
+        { 'customerDetails.altMobile': { $regex: escapedTerm, $options: 'i' } },
+        { senderMobile: { $regex: escapedTerm, $options: 'i' } },
+        { 'courier.consignmentId': { $regex: escapedTerm, $options: 'i' } },
+        { 'courier.transactionRef': { $regex: escapedTerm, $options: 'i' } },
+        { transactionId: { $regex: escapedTerm, $options: 'i' } },
+        { 'manualPayments.transactionReference': { $regex: escapedTerm, $options: 'i' } },
+        { 'items.sku': { $regex: escapedTerm, $options: 'i' } },
+        { 'items.productName': { $regex: escapedTerm, $options: 'i' } },
       ];
+
+      // Bangladesh Phone Normalization for all BD Operators (013, 017, 014, 019, 018, 016, 015)
+      const digitsOnly = term.replace(/\D/g, '');
+      if (digitsOnly.length >= 3) {
+        let clean11 = '';
+        if (digitsOnly.startsWith('880') && digitsOnly.length === 13) {
+          clean11 = digitsOnly.slice(2);
+        } else if (digitsOnly.length === 11 && digitsOnly.startsWith('01')) {
+          clean11 = digitsOnly;
+        } else if (digitsOnly.length === 10 && digitsOnly.startsWith('1')) {
+          clean11 = `0${digitsOnly}`;
+        }
+
+        if (clean11) {
+          const core9 = clean11.slice(2); // e.g. 712345678, 312345678, 412345678, etc.
+          orClauses.push(
+            { 'customerDetails.mobile': { $regex: clean11, $options: 'i' } },
+            { 'customerDetails.mobile': { $regex: core9, $options: 'i' } },
+            { 'customerDetails.altMobile': { $regex: clean11, $options: 'i' } },
+            { 'customerDetails.altMobile': { $regex: core9, $options: 'i' } },
+            { senderMobile: { $regex: clean11, $options: 'i' } },
+            { senderMobile: { $regex: core9, $options: 'i' } },
+          );
+        } else {
+          orClauses.push(
+            { 'customerDetails.mobile': { $regex: digitsOnly, $options: 'i' } },
+            { 'customerDetails.altMobile': { $regex: digitsOnly, $options: 'i' } },
+            { senderMobile: { $regex: digitsOnly, $options: 'i' } },
+          );
+        }
+      }
+
+      filter.$or = orClauses;
     }
 
     const page = Math.max(1, Number(query.page) || 1);
-    const limit = Math.max(1, Math.min(200, Number(query.limit) || 100));
+    const limit = Math.max(1, Math.min(200, Number(query.limit) || 50));
     const skip = (page - 1) * limit;
 
     const [orders, total] = await Promise.all([
@@ -365,7 +522,7 @@ export class OrdersService {
         total,
         page,
         limit,
-        totalPages: Math.ceil(total / limit),
+        totalPages: Math.ceil(total / limit) || 1,
       },
     };
   }
@@ -378,7 +535,310 @@ export class OrdersService {
     return order;
   }
 
-  // 4. Finite State Machine Order Status Transitions
+  // 4. Update Fulfillment Method
+  async updateFulfillmentMethod(id: string, method: FulfillmentMethod, actorId?: string, actor = 'ADMIN') {
+    const order = await this.orderModel.findById(id).exec();
+    if (!order) throw new NotFoundException('Order not found');
+
+    if (order.courier?.consignmentId) {
+      throw new BadRequestException(
+        'This order is already booked with Pathao courier. Cancel courier booking before changing fulfillment method.',
+      );
+    }
+
+    const oldMethod = order.fulfillmentMethod;
+    order.fulfillmentMethod = method;
+
+    if (method !== FulfillmentMethod.COURIER) {
+      order.courierSettlementStatus = CourierSettlementStatus.NOT_APPLICABLE;
+    }
+
+    order.timeline.push({
+      status: order.status,
+      at: new Date(),
+      actor,
+      note: `Fulfillment method changed from ${oldMethod} to ${method}`,
+    });
+
+    await order.save();
+
+    await this.auditLogService.logAction({
+      adminId: actorId,
+      action: 'FULFILLMENT_METHOD_CHANGED',
+      entityType: 'ORDER',
+      entityId: order.orderId,
+      oldData: { fulfillmentMethod: oldMethod },
+      newData: { fulfillmentMethod: method },
+    });
+
+    return order;
+  }
+
+  // 5. Direct Hand Delivery Confirmation (Delivery & Payment Decoupled)
+  async confirmDirectDelivery(
+    id: string,
+    payload: {
+      paymentReceived: boolean;
+      amount?: number;
+      paymentMethod?: string;
+      transactionReference?: string;
+      account?: string;
+      notes?: string;
+    },
+    actorId?: string,
+    actor = 'ADMIN',
+  ) {
+    const order = await this.orderModel.findById(id).exec();
+    if (!order) throw new NotFoundException('Order not found');
+
+    const oldStatus = order.status;
+
+    // Fulfill stock reservation if not already delivered
+    if (oldStatus !== OrderStatus.DELIVERED) {
+      for (const item of order.items) {
+        await this.inventoryService.fulfillStock(
+          item.productId.toString(),
+          item.sku,
+          item.quantity,
+          order.orderId,
+        );
+      }
+    }
+
+    order.status = OrderStatus.DELIVERED;
+    order.fulfillmentStatus = FulfillmentStatus.DELIVERED;
+    order.courierSettlementStatus = CourierSettlementStatus.NOT_APPLICABLE;
+
+    // Payment Handling (Strictly Decoupled)
+    if (payload.paymentReceived && Number(payload.amount) > 0) {
+      const payAmount = Number(payload.amount);
+      if (!order.manualPayments) order.manualPayments = [];
+
+      order.manualPayments.push({
+        amount: payAmount,
+        paymentMethod: payload.paymentMethod || 'Cash',
+        transactionReference: payload.transactionReference || '',
+        account: payload.account || 'Cash On Hand',
+        paymentDate: new Date(),
+        recordedBy: actor,
+        notes: payload.notes || 'Direct Delivery Payment',
+      });
+
+      order.paidAmount = (order.paidAmount || 0) + payAmount;
+      order.dueAmount = Math.max(0, order.totalAmount - order.paidAmount);
+
+      if (order.paidAmount >= order.totalAmount) {
+        order.paymentStatus = PaymentStatus.PAID;
+      } else {
+        order.paymentStatus = PaymentStatus.PARTIALLY_PAID;
+      }
+    } else {
+      // Unpaid or already partially paid
+      order.dueAmount = Math.max(0, order.totalAmount - (order.paidAmount || 0));
+      if (order.paidAmount === 0) {
+        order.paymentStatus = PaymentStatus.UNPAID;
+      } else if (order.paidAmount < order.totalAmount) {
+        order.paymentStatus = PaymentStatus.PARTIALLY_PAID;
+      }
+    }
+
+    order.timeline.push({
+      status: OrderStatus.DELIVERED,
+      at: new Date(),
+      actor,
+      note: `Direct Hand Delivery confirmed. Payment: ${payload.paymentReceived ? `৳${payload.amount} received (${payload.paymentMethod || 'Cash'})` : 'UNPAID / PENDING'}`,
+    });
+
+    await order.save();
+
+    await this.auditLogService.logAction({
+      adminId: actorId,
+      action: 'DIRECT_DELIVERY_CONFIRMED',
+      entityType: 'ORDER',
+      entityId: order.orderId,
+      newData: {
+        paymentReceived: payload.paymentReceived,
+        amount: payload.amount,
+        paidAmount: order.paidAmount,
+        dueAmount: order.dueAmount,
+        paymentStatus: order.paymentStatus,
+      },
+    });
+
+    return order;
+  }
+
+  // 6. Customer Pickup Confirmation
+  async confirmCustomerPickup(
+    id: string,
+    payload: {
+      paymentReceived: boolean;
+      amount?: number;
+      paymentMethod?: string;
+      transactionReference?: string;
+      account?: string;
+      notes?: string;
+    },
+    actorId?: string,
+    actor = 'ADMIN',
+  ) {
+    const order = await this.orderModel.findById(id).exec();
+    if (!order) throw new NotFoundException('Order not found');
+
+    const oldStatus = order.status;
+
+    if (oldStatus !== OrderStatus.DELIVERED) {
+      for (const item of order.items) {
+        await this.inventoryService.fulfillStock(
+          item.productId.toString(),
+          item.sku,
+          item.quantity,
+          order.orderId,
+        );
+      }
+    }
+
+    order.status = OrderStatus.DELIVERED;
+    order.fulfillmentStatus = FulfillmentStatus.DELIVERED;
+    order.courierSettlementStatus = CourierSettlementStatus.NOT_APPLICABLE;
+
+    if (payload.paymentReceived && Number(payload.amount) > 0) {
+      const payAmount = Number(payload.amount);
+      if (!order.manualPayments) order.manualPayments = [];
+
+      order.manualPayments.push({
+        amount: payAmount,
+        paymentMethod: payload.paymentMethod || 'Cash',
+        transactionReference: payload.transactionReference || '',
+        account: payload.account || 'Cash On Hand',
+        paymentDate: new Date(),
+        recordedBy: actor,
+        notes: payload.notes || 'Customer Pickup Payment',
+      });
+
+      order.paidAmount = (order.paidAmount || 0) + payAmount;
+      order.dueAmount = Math.max(0, order.totalAmount - order.paidAmount);
+
+      if (order.paidAmount >= order.totalAmount) {
+        order.paymentStatus = PaymentStatus.PAID;
+      } else {
+        order.paymentStatus = PaymentStatus.PARTIALLY_PAID;
+      }
+    } else {
+      order.dueAmount = Math.max(0, order.totalAmount - (order.paidAmount || 0));
+      if (order.paidAmount === 0) {
+        order.paymentStatus = PaymentStatus.UNPAID;
+      } else if (order.paidAmount < order.totalAmount) {
+        order.paymentStatus = PaymentStatus.PARTIALLY_PAID;
+      }
+    }
+
+    order.timeline.push({
+      status: OrderStatus.DELIVERED,
+      at: new Date(),
+      actor,
+      note: `Customer Pickup completed. Payment: ${payload.paymentReceived ? `৳${payload.amount} received (${payload.paymentMethod || 'Cash'})` : 'UNPAID / PENDING'}`,
+    });
+
+    await order.save();
+
+    await this.auditLogService.logAction({
+      adminId: actorId,
+      action: 'CUSTOMER_PICKUP_CONFIRMED',
+      entityType: 'ORDER',
+      entityId: order.orderId,
+      newData: {
+        paymentReceived: payload.paymentReceived,
+        amount: payload.amount,
+        paidAmount: order.paidAmount,
+        dueAmount: order.dueAmount,
+        paymentStatus: order.paymentStatus,
+      },
+    });
+
+    return order;
+  }
+
+  // 7. Manual Payment Entry (Partial / Full Payment Recording)
+  async recordOrderPayment(
+    id: string,
+    payload: {
+      amount: number;
+      paymentMethod: string;
+      transactionReference?: string;
+      account?: string;
+      notes?: string;
+    },
+    actorId?: string,
+    actor = 'ADMIN',
+  ) {
+    const order = await this.orderModel.findById(id).exec();
+    if (!order) throw new NotFoundException('Order not found');
+
+    const payAmount = Number(payload.amount);
+    if (!payAmount || payAmount <= 0) {
+      throw new BadRequestException('Payment amount must be strictly greater than 0.');
+    }
+
+    if (!order.manualPayments) order.manualPayments = [];
+
+    // Idempotency check on transaction reference if provided
+    if (payload.transactionReference && payload.transactionReference.trim()) {
+      const isDuplicate = order.manualPayments.some(
+        (p) => p.transactionReference === payload.transactionReference?.trim(),
+      );
+      if (isDuplicate) {
+        throw new BadRequestException(
+          `A payment with transaction reference "${payload.transactionReference}" has already been recorded.`,
+        );
+      }
+    }
+
+    order.manualPayments.push({
+      amount: payAmount,
+      paymentMethod: payload.paymentMethod || 'Cash',
+      transactionReference: payload.transactionReference || '',
+      account: payload.account || 'Cash On Hand',
+      paymentDate: new Date(),
+      recordedBy: actor,
+      notes: payload.notes || '',
+    });
+
+    order.paidAmount = (order.paidAmount || 0) + payAmount;
+    order.dueAmount = Math.max(0, order.totalAmount - order.paidAmount);
+
+    if (order.paidAmount >= order.totalAmount) {
+      order.paymentStatus = PaymentStatus.PAID;
+    } else {
+      order.paymentStatus = PaymentStatus.PARTIALLY_PAID;
+    }
+
+    order.timeline.push({
+      status: order.status,
+      at: new Date(),
+      actor,
+      note: `Payment of ৳${payAmount} recorded via ${payload.paymentMethod || 'Cash'}. Outstanding Due: ৳${order.dueAmount}`,
+    });
+
+    await order.save();
+
+    await this.auditLogService.logAction({
+      adminId: actorId,
+      action: 'MANUAL_PAYMENT_CONFIRMED',
+      entityType: 'ORDER',
+      entityId: order.orderId,
+      newData: {
+        amountAdded: payAmount,
+        totalPaid: order.paidAmount,
+        totalDue: order.dueAmount,
+        paymentStatus: order.paymentStatus,
+      },
+    });
+
+    return order;
+  }
+
+  // 8. Finite State Machine Order Status Transitions
   async updateOrderStatus(
     id: string,
     newStatus: OrderStatus,
@@ -401,7 +861,6 @@ export class OrdersService {
     }
 
     // 1. Transitioning to DELIVERED (Fulfilled):
-    // Deduct physical stock & release reservation atomically
     if (newStatus === OrderStatus.DELIVERED && oldStatus !== OrderStatus.DELIVERED) {
       for (const item of order.items) {
         await this.inventoryService.fulfillStock(
@@ -412,7 +871,7 @@ export class OrdersService {
         );
       }
       order.fulfillmentStatus = FulfillmentStatus.DELIVERED;
-      if (order.paymentMethod === 'COD') {
+      if (order.fulfillmentMethod === FulfillmentMethod.COURIER && order.paymentMethod === 'COD') {
         order.paymentStatus = PaymentStatus.PAID;
         order.paidAmount = order.totalAmount;
         order.dueAmount = 0;
@@ -420,7 +879,6 @@ export class OrdersService {
     }
 
     // 2. Transitioning to CANCELLED:
-    // Releases reserved stock back to shelf
     else if (
       newStatus === OrderStatus.CANCELLED &&
       oldStatus !== OrderStatus.CANCELLED &&
@@ -439,7 +897,6 @@ export class OrdersService {
     }
 
     // 3. Transitioning to RETURNED from DELIVERED:
-    // Restores physical inventory on hand
     else if (newStatus === OrderStatus.RETURNED && oldStatus === OrderStatus.DELIVERED) {
       for (const item of order.items) {
         await this.inventoryService.returnStock(
@@ -479,7 +936,7 @@ export class OrdersService {
     return order;
   }
 
-  // 5. Admin Payment Verification and Update
+  // 9. Admin Payment Verification and Update
   async updatePaymentDetails(
     id: string,
     data: {
@@ -507,7 +964,7 @@ export class OrdersService {
     return order;
   }
 
-  // 6. Courier Consignment Details
+  // 10. Courier Consignment Details
   async updateCourierDetails(
     id: string,
     data: {
@@ -541,7 +998,7 @@ export class OrdersService {
     return order;
   }
 
-  // 7. Returns & Refunds Workflow
+  // 11. Returns & Refunds Workflow
   async processReturn(
     id: string,
     data: {
@@ -592,5 +1049,88 @@ export class OrdersService {
 
     await order.save();
     return order;
+  }
+
+  // 12. Reset TEST Order
+  async resetTestOrder(id: string, actorId?: string, actor = 'ADMIN') {
+    const order = await this.orderModel.findById(id).exec();
+    if (!order) throw new NotFoundException('Order not found');
+
+    if (order.dataMode !== 'TEST') {
+      throw new BadRequestException('Only verified TEST orders can be reset.');
+    }
+
+    // Release any reservations
+    for (const item of order.items) {
+      await this.inventoryService.releaseReservation(
+        item.productId.toString(),
+        item.sku,
+        item.quantity,
+        order.orderId,
+      );
+    }
+
+    order.status = OrderStatus.PENDING;
+    order.paymentStatus = PaymentStatus.UNPAID;
+    order.fulfillmentStatus = FulfillmentStatus.UNFULFILLED;
+    order.paidAmount = 0;
+    order.dueAmount = order.totalAmount;
+    order.manualPayments = [];
+
+    order.timeline.push({
+      status: OrderStatus.PENDING,
+      at: new Date(),
+      actor,
+      note: 'Test order reset to initial state by administrator.',
+    });
+
+    await order.save();
+
+    await this.auditLogService.logAction({
+      adminId: actorId,
+      action: 'TEST_ORDER_RESET',
+      entityType: 'ORDER',
+      entityId: order.orderId,
+    });
+
+    return order;
+  }
+
+  // 13. Delete TEST Order (Dependency-Aware Cleanup)
+  async deleteTestOrder(id: string, actorId?: string) {
+    const order = await this.orderModel.findById(id).exec();
+    if (!order) throw new NotFoundException('Order not found');
+
+    if (order.dataMode !== 'TEST') {
+      throw new BadRequestException(
+        'Production orders with financial/inventory history cannot be deleted. Cancel the order instead.',
+      );
+    }
+
+    // Release any reserved stock
+    for (const item of order.items) {
+      await this.inventoryService.releaseReservation(
+        item.productId.toString(),
+        item.sku,
+        item.quantity,
+        order.orderId,
+      );
+    }
+
+    // Delete payment records for this test order
+    await this.paymentModel.deleteMany({ orderId: order._id } as any).exec();
+
+    // Delete the order itself
+    await this.orderModel.findByIdAndDelete(id).exec();
+
+    await this.auditLogService.logAction({
+      adminId: actorId,
+      action: 'TEST_ORDER_DELETED',
+      entityType: 'ORDER',
+      entityId: order.orderId,
+      oldData: { orderId: order.orderId, totalAmount: order.totalAmount },
+    });
+
+    return { success: true, message: 'Test order safely deleted and reservations released.' };
   }
 }

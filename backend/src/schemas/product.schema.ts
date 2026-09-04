@@ -55,6 +55,35 @@ export class ProductFeature {
 
 export const ProductFeatureSchema = SchemaFactory.createForClass(ProductFeature);
 
+@Schema({ _id: false })
+export class ProductImageItem {
+  @Prop({ required: true })
+  url: string;
+
+  @Prop({ required: false, default: '' })
+  public_id?: string;
+
+  @Prop({ required: false, default: 0 })
+  sortOrder?: number;
+
+  @Prop({ required: false, default: false })
+  isPrimary?: boolean;
+
+  @Prop({ required: false, default: '' })
+  alt?: string;
+
+  @Prop({ required: false, default: 0 })
+  width?: number;
+
+  @Prop({ required: false, default: 0 })
+  height?: number;
+
+  @Prop({ required: false, default: '' })
+  variantColor?: string;
+}
+
+export const ProductImageItemSchema = SchemaFactory.createForClass(ProductImageItem);
+
 @Schema({ timestamps: true })
 export class Product {
   @Prop({ required: true })
@@ -74,6 +103,9 @@ export class Product {
 
   @Prop({ type: [String], default: [] })
   images: string[];
+
+  @Prop({ type: [ProductImageItemSchema], default: [] })
+  productImages?: ProductImageItem[];
 
   @Prop({ required: false, default: 'BEST SELLER' })
   badge?: string;
@@ -99,11 +131,23 @@ export class Product {
   @Prop({ required: true, default: 0 })
   salePrice: number;
 
-  @Prop({ default: true })
+  @Prop({ required: false, default: true })
+  isDiscountActive?: boolean;
+
+  @Prop({ required: false })
+  discountStartDate?: Date;
+
+  @Prop({ required: false })
+  discountEndDate?: Date;
+
+  @Prop({ default: true, index: true })
   isPublished: boolean;
 
-  @Prop({ required: false, default: 'ACTIVE', enum: ['ACTIVE', 'DRAFT', 'ARCHIVED'] })
+  @Prop({ required: false, default: 'ACTIVE', enum: ['ACTIVE', 'DRAFT', 'HIDDEN', 'ARCHIVED'], index: true })
   status: string;
+
+  @Prop({ required: false, default: 'PRODUCTION', enum: ['PRODUCTION', 'TEST'], index: true })
+  dataMode: string;
 
   @Prop({
     type: {
