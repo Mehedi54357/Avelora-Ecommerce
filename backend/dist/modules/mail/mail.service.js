@@ -44,6 +44,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 var MailService_1;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.MailService = void 0;
+exports.determineFailureStage = determineFailureStage;
 const common_1 = require("@nestjs/common");
 const config_1 = require("@nestjs/config");
 const nodemailer = __importStar(require("nodemailer"));
@@ -54,6 +55,57 @@ function maskEmail(email) {
     if (user.length <= 2)
         return `${user[0]}*@${domain}`;
     return `${user[0]}${'*'.repeat(Math.min(user.length - 2, 6))}${user[user.length - 1]}@${domain}`;
+}
+function sanitizeErrorMessage(msg, secretPass, secretUser) {
+    if (!msg)
+        return 'No error message provided';
+    let sanitized = String(msg);
+    if (secretPass && secretPass.length > 0) {
+        sanitized = sanitized.split(secretPass).join('[REDACTED_PASS]');
+    }
+    if (secretUser && secretUser.includes('@')) {
+        sanitized = sanitized.split(secretUser).join(maskEmail(secretUser));
+    }
+    return sanitized;
+}
+function determineFailureStage(err) {
+    if (!err)
+        return 'UNKNOWN';
+    const code = String(err.code || '').toUpperCase();
+    const syscall = String(err.syscall || '').toLowerCase();
+    const command = String(err.command || '').toUpperCase();
+    const msg = String(err.message || '');
+    if (code === 'ENOTFOUND' || code === 'EAI_AGAIN') {
+        return 'DNS_RESOLUTION';
+    }
+    if (syscall === 'connect' ||
+        code === 'ETIMEDOUT' ||
+        code === 'ECONNREFUSED' ||
+        code === 'EHOSTUNREACH' ||
+        code === 'ENETUNREACH') {
+        return 'TCP_CONNECTION';
+    }
+    if (code === 'ESOCKET' ||
+        code === 'ECONNRESET' ||
+        code === 'EPIPE' ||
+        msg.includes('SSL') ||
+        msg.includes('TLS') ||
+        msg.includes('handshake') ||
+        msg.includes('CERT_') ||
+        msg.includes('wrong version number')) {
+        return 'TLS_NEGOTIATION';
+    }
+    if (code === 'EAUTH' ||
+        command === 'AUTH' ||
+        err.responseCode === 535 ||
+        msg.includes('Invalid login') ||
+        msg.includes('Username and Password not accepted')) {
+        return 'SMTP_AUTHENTICATION';
+    }
+    if (command === 'STARTTLS' || command === 'EHLO' || command === 'HELO' || command === 'GREETING') {
+        return 'SMTP_PROTOCOL_HANDSHAKE';
+    }
+    return 'UNKNOWN';
 }
 let MailService = MailService_1 = class MailService {
     constructor(configService) {
@@ -77,20 +129,26 @@ let MailService = MailService_1 = class MailService {
             this.isVerified = false;
             return;
         }
-        const user = rawUser.trim();
-        const pass = rawPass.replace(/\s+/g, '');
-        const isGmail = user.toLowerCase().endsWith('@gmail.com') || (rawHost && rawHost.includes('gmail'));
-        const host = rawHost ? rawHost.trim() : (isGmail ? 'smtp.gmail.com' : undefined);
+        const user = String(rawUser).trim();
+        const pass = String(rawPass).replace(/\s+/g, '');
+        const isGmail = user.toLowerCase().endsWith('@gmail.com') || (rawHost && String(rawHost).includes('gmail'));
+        const host = rawHost && String(rawHost).trim() !== ''
+            ? String(rawHost).trim()
+            : isGmail
+                ? 'smtp.gmail.com'
+                : undefined;
         let port = Number(rawPort);
         if (!port || isNaN(port)) {
-            port = rawSecure === 'true' ? 465 : 587;
+            port = String(rawSecure).toLowerCase() === 'true' ? 465 : 587;
         }
-        const secure = rawSecure === 'true' || port === 465;
+        const isSecureExplicitlySet = rawSecure !== undefined && rawSecure !== null && String(rawSecure).trim() !== '';
+        const secure = isSecureExplicitlySet ? String(rawSecure).toLowerCase() === 'true' : port === 465;
         if (host && user && pass) {
             this.transporter = nodemailer.createTransport({
                 host,
                 port,
                 secure,
+                family: 4,
                 auth: { user, pass },
                 connectionTimeout: 10000,
                 greetingTimeout: 10000,
@@ -104,9 +162,11 @@ let MailService = MailService_1 = class MailService {
     }
     async verifyTransporter() {
         if (!this.transporter) {
-            this.logger.log('Mail transport: NOT configured');
+            this.logger.log('Mail transport: NOT configured (SMTP_USER or SMTP_PASS missing)');
             return;
         }
+        const rawPass = this.configService.get('SMTP_PASS') || '';
+        const rawUser = this.configService.get('SMTP_USER') || '';
         try {
             await this.transporter.verify();
             this.isVerified = true;
@@ -114,14 +174,23 @@ let MailService = MailService_1 = class MailService {
         }
         catch (err) {
             this.isVerified = false;
-            const safeCode = err.code || (err.responseCode ? `HTTP ${err.responseCode}` : 'Verification failed');
-            const authFail = err.message && (err.message.includes('Invalid login') || err.message.includes('Username and Password not accepted') || err.code === 'EAUTH');
-            if (authFail) {
-                this.logger.warn('Mail transport: NOT configured (SMTP Authentication Failed — Google App Password required)');
-            }
-            else {
-                this.logger.warn(`Mail transport: NOT configured (${safeCode})`);
-            }
+            const stage = determineFailureStage(err);
+            const safeError = {
+                stage,
+                code: err?.code || 'UNKNOWN',
+                syscall: err?.syscall || null,
+                hostname: err?.hostname ||
+                    err?.address ||
+                    this.configService.get('SMTP_HOST') ||
+                    'smtp.gmail.com',
+                port: err?.port ||
+                    Number(this.configService.get('SMTP_PORT')) ||
+                    (this.configService.get('SMTP_SECURE') === 'true' ? 465 : 587),
+                command: err?.command || null,
+                responseCode: err?.responseCode || null,
+                message: sanitizeErrorMessage(err?.message, rawPass, rawUser),
+            };
+            this.logger.warn(`Mail transport: NOT configured [Stage: ${safeError.stage}, Code: ${safeError.code}, Syscall: ${safeError.syscall || 'N/A'}, Target: ${safeError.hostname}:${safeError.port}, Command: ${safeError.command || 'N/A'}, ResponseCode: ${safeError.responseCode || 'N/A'}] — Details: ${safeError.message}`);
         }
     }
     isConfigured() {

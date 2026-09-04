@@ -1,6 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ConfigService } from '@nestjs/config';
-import { MailService } from './mail.service';
+import { MailService, determineFailureStage } from './mail.service';
 import * as nodemailer from 'nodemailer';
 
 jest.mock('nodemailer');
@@ -18,7 +18,7 @@ describe('MailService - SMTP Configuration & Verification', () => {
     (nodemailer.createTransport as jest.Mock).mockReturnValue(mockTransporter);
   });
 
-  it('1. Initializes and verifies transporter when SMTP env variables are present', async () => {
+  it('1. Initializes and verifies transporter with IPv4 and typed variables', async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         MailService,
@@ -47,6 +47,7 @@ describe('MailService - SMTP Configuration & Verification', () => {
         host: 'smtp.gmail.com',
         port: 465,
         secure: true,
+        family: 4,
         auth: {
           user: 'aveloraelegance@gmail.com',
           pass: 'mockapppass1234',
@@ -82,7 +83,9 @@ describe('MailService - SMTP Configuration & Verification', () => {
   });
 
   it('3. Fails securely when SMTP verification rejects (e.g. invalid app password)', async () => {
-    mockTransporter.verify.mockRejectedValue(new Error('Invalid login: 535-5.7.8 Username and Password not accepted'));
+    mockTransporter.verify.mockRejectedValue(
+      new Error('Invalid login: 535-5.7.8 Username and Password not accepted'),
+    );
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -109,7 +112,24 @@ describe('MailService - SMTP Configuration & Verification', () => {
     expect(service.isConfigured()).toBe(false);
   });
 
-  it('4. sendAdminOtpEmail dispatches structured HTML email', async () => {
+  it('4. Classifies failure stages accurately without exposing secrets', () => {
+    // TCP Connection Timeout
+    expect(determineFailureStage({ code: 'ETIMEDOUT', syscall: 'connect' })).toBe('TCP_CONNECTION');
+    expect(determineFailureStage({ code: 'ECONNREFUSED', syscall: 'connect' })).toBe('TCP_CONNECTION');
+
+    // TLS Negotiation / Socket Reset
+    expect(determineFailureStage({ code: 'ESOCKET', message: 'socket closed unexpectedly' })).toBe('TLS_NEGOTIATION');
+    expect(determineFailureStage({ message: 'SSL routines:ssl3_read_bytes:tlsv1 alert' })).toBe('TLS_NEGOTIATION');
+
+    // SMTP Authentication Failure
+    expect(determineFailureStage({ code: 'EAUTH', responseCode: 535 })).toBe('SMTP_AUTHENTICATION');
+    expect(determineFailureStage({ message: '535 5.7.8 Username and Password not accepted' })).toBe('SMTP_AUTHENTICATION');
+
+    // DNS Resolution Failure
+    expect(determineFailureStage({ code: 'ENOTFOUND' })).toBe('DNS_RESOLUTION');
+  });
+
+  it('5. sendAdminOtpEmail dispatches structured HTML email', async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         MailService,
@@ -139,12 +159,11 @@ describe('MailService - SMTP Configuration & Verification', () => {
         from: 'AVELORA Security <aveloraelegance@gmail.com>',
       }),
     );
-    // Verify OTP code is in the HTML payload
     const mailArgs = mockTransporter.sendMail.mock.calls[0][0];
     expect(mailArgs.html).toContain('987654');
   });
 
-  it('5. sendPasswordResetEmail dispatches password reset code', async () => {
+  it('6. sendPasswordResetEmail dispatches password reset code', async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         MailService,
