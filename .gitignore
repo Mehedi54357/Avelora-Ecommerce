@@ -19,6 +19,8 @@ frontend/.env*
 build/
 .next/
 out/
+*.tsbuildinfo
+
 
 # Logs & debug
 npm-debug.log*
