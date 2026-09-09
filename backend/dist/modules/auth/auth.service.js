@@ -412,6 +412,7 @@ let AuthService = AuthService_1 = class AuthService {
             role: user.role,
             name: user.name,
             permissions: user.permissions || [],
+            type: 'ACCESS',
         };
         const token = jwt.sign(payload, secret, { expiresIn: '1d' });
         const refreshToken = jwt.sign({ sub: user._id, tokenVersion: user.tokenVersion || 1 }, refreshSecret, { expiresIn: '7d' });

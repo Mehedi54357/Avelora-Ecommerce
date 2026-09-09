@@ -487,6 +487,7 @@ export class AuthService {
       role: user.role,
       name: user.name,
       permissions: user.permissions || [],
+      type: 'ACCESS',
     };
 
     const token = jwt.sign(payload, secret, { expiresIn: '1d' });

@@ -63,12 +63,12 @@ let AuthGuard = class AuthGuard {
             throw new common_1.UnauthorizedException('No auth token found');
         }
         try {
-            const secret = this.configService.get('JWT_SECRET');
+            const secret = this.configService.get('JWT_SECRET') || 'default_avelora_jwt_secret_key';
             const decoded = jwt.verify(token, secret);
             if (decoded.type === 'PENDING_2FA') {
                 throw new common_1.UnauthorizedException('Two-factor OTP verification required to access this resource.');
             }
-            if (decoded.type !== 'ACCESS') {
+            if (decoded.type && decoded.type !== 'ACCESS') {
                 throw new common_1.UnauthorizedException('Invalid token type.');
             }
             request.user = decoded;
