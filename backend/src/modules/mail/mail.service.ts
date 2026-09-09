@@ -1,5 +1,7 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import * as nodemailer from 'nodemailer';
+import type { Transporter } from 'nodemailer';
 import { Resend } from 'resend';
 
 function maskEmail(email: string): string {
@@ -13,37 +15,87 @@ function maskEmail(email: string): string {
 export class MailService implements OnModuleInit {
   private readonly logger = new Logger(MailService.name);
   private resend: Resend | null = null;
+  private smtpTransporter: Transporter | null = null;
   private isVerified: boolean = false;
+  private transportType: 'resend' | 'smtp' | 'none' = 'none';
 
   constructor(private readonly configService: ConfigService) {
-    this.initResend();
+    this.initTransporters();
   }
 
   async onModuleInit() {
-    this.verifyResend();
+    this.verifyTransporters();
   }
 
-  private initResend() {
-    const apiKey = this.configService.get<string>('RESEND_API_KEY');
-    if (apiKey && apiKey.trim().length > 0) {
-      this.resend = new Resend(apiKey.trim());
+  private initTransporters() {
+    const resendApiKey = this.configService.get<string>('RESEND_API_KEY')?.trim();
+    const smtpHost = this.configService.get<string>('SMTP_HOST')?.trim();
+    const smtpUser = (this.configService.get<string>('SMTP_USER') || this.configService.get<string>('GMAIL_USER'))?.trim();
+    const smtpPass = (this.configService.get<string>('SMTP_PASS') || this.configService.get<string>('GMAIL_APP_PASSWORD'))?.trim();
+    const smtpPort = parseInt(this.configService.get<string>('SMTP_PORT') || '587', 10);
+    const smtpSecure = this.configService.get<string>('SMTP_SECURE') === 'true' || smtpPort === 465;
+
+    if (resendApiKey && resendApiKey.length > 0) {
+      this.resend = new Resend(resendApiKey);
+      this.transportType = 'resend';
+      this.isVerified = true;
+    } else if (smtpUser && smtpPass) {
+      this.smtpTransporter = nodemailer.createTransport({
+        host: smtpHost || 'smtp.gmail.com',
+        port: smtpPort,
+        secure: smtpSecure,
+        auth: {
+          user: smtpUser,
+          pass: smtpPass,
+        },
+      });
+      this.transportType = 'smtp';
       this.isVerified = true;
     } else {
       this.resend = null;
+      this.smtpTransporter = null;
+      this.transportType = 'none';
       this.isVerified = false;
     }
   }
 
-  private verifyResend() {
-    if (this.resend && this.isVerified) {
-      this.logger.log('Email transport: Resend configured');
+  private verifyTransporters() {
+    if (this.transportType === 'resend') {
+      this.logger.log('Email transport: Resend HTTPS API configured');
+    } else if (this.transportType === 'smtp') {
+      this.logger.log('Email transport: Nodemailer SMTP configured');
     } else {
-      this.logger.warn('Email transport: NOT configured (RESEND_API_KEY missing)');
+      const nodeEnv = this.configService.get<string>('NODE_ENV');
+      if (nodeEnv === 'production') {
+        this.logger.warn('Email transport: NOT configured (RESEND_API_KEY or SMTP credentials missing)');
+      } else {
+        this.logger.log('Email transport: Development Mode (OTP codes will be displayed in server console)');
+      }
     }
   }
 
   isConfigured(): boolean {
-    return this.resend !== null && this.isVerified;
+    return this.isVerified && this.transportType !== 'none';
+  }
+
+  private isDevMode(): boolean {
+    const nodeEnv = (this.configService.get<string>('NODE_ENV') || process.env.NODE_ENV || 'development').toLowerCase();
+    return nodeEnv !== 'production';
+  }
+
+  private printDevOtpBanner(toEmail: string, otpCode: string, type: 'LOGIN' | 'PASSWORD_RESET') {
+    const title = type === 'LOGIN' ? 'ADMIN LOGIN 2FA OTP' : 'PASSWORD RESET CODE';
+    const border = '═'.repeat(60);
+    /* eslint-disable no-console */
+    console.log('\n' + border);
+    console.log(`🔐 [AVELORA DEV SECURITY] ${title}`);
+    console.log(border);
+    console.log(`📧 Recipient Email : ${toEmail}`);
+    console.log(`🔑 Verification Code: ${otpCode}`);
+    console.log(`⏳ Expiration       : 5 Minutes`);
+    console.log(`💡 Note             : In production, configure RESEND_API_KEY or SMTP in .env`);
+    console.log(border + '\n');
+    /* eslint-enable no-console */
   }
 
   async sendAdminOtpEmail(
@@ -51,9 +103,20 @@ export class MailService implements OnModuleInit {
     otpCode: string,
     adminName: string = 'Administrator',
   ): Promise<{ success: boolean; message: string; configured: boolean }> {
-    if (!this.resend) {
+    // Development Mode Fallback
+    if (!this.isConfigured()) {
+      if (this.isDevMode()) {
+        this.printDevOtpBanner(toEmail, otpCode, 'LOGIN');
+        this.logger.log(`[DevMode] Admin OTP code logged to console for ${maskEmail(toEmail)}`);
+        return {
+          success: true,
+          message: 'Development Mode: Verification code generated and logged to backend console.',
+          configured: false,
+        };
+      }
+
       this.logger.warn(
-        `[MailService] Attempted to send Admin OTP to ${maskEmail(toEmail)}, but Resend is not configured.`,
+        `[MailService] Attempted to send Admin OTP to ${maskEmail(toEmail)}, but no email service is configured.`,
       );
       return {
         success: false,
@@ -62,8 +125,13 @@ export class MailService implements OnModuleInit {
       };
     }
 
+    const defaultFrom =
+      this.transportType === 'smtp'
+        ? (this.configService.get<string>('SMTP_USER') || this.configService.get<string>('GMAIL_USER') || 'no-reply@avelora.com')
+        : 'onboarding@resend.dev';
+
     const from =
-      this.configService.get<string>('MAIL_FROM') || 'AVELORA Security <onboarding@resend.dev>';
+      this.configService.get<string>('MAIL_FROM') || `AVELORA Security <${defaultFrom}>`;
     const subject = 'AVELORA Admin Verification Code';
 
     const html = `
@@ -135,43 +203,82 @@ export class MailService implements OnModuleInit {
 </html>
 `;
 
-    try {
-      const { data, error } = await this.resend.emails.send({
-        from,
-        to: [toEmail],
-        subject,
-        html,
-      });
+    // Dispatch via Resend HTTPS API
+    if (this.transportType === 'resend' && this.resend) {
+      try {
+        const { data, error } = await this.resend.emails.send({
+          from,
+          to: [toEmail],
+          subject,
+          html,
+        });
 
-      if (error) {
+        if (error) {
+          this.logger.error(
+            `[MailService] Failed to send OTP email via Resend to ${maskEmail(toEmail)}: ${error.message || JSON.stringify(error)}`,
+          );
+          return {
+            success: false,
+            message: 'Verification email could not be sent. Please check your email configuration.',
+            configured: true,
+          };
+        }
+
+        this.logger.log(
+          `[MailService] OTP email successfully dispatched via Resend to ${maskEmail(toEmail)} (id: ${data?.id || 'ack'})`,
+        );
+        return {
+          success: true,
+          message: 'Verification code dispatched to your registered email.',
+          configured: true,
+        };
+      } catch (err: any) {
         this.logger.error(
-          `[MailService] Failed to send OTP email via Resend to ${maskEmail(toEmail)}: ${error.message || JSON.stringify(error)}`,
+          `[MailService] Exception sending OTP email via Resend to ${maskEmail(toEmail)}: ${err.message}`,
         );
         return {
           success: false,
-          message: 'Verification email could not be sent. Please try again.',
+          message: 'Verification email could not be sent. Please check your email configuration.',
           configured: true,
         };
       }
-
-      this.logger.log(
-        `[MailService] OTP email successfully dispatched via Resend to ${maskEmail(toEmail)} (id: ${data?.id || 'ack'})`,
-      );
-      return {
-        success: true,
-        message: 'Verification code dispatched to your registered email.',
-        configured: true,
-      };
-    } catch (err: any) {
-      this.logger.error(
-        `[MailService] Exception sending OTP email via Resend to ${maskEmail(toEmail)}: ${err.message}`,
-      );
-      return {
-        success: false,
-        message: 'Verification email could not be sent. Please try again.',
-        configured: true,
-      };
     }
+
+    // Dispatch via Nodemailer SMTP
+    if (this.transportType === 'smtp' && this.smtpTransporter) {
+      try {
+        const info = await this.smtpTransporter.sendMail({
+          from,
+          to: toEmail,
+          subject,
+          html,
+        });
+
+        this.logger.log(
+          `[MailService] OTP email successfully dispatched via SMTP to ${maskEmail(toEmail)} (messageId: ${info.messageId})`,
+        );
+        return {
+          success: true,
+          message: 'Verification code dispatched to your registered email.',
+          configured: true,
+        };
+      } catch (err: any) {
+        this.logger.error(
+          `[MailService] Exception sending OTP email via SMTP to ${maskEmail(toEmail)}: ${err.message}`,
+        );
+        return {
+          success: false,
+          message: 'Verification email could not be sent via SMTP. Please verify SMTP credentials.',
+          configured: true,
+        };
+      }
+    }
+
+    return {
+      success: false,
+      message: 'Email service unavailable.',
+      configured: false,
+    };
   }
 
   async sendPasswordResetEmail(
@@ -179,9 +286,20 @@ export class MailService implements OnModuleInit {
     resetCode: string,
     adminName: string = 'Administrator',
   ): Promise<{ success: boolean; message: string; configured: boolean }> {
-    if (!this.resend) {
+    // Development Mode Fallback
+    if (!this.isConfigured()) {
+      if (this.isDevMode()) {
+        this.printDevOtpBanner(toEmail, resetCode, 'PASSWORD_RESET');
+        this.logger.log(`[DevMode] Password reset code logged to console for ${maskEmail(toEmail)}`);
+        return {
+          success: true,
+          message: 'Development Mode: Password reset code generated and logged to backend console.',
+          configured: false,
+        };
+      }
+
       this.logger.warn(
-        `[MailService] Attempted to send Password Reset to ${maskEmail(toEmail)}, but Resend is not configured.`,
+        `[MailService] Attempted to send Password Reset to ${maskEmail(toEmail)}, but no email service is configured.`,
       );
       return {
         success: false,
@@ -190,8 +308,13 @@ export class MailService implements OnModuleInit {
       };
     }
 
+    const defaultFrom =
+      this.transportType === 'smtp'
+        ? (this.configService.get<string>('SMTP_USER') || this.configService.get<string>('GMAIL_USER') || 'no-reply@avelora.com')
+        : 'onboarding@resend.dev';
+
     const from =
-      this.configService.get<string>('MAIL_FROM') || 'AVELORA Security <onboarding@resend.dev>';
+      this.configService.get<string>('MAIL_FROM') || `AVELORA Security <${defaultFrom}>`;
     const subject = 'AVELORA Password Reset Code';
 
     const html = `
@@ -241,42 +364,82 @@ export class MailService implements OnModuleInit {
 </html>
 `;
 
-    try {
-      const { data, error } = await this.resend.emails.send({
-        from,
-        to: [toEmail],
-        subject,
-        html,
-      });
+    // Dispatch via Resend HTTPS API
+    if (this.transportType === 'resend' && this.resend) {
+      try {
+        const { data, error } = await this.resend.emails.send({
+          from,
+          to: [toEmail],
+          subject,
+          html,
+        });
 
-      if (error) {
+        if (error) {
+          this.logger.error(
+            `[MailService] Failed to send reset email via Resend to ${maskEmail(toEmail)}: ${error.message || JSON.stringify(error)}`,
+          );
+          return {
+            success: false,
+            message: 'Password reset email could not be sent. Please check your email configuration.',
+            configured: true,
+          };
+        }
+
+        this.logger.log(
+          `[MailService] Password reset email dispatched via Resend to ${maskEmail(toEmail)} (id: ${data?.id || 'ack'})`,
+        );
+        return {
+          success: true,
+          message: 'Password reset instructions sent to your email.',
+          configured: true,
+        };
+      } catch (err: any) {
         this.logger.error(
-          `[MailService] Failed to send reset email via Resend to ${maskEmail(toEmail)}: ${error.message || JSON.stringify(error)}`,
+          `[MailService] Exception sending reset email via Resend to ${maskEmail(toEmail)}: ${err.message}`,
         );
         return {
           success: false,
-          message: 'Password reset email could not be sent. Please try again.',
+          message: 'Password reset email could not be sent. Please check your email configuration.',
           configured: true,
         };
       }
-
-      this.logger.log(
-        `[MailService] Password reset email dispatched via Resend to ${maskEmail(toEmail)} (id: ${data?.id || 'ack'})`,
-      );
-      return {
-        success: true,
-        message: 'Password reset instructions sent to your email.',
-        configured: true,
-      };
-    } catch (err: any) {
-      this.logger.error(
-        `[MailService] Exception sending reset email via Resend to ${maskEmail(toEmail)}: ${err.message}`,
-      );
-      return {
-        success: false,
-        message: 'Password reset email could not be sent. Please try again.',
-        configured: true,
-      };
     }
+
+    // Dispatch via Nodemailer SMTP
+    if (this.transportType === 'smtp' && this.smtpTransporter) {
+      try {
+        const info = await this.smtpTransporter.sendMail({
+          from,
+          to: toEmail,
+          subject,
+          html,
+        });
+
+        this.logger.log(
+          `[MailService] Password reset email dispatched via SMTP to ${maskEmail(toEmail)} (messageId: ${info.messageId})`,
+        );
+        return {
+          success: true,
+          message: 'Password reset instructions sent to your email.',
+          configured: true,
+        };
+      } catch (err: any) {
+        this.logger.error(
+          `[MailService] Exception sending reset email via SMTP to ${maskEmail(toEmail)}: ${err.message}`,
+        );
+        return {
+          success: false,
+          message: 'Password reset email could not be sent via SMTP. Please verify SMTP credentials.',
+          configured: true,
+        };
+      }
+    }
+
+    return {
+      success: false,
+      message: 'Email service unavailable.',
+      configured: false,
+    };
   }
 }
+

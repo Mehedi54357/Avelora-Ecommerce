@@ -82,6 +82,11 @@ This guide details the complete, step-by-step procedure to deploy the **AVELORA*
    | `CLOUDINARY_CLOUD_NAME` | `your_cloud_name` *(Optional)* | Media CDN |
    | `CLOUDINARY_API_KEY` | `your_api_key` *(Optional)* | Media CDN Key |
    | `CLOUDINARY_API_SECRET` | `your_api_secret` *(Optional)* | Media CDN Secret |
+   | `RESEND_API_KEY` | `re_123456789...` | Resend API Key for Admin OTP emails |
+   | `MAIL_FROM` | `"AVELORA Security" <onboarding@resend.dev>` | Email sender address |
+   | `SMTP_USER` | `aveloraelegance@gmail.com` *(Alternative)* | SMTP User / Gmail address |
+   | `SMTP_PASS` | `xxxx xxxx xxxx xxxx` *(Alternative)* | SMTP / Google App Password |
+
 
 6. Deploy the service and note your live API URL (e.g., `https://avelora-api.onrender.com` or custom `https://api.avelora.com`).
 

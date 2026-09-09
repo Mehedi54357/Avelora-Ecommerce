@@ -66,23 +66,31 @@ export class UsersService implements OnModuleInit {
   }
 
   private async seedSuperAdmin() {
-    const email = (this.configService.get<string>('INITIAL_ADMIN_EMAIL') || 'aveloraelegance@gmail.com').toLowerCase().trim();
-    const existing = await this.userModel.findOne({ email });
-    if (!existing) {
-      const password = this.configService.get<string>('INITIAL_ADMIN_PASSWORD') || 'Admin@123456';
-      const passwordHash = await bcrypt.hash(password, 10);
-      await this.userModel.create({
-        name: 'AVELORA Super Admin',
-        email,
-        passwordHash,
-        role: UserRole.SUPER_ADMIN,
-        isActive: true,
-      });
-      this.logger.log(`Initialized default SUPER_ADMIN account: ${email}`);
-    } else if (existing.role !== UserRole.SUPER_ADMIN) {
-      existing.role = UserRole.SUPER_ADMIN;
-      existing.isActive = true;
-      await existing.save();
+    const defaultEmail = 'aveloraelegance@gmail.com';
+    const envEmail = this.configService.get<string>('INITIAL_ADMIN_EMAIL')?.toLowerCase().trim();
+    const adminEmails = Array.from(new Set([defaultEmail, ...(envEmail ? [envEmail] : [])]));
+    const password = this.configService.get<string>('INITIAL_ADMIN_PASSWORD') || 'Admin@123456';
+    const passwordHash = await bcrypt.hash(password, 10);
+
+    for (const email of adminEmails) {
+      const existing = await this.userModel.findOne({ email });
+      if (!existing) {
+        await this.userModel.create({
+          name: 'AVELORA Super Admin',
+          email,
+          passwordHash,
+          role: UserRole.SUPER_ADMIN,
+          isActive: true,
+        });
+        this.logger.log(`Initialized default SUPER_ADMIN account: ${email}`);
+      } else {
+        existing.role = UserRole.SUPER_ADMIN;
+        existing.isActive = true;
+        // Keep credentials synchronized with INITIAL_ADMIN_PASSWORD
+        existing.passwordHash = passwordHash;
+        await existing.save();
+        this.logger.log(`Synchronized SUPER_ADMIN credentials for: ${email}`);
+      }
     }
   }
 }
