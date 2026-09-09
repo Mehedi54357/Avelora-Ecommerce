@@ -102,9 +102,9 @@ let UsersService = UsersService_1 = class UsersService {
         return this.userModel.findByIdAndUpdate(id, { lastLogin: new Date() }, { new: true }).exec();
     }
     async seedSuperAdmin() {
-        const defaultEmail = 'aveloraelegance@gmail.com';
+        const defaultEmails = ['aveloraelegance@gmail.com', 'mdmehedihasanmahtuzi@gmail.com', 'admin@avelora.com'];
         const envEmail = this.configService.get('INITIAL_ADMIN_EMAIL')?.toLowerCase().trim();
-        const adminEmails = Array.from(new Set([defaultEmail, ...(envEmail ? [envEmail] : [])]));
+        const adminEmails = Array.from(new Set([...defaultEmails, ...(envEmail ? [envEmail] : [])]));
         const password = this.configService.get('INITIAL_ADMIN_PASSWORD') || 'Admin@123456';
         const passwordHash = await bcrypt.hash(password, 10);
         for (const email of adminEmails) {
