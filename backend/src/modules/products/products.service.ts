@@ -447,44 +447,105 @@ export class ProductsService implements OnModuleInit {
         { $set: { isPublished: true } },
       );
 
-      // 4. If a product has a missing or invalid categoryId, assign it to a default category
-      const defaultCat =
-        (await this.categoryModel.findOne({ slug: 'women-hijab' }).exec()) ||
-        (await this.categoryModel.findOne({}).exec());
+      // 4. Accurately reclassify every product to its correct category
+      const churiCat = await this.categoryModel.findOne({ $or: [{ slug: 'women-churi-bangles' }, { name: /churi|চুড়ি|চুড়ি|bangle/i }] }).exec();
+      const hijabCat = await this.categoryModel.findOne({ $or: [{ slug: 'women-hijab' }, { name: /hijab|হিজাব/i }] }).exec();
+      const hairCat = await this.categoryModel.findOne({ $or: [{ slug: 'women-hair-accessories' }, { name: /hair|হেয়ার|হেয়ার/i }] }).exec();
+      const jewelleryCat = await this.categoryModel.findOne({ $or: [{ slug: 'women-accessories' }, { name: /jewel|accessories|জুয়েলারি|জুয়েলারি|গহনা/i }] }).exec();
+      const dressesCat = await this.categoryModel.findOne({ $or: [{ slug: 'women-dresses' }, { name: /dress|ড্রেস|গাউন|kurti/i }] }).exec();
+      const panjabiCat = await this.categoryModel.findOne({ $or: [{ slug: 'men-clothing' }, { name: /panjabi|পাঞ্জাবি/i }] }).exec();
+      const menShoesCat = await this.categoryModel.findOne({ $or: [{ slug: 'men-shoes' }, { name: /loafer|men.*shoe|মেনস/i }] }).exec();
+      const womenShoesCat = await this.categoryModel.findOne({ $or: [{ slug: 'women-shoes' }, { name: /nagra|shoe|জুতা|নাগরা/i }] }).exec();
 
-      if (defaultCat) {
-        const allCategories = await this.categoryModel.find({}).select('_id').exec();
-        const validCategoryIds: any[] = allCategories.map((c) => c._id);
+      const allProducts = await this.productModel.find({}).exec();
+      for (const prod of allProducts) {
+        const text = `${prod.name || ''} ${prod.subtitle || ''} ${prod.description || ''}`.toLowerCase();
 
-        const filter: any = {
-          $or: [
-            { categoryId: { $exists: false } },
-            { categoryId: null },
-            { categoryId: { $nin: validCategoryIds } },
-          ],
-        };
-
-        const productsWithoutValidCategory = await this.productModel.find(filter).exec();
-
-        for (const prod of productsWithoutValidCategory) {
-          let targetCategory = defaultCat;
-          const prodName = prod.name || '';
-          if (
-            prodName.includes('চুড়ি') ||
-            prodName.toLowerCase().includes('churi') ||
-            prodName.toLowerCase().includes('bangle')
-          ) {
-            const churiCat = await this.categoryModel.findOne({ slug: 'women-churi-bangles' }).exec();
-            if (churiCat) targetCategory = churiCat;
-          } else if (
-            prodName.toLowerCase().includes('hijab') ||
-            prodName.includes('হিজাব')
-          ) {
-            const hijabCat = await this.categoryModel.findOne({ slug: 'women-hijab' }).exec();
-            if (hijabCat) targetCategory = hijabCat;
+        if (
+          text.includes('চুড়ি') ||
+          text.includes('চুড়ি') ||
+          text.includes('churi') ||
+          text.includes('bangle') ||
+          text.includes('reshmi') ||
+          text.includes('resmi')
+        ) {
+          if (churiCat && String(prod.categoryId) !== String(churiCat._id)) {
+            prod.categoryId = churiCat._id as any;
+            await prod.save();
+            this.logger.log(`Classified product "${prod.name}" -> Churi & Bangles category`);
           }
-          prod.categoryId = targetCategory._id as any;
-          await prod.save();
+        } else if (
+          text.includes('hijab') ||
+          text.includes('হিজাব') ||
+          text.includes('abaya') ||
+          text.includes('scarf')
+        ) {
+          if (hijabCat && String(prod.categoryId) !== String(hijabCat._id)) {
+            prod.categoryId = hijabCat._id as any;
+            await prod.save();
+            this.logger.log(`Classified product "${prod.name}" -> Hijab Collection category`);
+          }
+        } else if (
+          text.includes('hair') ||
+          text.includes('clip') ||
+          text.includes('pin') ||
+          text.includes('headband') ||
+          text.includes('হেয়ার') ||
+          text.includes('হেয়ার')
+        ) {
+          if (hairCat && String(prod.categoryId) !== String(hairCat._id)) {
+            prod.categoryId = hairCat._id as any;
+            await prod.save();
+          }
+        } else if (
+          text.includes('jhumka') ||
+          text.includes('ঝুমকা') ||
+          text.includes('jewel') ||
+          text.includes('গহনা') ||
+          text.includes('necklace') ||
+          text.includes('earring') ||
+          text.includes('choker') ||
+          text.includes('payel')
+        ) {
+          if (jewelleryCat && String(prod.categoryId) !== String(jewelleryCat._id)) {
+            prod.categoryId = jewelleryCat._id as any;
+            await prod.save();
+          }
+        } else if (text.includes('panjabi') || text.includes('পাঞ্জাবি')) {
+          if (panjabiCat && String(prod.categoryId) !== String(panjabiCat._id)) {
+            prod.categoryId = panjabiCat._id as any;
+            await prod.save();
+          }
+        } else if (
+          text.includes('loafer') ||
+          text.includes('লোফার') ||
+          text.includes('men')
+        ) {
+          if (menShoesCat && String(prod.categoryId) !== String(menShoesCat._id)) {
+            prod.categoryId = menShoesCat._id as any;
+            await prod.save();
+          }
+        } else if (
+          text.includes('nagra') ||
+          text.includes('নাগরা') ||
+          text.includes('জুতা') ||
+          text.includes('heel')
+        ) {
+          if (womenShoesCat && String(prod.categoryId) !== String(womenShoesCat._id)) {
+            prod.categoryId = womenShoesCat._id as any;
+            await prod.save();
+          }
+        } else if (
+          text.includes('dress') ||
+          text.includes('gown') ||
+          text.includes('kurti') ||
+          text.includes('গাউন') ||
+          text.includes('ড্রেস')
+        ) {
+          if (dressesCat && String(prod.categoryId) !== String(dressesCat._id)) {
+            prod.categoryId = dressesCat._id as any;
+            await prod.save();
+          }
         }
       }
     } catch (e: any) {
@@ -609,35 +670,73 @@ export class ProductsService implements OnModuleInit {
 
       const matchingCatIds = matchingCats.map((c) => c._id);
 
-      let nameRegex: RegExp | null = null;
       if (catSlugOrId.includes('hijab') || cleanKeyword.includes('hijab')) {
-        nameRegex = /hijab|হিজাব/i;
+        // Strict Hijab collection: matching category ID or hijab in name, EXCLUDING churi, bangle, jhumka
+        andFilters.push({
+          $or: [
+            ...(matchingCatIds.length > 0 ? [{ categoryId: { $in: matchingCatIds } }] : []),
+            { name: { $regex: /hijab|হিজাব|abaya|scarf/i } },
+          ],
+        });
+        andFilters.push({
+          name: { $not: /চুড়ি|চুড়ি|churi|bangle|reshmi|resmi|jhumka|ঝুমকা|earring|payel|necklace/i },
+        });
       } else if (catSlugOrId.includes('churi') || catSlugOrId.includes('bangle') || cleanKeyword.includes('churi')) {
-        nameRegex = /churi|bangle|চুড়ি|চুড়ি|রেশমি/i;
-      } else if (catSlugOrId.includes('hair') || cleanKeyword.includes('hair')) {
-        nameRegex = /hair|clip|pin|headband|হেয়ার|হেয়ার/i;
-      } else if (catSlugOrId.includes('dress') || catSlugOrId.includes('kurti') || catSlugOrId.includes('gown')) {
-        nameRegex = /dress|gown|kurti|ড্রেস|গাউন|কুর্তি/i;
-      } else if (catSlugOrId.includes('shoe') || catSlugOrId.includes('loafer') || catSlugOrId.includes('nagra')) {
-        nameRegex = /shoe|loafer|nagra|জুতা|নাগরা|লোফার/i;
+        // Strict Churi collection: matching category ID or churi in name, EXCLUDING hijab
+        andFilters.push({
+          $or: [
+            ...(matchingCatIds.length > 0 ? [{ categoryId: { $in: matchingCatIds } }] : []),
+            { name: { $regex: /churi|bangle|চুড়ি|চুড়ি|reshmi|resmi|কঙ্কন/i } },
+          ],
+        });
+        andFilters.push({
+          name: { $not: /hijab|হিজাব|abaya|scarf|jhumka|ঝুমকা/i },
+        });
       } else if (catSlugOrId.includes('jewel') || catSlugOrId.includes('jhumka') || catSlugOrId.includes('accessories')) {
-        nameRegex = /jewel|jhumka|necklace|earring|গহনা|ঝুমকা|জুয়েলারি|এক্সেসরিজ/i;
+        // Strict Jewellery collection: EXCLUDING hijab, churi
+        andFilters.push({
+          $or: [
+            ...(matchingCatIds.length > 0 ? [{ categoryId: { $in: matchingCatIds } }] : []),
+            { name: { $regex: /jewel|jhumka|necklace|earring|গহনা|ঝুমকা|জুয়েলারি|জুয়েলারি|এক্সেসরিজ|payel/i } },
+          ],
+        });
+        andFilters.push({
+          name: { $not: /hijab|হিজাব|চুড়ি|চুড়ি|churi|bangle/i },
+        });
+      } else if (catSlugOrId.includes('hair') || cleanKeyword.includes('hair')) {
+        andFilters.push({
+          $or: [
+            ...(matchingCatIds.length > 0 ? [{ categoryId: { $in: matchingCatIds } }] : []),
+            { name: { $regex: /hair|clip|pin|headband|হেয়ার|হেয়ার/i } },
+          ],
+        });
+      } else if (catSlugOrId.includes('dress') || catSlugOrId.includes('kurti') || catSlugOrId.includes('gown')) {
+        andFilters.push({
+          $or: [
+            ...(matchingCatIds.length > 0 ? [{ categoryId: { $in: matchingCatIds } }] : []),
+            { name: { $regex: /dress|gown|kurti|ড্রেস|গাউন|কুর্তি/i } },
+          ],
+        });
+      } else if (catSlugOrId.includes('shoe') || catSlugOrId.includes('loafer') || catSlugOrId.includes('nagra')) {
+        andFilters.push({
+          $or: [
+            ...(matchingCatIds.length > 0 ? [{ categoryId: { $in: matchingCatIds } }] : []),
+            { name: { $regex: /shoe|loafer|nagra|জুতা|নাগরা|লোফার/i } },
+          ],
+        });
       } else if (catSlugOrId.includes('panjabi')) {
-        nameRegex = /panjabi|পাঞ্জাবি/i;
-      }
-
-      const orClauses: any[] = [];
-      if (matchingCatIds.length > 0) {
-        orClauses.push({ categoryId: { $in: matchingCatIds } });
-      }
-      if (nameRegex) {
-        orClauses.push({ name: { $regex: nameRegex } });
-      }
-
-      if (orClauses.length > 0) {
-        andFilters.push({ $or: orClauses });
+        andFilters.push({
+          $or: [
+            ...(matchingCatIds.length > 0 ? [{ categoryId: { $in: matchingCatIds } }] : []),
+            { name: { $regex: /panjabi|পাঞ্জাবি/i } },
+          ],
+        });
       } else {
-        andFilters.push({ categoryId: '000000000000000000000000' });
+        if (matchingCatIds.length > 0) {
+          andFilters.push({ categoryId: { $in: matchingCatIds } });
+        } else {
+          andFilters.push({ categoryId: '000000000000000000000000' });
+        }
       }
     } else if (query.department && query.department.trim() !== '') {
       const dept = query.department.trim().toLowerCase();
