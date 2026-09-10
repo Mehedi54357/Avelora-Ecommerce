@@ -569,7 +569,7 @@ export default function AdminLoginPage() {
                           maxLength={6}
                           value={digit}
                           onChange={(e) => handleOtpChange(idx, e.target.value)}
-                          onKeyDown={(e) => handleOtpKeyDown(idx, e.key)}
+                          onKeyDown={(e) => handleOtpKeyDown(idx, e)}
                           className="w-12 h-14 sm:w-14 sm:h-16 text-center text-xl sm:text-2xl font-black font-mono rounded-xl bg-white border-2 border-gray-200 focus:border-[#C5A059] focus:ring-2 focus:ring-[#C5A059]/20 focus:outline-none transition text-slate-950 shadow-sm"
                         />
                       ))}

@@ -1,8 +1,20 @@
-import { Injectable, NotFoundException, ConflictException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ConflictException,
+  BadRequestException,
+  OnModuleInit,
+  Logger,
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Product, ProductDocument } from '../../schemas/product.schema';
 import { Category, CategoryDocument } from '../../schemas/category.schema';
+import { Order, OrderDocument } from '../../schemas/order.schema';
+import { PurchaseOrder, PurchaseOrderDocument } from '../../schemas/purchase.schema';
+import { InventoryTransaction, InventoryTransactionDocument } from '../../schemas/inventory-transaction.schema';
+import { ReturnRequest, ReturnRequestDocument } from '../../schemas/return-request.schema';
+import { AuditLogService } from '../audit-log/audit-log.service';
 
 export const DEFAULT_AVELORA_CATEGORIES = [
   { slug: 'women-hijab', name: 'Hijab Collection (হিজাব)', department: 'women', description: 'Turkish Silk Georgette, Chiffon, Satin & Premium Abaya wraps' },
@@ -101,14 +113,10 @@ export function evaluateProductPricing(
   };
 }
 
-import { Order, OrderDocument } from '../../schemas/order.schema';
-import { PurchaseOrder, PurchaseOrderDocument } from '../../schemas/purchase.schema';
-import { InventoryTransaction, InventoryTransactionDocument } from '../../schemas/inventory-transaction.schema';
-import { ReturnRequest, ReturnRequestDocument } from '../../schemas/return-request.schema';
-import { AuditLogService } from '../audit-log/audit-log.service';
-
 @Injectable()
-export class ProductsService {
+export class ProductsService implements OnModuleInit {
+  private readonly logger = new Logger(ProductsService.name);
+
   constructor(
     @InjectModel(Product.name) private productModel: Model<ProductDocument>,
     @InjectModel(Category.name) private categoryModel: Model<CategoryDocument>,
@@ -118,6 +126,75 @@ export class ProductsService {
     @InjectModel(ReturnRequest.name) private returnRequestModel: Model<ReturnRequestDocument>,
     private readonly auditLogService: AuditLogService,
   ) {}
+
+  async onModuleInit() {
+    await this.normalizeLegacyProducts();
+  }
+
+  private async normalizeLegacyProducts() {
+    try {
+      // 1. Ensure all products without explicit status are set to ACTIVE
+      await this.productModel.updateMany(
+        { $or: [{ status: { $exists: false } }, { status: null }, { status: '' }] },
+        { $set: { status: 'ACTIVE' } },
+      );
+
+      // 2. Ensure all products without explicit dataMode are set to PRODUCTION
+      await this.productModel.updateMany(
+        { $or: [{ dataMode: { $exists: false } }, { dataMode: null }, { dataMode: '' }] },
+        { $set: { dataMode: 'PRODUCTION' } },
+      );
+
+      // 3. Ensure all products without isPublished are set to true
+      await this.productModel.updateMany(
+        { isPublished: { $exists: false } },
+        { $set: { isPublished: true } },
+      );
+
+      // 4. If a product has a missing or invalid categoryId, assign it to a default category
+      const defaultCat =
+        (await this.categoryModel.findOne({ slug: 'women-hijab' }).exec()) ||
+        (await this.categoryModel.findOne({}).exec());
+
+      if (defaultCat) {
+        const allCategories = await this.categoryModel.find({}).select('_id').exec();
+        const validCategoryIds: any[] = allCategories.map((c) => c._id);
+
+        const filter: any = {
+          $or: [
+            { categoryId: { $exists: false } },
+            { categoryId: null },
+            { categoryId: { $nin: validCategoryIds } },
+          ],
+        };
+
+        const productsWithoutValidCategory = await this.productModel.find(filter).exec();
+
+        for (const prod of productsWithoutValidCategory) {
+          let targetCategory = defaultCat;
+          const prodName = prod.name || '';
+          if (
+            prodName.includes('চুড়ি') ||
+            prodName.toLowerCase().includes('churi') ||
+            prodName.toLowerCase().includes('bangle')
+          ) {
+            const churiCat = await this.categoryModel.findOne({ slug: 'women-churi-bangles' }).exec();
+            if (churiCat) targetCategory = churiCat;
+          } else if (
+            prodName.toLowerCase().includes('hijab') ||
+            prodName.includes('হিজাব')
+          ) {
+            const hijabCat = await this.categoryModel.findOne({ slug: 'women-hijab' }).exec();
+            if (hijabCat) targetCategory = hijabCat;
+          }
+          prod.categoryId = targetCategory._id as any;
+          await prod.save();
+        }
+      }
+    } catch (e: any) {
+      this.logger.warn(`Failed to normalize legacy products: ${e.message}`);
+    }
+  }
 
   private normalizeProductImages(payload: any) {
     if (Array.isArray(payload.productImages) && payload.productImages.length > 0) {
@@ -207,7 +284,7 @@ export class ProductsService {
     // Authoritative Server-Side Rule: Public Storefront = ACTIVE + PUBLISHED + PRODUCTION ONLY
     const filter: any = {
       isPublished: { $ne: false },
-      status: 'ACTIVE',
+      status: { $nin: ['DRAFT', 'HIDDEN', 'ARCHIVED'] },
       dataMode: { $ne: 'TEST' },
     };
 

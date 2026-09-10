@@ -11,6 +11,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 var __param = (this && this.__param) || function (paramIndex, decorator) {
     return function (target, key) { decorator(target, key, paramIndex); }
 };
+var ProductsService_1;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ProductsService = exports.DEFAULT_AVELORA_CATEGORIES = void 0;
 exports.evaluateProductPricing = evaluateProductPricing;
@@ -19,6 +20,11 @@ const mongoose_1 = require("@nestjs/mongoose");
 const mongoose_2 = require("mongoose");
 const product_schema_1 = require("../../schemas/product.schema");
 const category_schema_1 = require("../../schemas/category.schema");
+const order_schema_1 = require("../../schemas/order.schema");
+const purchase_schema_1 = require("../../schemas/purchase.schema");
+const inventory_transaction_schema_1 = require("../../schemas/inventory-transaction.schema");
+const return_request_schema_1 = require("../../schemas/return-request.schema");
+const audit_log_service_1 = require("../audit-log/audit-log.service");
 exports.DEFAULT_AVELORA_CATEGORIES = [
     { slug: 'women-hijab', name: 'Hijab Collection (হিজাব)', department: 'women', description: 'Turkish Silk Georgette, Chiffon, Satin & Premium Abaya wraps' },
     { slug: 'women-churi-bangles', name: 'Churi & Bangles (কাঁচের ও রেশমি চুড়ি)', department: 'women', description: 'ঐতিহ্যবাহী কাঁচের চুড়ি, রেশমি ভেলভেট চুড়ি ও কঙ্কন সেট' },
@@ -84,12 +90,7 @@ function evaluateProductPricing(product, now = new Date()) {
         isFuture,
     };
 }
-const order_schema_1 = require("../../schemas/order.schema");
-const purchase_schema_1 = require("../../schemas/purchase.schema");
-const inventory_transaction_schema_1 = require("../../schemas/inventory-transaction.schema");
-const return_request_schema_1 = require("../../schemas/return-request.schema");
-const audit_log_service_1 = require("../audit-log/audit-log.service");
-let ProductsService = class ProductsService {
+let ProductsService = ProductsService_1 = class ProductsService {
     constructor(productModel, categoryModel, orderModel, purchaseOrderModel, transactionModel, returnRequestModel, auditLogService) {
         this.productModel = productModel;
         this.categoryModel = categoryModel;
@@ -98,6 +99,53 @@ let ProductsService = class ProductsService {
         this.transactionModel = transactionModel;
         this.returnRequestModel = returnRequestModel;
         this.auditLogService = auditLogService;
+        this.logger = new common_1.Logger(ProductsService_1.name);
+    }
+    async onModuleInit() {
+        await this.normalizeLegacyProducts();
+    }
+    async normalizeLegacyProducts() {
+        try {
+            await this.productModel.updateMany({ $or: [{ status: { $exists: false } }, { status: null }, { status: '' }] }, { $set: { status: 'ACTIVE' } });
+            await this.productModel.updateMany({ $or: [{ dataMode: { $exists: false } }, { dataMode: null }, { dataMode: '' }] }, { $set: { dataMode: 'PRODUCTION' } });
+            await this.productModel.updateMany({ isPublished: { $exists: false } }, { $set: { isPublished: true } });
+            const defaultCat = (await this.categoryModel.findOne({ slug: 'women-hijab' }).exec()) ||
+                (await this.categoryModel.findOne({}).exec());
+            if (defaultCat) {
+                const allCategories = await this.categoryModel.find({}).select('_id').exec();
+                const validCategoryIds = allCategories.map((c) => c._id);
+                const filter = {
+                    $or: [
+                        { categoryId: { $exists: false } },
+                        { categoryId: null },
+                        { categoryId: { $nin: validCategoryIds } },
+                    ],
+                };
+                const productsWithoutValidCategory = await this.productModel.find(filter).exec();
+                for (const prod of productsWithoutValidCategory) {
+                    let targetCategory = defaultCat;
+                    const prodName = prod.name || '';
+                    if (prodName.includes('চুড়ি') ||
+                        prodName.toLowerCase().includes('churi') ||
+                        prodName.toLowerCase().includes('bangle')) {
+                        const churiCat = await this.categoryModel.findOne({ slug: 'women-churi-bangles' }).exec();
+                        if (churiCat)
+                            targetCategory = churiCat;
+                    }
+                    else if (prodName.toLowerCase().includes('hijab') ||
+                        prodName.includes('হিজাব')) {
+                        const hijabCat = await this.categoryModel.findOne({ slug: 'women-hijab' }).exec();
+                        if (hijabCat)
+                            targetCategory = hijabCat;
+                    }
+                    prod.categoryId = targetCategory._id;
+                    await prod.save();
+                }
+            }
+        }
+        catch (e) {
+            this.logger.warn(`Failed to normalize legacy products: ${e.message}`);
+        }
     }
     normalizeProductImages(payload) {
         if (Array.isArray(payload.productImages) && payload.productImages.length > 0) {
@@ -168,7 +216,7 @@ let ProductsService = class ProductsService {
     async findPublic(query) {
         const filter = {
             isPublished: { $ne: false },
-            status: 'ACTIVE',
+            status: { $nin: ['DRAFT', 'HIDDEN', 'ARCHIVED'] },
             dataMode: { $ne: 'TEST' },
         };
         if (query.category && query.category.trim() !== '') {
@@ -519,7 +567,7 @@ let ProductsService = class ProductsService {
     }
 };
 exports.ProductsService = ProductsService;
-exports.ProductsService = ProductsService = __decorate([
+exports.ProductsService = ProductsService = ProductsService_1 = __decorate([
     (0, common_1.Injectable)(),
     __param(0, (0, mongoose_1.InjectModel)(product_schema_1.Product.name)),
     __param(1, (0, mongoose_1.InjectModel)(category_schema_1.Category.name)),

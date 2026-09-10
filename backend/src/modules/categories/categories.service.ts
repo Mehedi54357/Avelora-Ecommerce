@@ -1,11 +1,103 @@
-import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException, OnModuleInit, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Category, CategoryDocument } from '../../schemas/category.schema';
 
 @Injectable()
-export class CategoriesService {
+export class CategoriesService implements OnModuleInit {
+  private readonly logger = new Logger(CategoriesService.name);
+
   constructor(@InjectModel(Category.name) private categoryModel: Model<CategoryDocument>) {}
+
+  async onModuleInit() {
+    await this.ensureDefaultCategories();
+  }
+
+  async ensureDefaultCategories() {
+    const defaultCategories = [
+      {
+        name: 'Hijab Collection (হিজাব)',
+        slug: 'women-hijab',
+        department: 'women',
+        description: 'Turkish Silk Georgette, Chiffon, Satin & Premium Abaya wraps',
+        sortOrder: 1,
+      },
+      {
+        name: 'Churi & Bangles (কাঁচের ও রেশমি চুড়ি)',
+        slug: 'women-churi-bangles',
+        department: 'women',
+        description: 'ঐতিহ্যবাহী কাঁচের চুড়ি, রেশমি ভেলভেট চুড়ি ও কঙ্কন সেট',
+        sortOrder: 2,
+      },
+      {
+        name: 'Hair Accessories (হেয়ার এক্সেসরিজ)',
+        slug: 'women-hair-accessories',
+        department: 'women',
+        description: 'Pearl hairpins, claw clips, and velvet headband accessories',
+        sortOrder: 3,
+      },
+      {
+        name: 'Dresses & Modest Wear (ড্রেস ও গাউন)',
+        slug: 'women-dresses',
+        department: 'women',
+        description: 'Designer festive kurtis, kaftans, and luxury festive gowns',
+        sortOrder: 4,
+      },
+      {
+        name: 'Shoes & Footwear (জুতা ও নাগরা)',
+        slug: 'women-shoes',
+        department: 'women',
+        description: 'Embroidered velvet nagras, embellished juttis, and block heels',
+        sortOrder: 5,
+      },
+      {
+        name: 'Accessories & Fine Jewellery (জুয়েলারি ও গহনা)',
+        slug: 'women-accessories',
+        department: 'women',
+        description: '18K gold-plated jhumkas, Kundan choker necklaces, and payel sets',
+        sortOrder: 6,
+      },
+      {
+        name: 'Shoes & Loafers (মেনস জুতা ও লোফার)',
+        slug: 'men-shoes',
+        department: 'men',
+        description: 'Italian leather penny loafers, formal oxfords, and nagras',
+        sortOrder: 7,
+      },
+      {
+        name: 'Clothing & Panjabi (মেনস পাঞ্জাবি)',
+        slug: 'men-clothing',
+        department: 'men',
+        description: 'Festive silk and fine cotton embroidered panjabis',
+        sortOrder: 8,
+      },
+      {
+        name: 'Girls\' Dresses (বাচ্চাদের ড্রেস ও পার্টি গাউন)',
+        slug: 'kids-girls-dresses',
+        department: 'kids',
+        description: 'Organza party gowns and velvet Eid frocks for little princesses',
+        sortOrder: 9,
+      },
+      {
+        name: 'Kids\' Shoes & Accessories (বাচ্চাদের জুতা ও এক্সেসরিজ)',
+        slug: 'kids-accessories',
+        department: 'kids',
+        description: 'Kids footwear, headbands, and accessories',
+        sortOrder: 10,
+      },
+    ];
+
+    for (const cat of defaultCategories) {
+      const existing = await this.categoryModel.findOne({ slug: cat.slug }).exec();
+      if (!existing) {
+        await this.categoryModel.create({
+          ...cat,
+          isActive: true,
+        });
+        this.logger.log(`Initialized default category: ${cat.name}`);
+      }
+    }
+  }
 
   async findAll(activeOnly = false): Promise<Category[]> {
     const filter = activeOnly ? { isActive: true } : {};

@@ -1,8 +1,12 @@
+import { OnModuleInit } from '@nestjs/common';
 import { Model } from 'mongoose';
 import { Category, CategoryDocument } from '../../schemas/category.schema';
-export declare class CategoriesService {
+export declare class CategoriesService implements OnModuleInit {
     private categoryModel;
+    private readonly logger;
     constructor(categoryModel: Model<CategoryDocument>);
+    onModuleInit(): Promise<void>;
+    ensureDefaultCategories(): Promise<void>;
     findAll(activeOnly?: boolean): Promise<Category[]>;
     findById(id: string): Promise<Category>;
     findBySlug(slug: string): Promise<Category>;

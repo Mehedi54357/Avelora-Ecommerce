@@ -83,8 +83,8 @@ export default function AdminCategoriesPage() {
     setError('');
 
     try {
-      // Compress client-side to ensure fast loading and prevent payload limits
-      const compressedDataUrl = await compressImage(file, 1200, 0.85);
+      // Compress client-side to ensure luxury high fidelity and optimal bandwidth
+      const compressedDataUrl = await compressImage(file, 1600, 0.90);
 
       // Try uploading to backend upload endpoint
       try {

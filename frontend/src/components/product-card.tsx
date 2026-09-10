@@ -9,40 +9,120 @@ import { evaluatePricing } from '../utils/pricing';
 
 // Color name to hex map helper
 const COLOR_MAP: Record<string, string> = {
+  // Classics & Neutrals
   black: '#0F172A',
   kalo: '#0F172A',
   white: '#FFFFFF',
   shada: '#FFFFFF',
+  'off-white': '#FDFBF7',
+  offwhite: '#FDFBF7',
+  ivory: '#FFFFF0',
+  cream: '#FFFDD0',
   beige: '#E8D8C8',
   nude: '#CDB49B',
-  olive: '#556B2F',
-  olivegreen: '#556B2F',
-  'dusty pink': '#E08B9B',
-  pink: '#EC4899',
-  gulabi: '#EC4899',
-  maroon: '#58111A',
-  red: '#DC2626',
-  lal: '#DC2626',
-  'navy blue': '#1B2A4A',
-  navy: '#1B2A4A',
-  blue: '#2563EB',
-  neel: '#2563EB',
+  sand: '#C2B280',
+  taupe: '#8B8589',
+  'camel / tan': '#C19A6B',
+  camel: '#C19A6B',
+  tan: '#C19A6B',
+  charcoal: '#334155',
   grey: '#64748B',
   gray: '#64748B',
+  'silver / ash': '#CBD5E1',
+  silver: '#CBD5E1',
+  ash: '#CBD5E1',
+
+  // Greens & Earth
+  olive: '#556B2F',
+  olivegreen: '#556B2F',
+  'sage green': '#9CAF88',
+  sage: '#9CAF88',
+  'bottle green': '#0B4F37',
+  'deep green': '#0B4F37',
+  'emerald green': '#16A34A',
+  emerald: '#16A34A',
+  'mint green': '#A8E6CF',
+  mint: '#A8E6CF',
+  'sea green': '#2E8B57',
+  pistachio: '#93C572',
+  'moss green': '#8A9A5B',
+  moss: '#8A9A5B',
+  khaki: '#C3B091',
+  green: '#16A34A',
+  shobuj: '#16A34A',
+
+  // Reds, Maroons & Rust
+  maroon: '#58111A',
+  burgundy: '#722F37',
+  wine: '#5B1E31',
+  crimson: '#990000',
+  red: '#DC2626',
+  lal: '#DC2626',
+  'ruby red': '#9B111E',
+  ruby: '#9B111E',
+  rust: '#C04000',
+  terracotta: '#E2725B',
+
+  // Pinks & Peaches
+  'dusty pink': '#E08B9B',
+  'blush pink': '#FFD1DC',
+  blush: '#FFD1DC',
+  'baby pink': '#FFB6C1',
+  'rose gold': '#B76E79',
+  'hot pink': '#FF69B4',
+  pink: '#EC4899',
+  gulabi: '#EC4899',
+  coral: '#F88379',
+  'deep coral': '#E06352',
+  peach: '#FFE5B4',
+
+  // Purples & Lilacs
+  magenta: '#D946EF',
+  mauve: '#E0B0FF',
+  lavender: '#B57EDC',
+  lilac: '#C8A2C8',
+  plum: '#4A0E4E',
   purple: '#6B21A8',
   beguni: '#6B21A8',
+  'deep violet': '#2E0854',
+  violet: '#2E0854',
+
+  // Blues & Teals
+  'navy blue': '#1B2A4A',
+  navy: '#1B2A4A',
+  'royal blue': '#2563EB',
+  blue: '#2563EB',
+  neel: '#2563EB',
+  'midnight blue': '#191970',
+  teal: '#008080',
+  'peacock blue': '#005F73',
+  peacock: '#005F73',
+  turquoise: '#40E0D0',
+  cyan: '#06B6D4',
+  'sky blue': '#87CEEB',
+  'powder blue': '#B0E0E6',
+  'ice blue': '#AFEEEE',
+  aqua: '#00FFFF',
+
+  // Golds, Yellows & Browns
   gold: '#C5A059',
   golden: '#C5A059',
   sonali: '#C5A059',
-  orange: '#EA580C',
-  komola: '#EA580C',
+  champagne: '#F7E7CE',
+  'copper / bronze': '#B87333',
+  copper: '#B87333',
+  bronze: '#B87333',
+  mustard: '#DDAA00',
+  ochre: '#DDAA00',
   yellow: '#EAB308',
   holud: '#EAB308',
-  green: '#16A34A',
-  shobuj: '#16A34A',
-  cyan: '#06B6D4',
-  magenta: '#D946EF',
+  orange: '#EA580C',
+  komola: '#EA580C',
+  amber: '#FFBF00',
   brown: '#78350F',
+  chocolate: '#3E2723',
+  coffee: '#6F4E37',
+  caramel: '#AF6E4D',
 };
 
 interface ProductCardProps {
@@ -51,6 +131,7 @@ interface ProductCardProps {
     name: string;
     slug: string;
     images: string[];
+    productImages?: Array<{ url: string; variantColor?: string; isPrimary?: boolean }> | any[];
     originalPrice: number;
     discountPercentage?: number;
     salePrice: number;
@@ -88,8 +169,38 @@ export default function ProductCard({ product }: ProductCardProps) {
     stock: 10,
   };
 
-  const mainImage = product.images?.[0] || 'https://images.unsplash.com/photo-1584917865442-de89df76afd3?auto=format&fit=crop&w=600&q=80';
-  const hoverImage = product.images?.[1] || mainImage;
+  // Dynamically resolve matching image for the selected variant
+  const currentVariantImage = useMemo(() => {
+    if (!product.images || product.images.length === 0) {
+      return 'https://images.unsplash.com/photo-1584917865442-de89df76afd3?auto=format&fit=crop&w=600&q=80';
+    }
+
+    // 1. Direct variant image if present
+    const variantAny = selectedVariant as any;
+    if (variantAny.image && typeof variantAny.image === 'string' && variantAny.image.trim() !== '') {
+      return variantAny.image;
+    }
+
+    // 2. Look for matching variantColor in productImages
+    if (Array.isArray(product.productImages) && selectedVariant.color) {
+      const matched = product.productImages.find(
+        (img: any) => img.variantColor?.toLowerCase().trim() === selectedVariant.color?.toLowerCase().trim(),
+      );
+      if (matched?.url) return matched.url;
+    }
+
+    // 3. Fallback to image by index if available
+    if (product.images[selectedVariantIndex]) {
+      return product.images[selectedVariantIndex];
+    }
+
+    return product.images[0];
+  }, [product.images, product.productImages, selectedVariant, selectedVariantIndex]);
+
+  const secondaryHoverImage = product.images && product.images.length > 1 ? product.images[1] : currentVariantImage;
+  const activeDisplayImage = isHovered && selectedVariantIndex === 0 && product.images && product.images.length > 1
+    ? secondaryHoverImage
+    : currentVariantImage;
 
   const currentPrice = selectedVariant.price > 0 ? selectedVariant.price : pricing.effectivePrice;
   const hasActiveDiscount = pricing.hasDiscount && (selectedVariant.price <= 0 || selectedVariant.price === pricing.effectivePrice);
@@ -105,7 +216,7 @@ export default function ProductCard({ product }: ProductCardProps) {
       productId: product._id,
       sku: selectedVariant.sku,
       name: product.name,
-      image: mainImage,
+      image: currentVariantImage,
       color: selectedVariant.color,
       size: selectedVariant.size,
       price: currentPrice,
@@ -128,7 +239,7 @@ export default function ProductCard({ product }: ProductCardProps) {
       productId: product._id,
       sku: selectedVariant.sku,
       name: product.name,
-      image: mainImage,
+      image: currentVariantImage,
       color: selectedVariant.color,
       size: selectedVariant.size,
       price: currentPrice,
@@ -153,11 +264,12 @@ export default function ProductCard({ product }: ProductCardProps) {
       <div className="relative aspect-[4/5] bg-gray-50 overflow-hidden block">
         <Link href={`/products/${product.slug}`} className="block w-full h-full">
           <img
-            src={isHovered ? hoverImage : mainImage}
+            key={activeDisplayImage}
+            src={activeDisplayImage}
             alt={product.name}
             loading="lazy"
             decoding="async"
-            className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-105"
+            className="w-full h-full object-cover transition-all duration-500 ease-out group-hover:scale-105"
           />
         </Link>
 
@@ -225,6 +337,7 @@ export default function ProductCard({ product }: ProductCardProps) {
                       e.stopPropagation();
                       setSelectedVariantIndex(idx);
                     }}
+                    onMouseEnter={() => setSelectedVariantIndex(idx)}
                     className={`w-4 h-4 sm:w-5 sm:h-5 rounded-full transition-all flex items-center justify-center border shadow-2xs ${
                       isSelected
                         ? 'ring-2 ring-slate-900 ring-offset-1 scale-110 border-white'

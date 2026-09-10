@@ -22,8 +22,8 @@ const SUPPORTED_MIME_TYPES = [
 
 export async function processImageForUpload(
   file: File,
-  maxDimension = 2500,
-  quality = 0.94,
+  maxDimension = 1800,
+  quality = 0.90,
 ): Promise<ProcessedImageResult> {
   // 1. Validation: MIME Type
   if (!SUPPORTED_MIME_TYPES.includes(file.type.toLowerCase())) {
@@ -59,10 +59,10 @@ export async function processImageForUpload(
           return reject(new Error('Corrupted image with zero dimensions detected.'));
         }
 
-        // Always apply smart web optimization (max 1400px, quality 0.82) to prevent MongoDB 16MB document size overflow
+        // Apply luxury high-resolution web optimization (max 1800px, quality 0.90)
         let targetWidth = origWidth;
         let targetHeight = origHeight;
-        const targetMaxDimension = Math.min(maxDimension, 1400);
+        const targetMaxDimension = Math.min(maxDimension, 2000);
 
         if (targetWidth > targetMaxDimension || targetHeight > targetMaxDimension) {
           if (targetWidth >= targetHeight) {
@@ -89,7 +89,7 @@ export async function processImageForUpload(
           });
         }
 
-        // High-quality image smoothing
+        // High-quality bicubic smoothing for crisp textures
         ctx.imageSmoothingEnabled = true;
         ctx.imageSmoothingQuality = 'high';
         ctx.drawImage(img, 0, 0, targetWidth, targetHeight);
@@ -125,7 +125,7 @@ export async function processImageForUpload(
 }
 
 // Backward-compatible alias for existing imports
-export async function compressImage(file: File, maxWidth = 2500, quality = 0.94): Promise<string> {
+export async function compressImage(file: File, maxWidth = 1800, quality = 0.90): Promise<string> {
   const res = await processImageForUpload(file, maxWidth, quality);
   return res.dataUrl;
 }

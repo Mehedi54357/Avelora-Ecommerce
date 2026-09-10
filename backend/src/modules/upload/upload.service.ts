@@ -31,7 +31,7 @@ export class UploadService {
         const result = await cloudinary.uploader.upload(fileData, {
           folder,
           resource_type: 'image',
-          quality: 'auto:good',
+          quality: 'auto:best',
           fetch_format: 'auto',
         });
         return {

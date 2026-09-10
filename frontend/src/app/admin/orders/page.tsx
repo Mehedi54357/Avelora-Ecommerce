@@ -1649,7 +1649,7 @@ export default function AdminOrdersPage() {
           setPrintOrdersList([]);
         }}
         orders={printOrdersList}
-        initialMode={printMode}
+        defaultMode={printMode}
       />
 
       <QrModal
@@ -1658,7 +1658,9 @@ export default function AdminOrdersPage() {
           setShowQrModal(false);
           setQrOrder(null);
         }}
-        order={qrOrder}
+        title={qrOrder ? `Order #${qrOrder.orderNumber || qrOrder._id}` : 'Order Tracking QR'}
+        subtitle={qrOrder?.customerName ? `Customer: ${qrOrder.customerName}` : undefined}
+        displayCode={qrOrder?.orderNumber || qrOrder?._id}
         payload={qrPayload}
       />
     </div>

@@ -28,6 +28,7 @@ import {
   Archive,
   RotateCcw,
   ShieldAlert,
+  Palette,
 } from 'lucide-react';
 import { processImageForUpload } from '../../../utils/image-compressor';
 import { API_BASE_URL, authFetch } from '../../../utils/api-config';
@@ -47,25 +48,87 @@ const PRESET_CATEGORIES = [
   { slug: 'kids-accessories', name: 'Kids\' Shoes & Accessories (বাচ্চাদের জুতা ও এক্সেসরিজ)', department: 'kids' },
 ];
 
-const PRESET_COLORS = [
-  { name: 'Olive', hex: '#556B2F' },
-  { name: 'Black', hex: '#0F172A' },
-  { name: 'White', hex: '#FFFFFF' },
-  { name: 'Dusty Pink', hex: '#E08B9B' },
-  { name: 'Maroon', hex: '#58111A' },
-  { name: 'Red', hex: '#DC2626' },
-  { name: 'Navy Blue', hex: '#1B2A4A' },
-  { name: 'Grey', hex: '#64748B' },
-  { name: 'Purple', hex: '#6B21A8' },
-  { name: 'Beige', hex: '#E8D8C8' },
-  { name: 'Nude', hex: '#CDB49B' },
-  { name: 'Gold', hex: '#C5A059' },
-  { name: 'Emerald Green', hex: '#16A34A' },
-  { name: 'Orange', hex: '#EA580C' },
-  { name: 'Yellow', hex: '#EAB308' },
-  { name: 'Cyan', hex: '#06B6D4' },
-  { name: 'Magenta', hex: '#D946EF' },
-  { name: 'Brown', hex: '#78350F' },
+export const PRESET_COLORS = [
+  // Neutrals & Classics
+  { name: 'Black', hex: '#0F172A', category: 'Classic & Neutral' },
+  { name: 'White', hex: '#FFFFFF', category: 'Classic & Neutral' },
+  { name: 'Off-White', hex: '#FDFBF7', category: 'Classic & Neutral' },
+  { name: 'Ivory', hex: '#FFFFF0', category: 'Classic & Neutral' },
+  { name: 'Cream', hex: '#FFFDD0', category: 'Classic & Neutral' },
+  { name: 'Beige', hex: '#E8D8C8', category: 'Classic & Neutral' },
+  { name: 'Nude', hex: '#CDB49B', category: 'Classic & Neutral' },
+  { name: 'Sand', hex: '#C2B280', category: 'Classic & Neutral' },
+  { name: 'Taupe', hex: '#8B8589', category: 'Classic & Neutral' },
+  { name: 'Camel / Tan', hex: '#C19A6B', category: 'Classic & Neutral' },
+  { name: 'Charcoal', hex: '#334155', category: 'Classic & Neutral' },
+  { name: 'Grey', hex: '#64748B', category: 'Classic & Neutral' },
+  { name: 'Silver / Ash', hex: '#CBD5E1', category: 'Classic & Neutral' },
+
+  // Greens & Earth
+  { name: 'Olive', hex: '#556B2F', category: 'Green & Earth' },
+  { name: 'Sage Green', hex: '#9CAF88', category: 'Green & Earth' },
+  { name: 'Bottle Green', hex: '#0B4F37', category: 'Green & Earth' },
+  { name: 'Emerald Green', hex: '#16A34A', category: 'Green & Earth' },
+  { name: 'Mint Green', hex: '#A8E6CF', category: 'Green & Earth' },
+  { name: 'Sea Green', hex: '#2E8B57', category: 'Green & Earth' },
+  { name: 'Pistachio', hex: '#93C572', category: 'Green & Earth' },
+  { name: 'Moss Green', hex: '#8A9A5B', category: 'Green & Earth' },
+  { name: 'Khaki', hex: '#C3B091', category: 'Green & Earth' },
+
+  // Reds, Maroons & Rust
+  { name: 'Maroon', hex: '#58111A', category: 'Red & Maroon' },
+  { name: 'Burgundy', hex: '#722F37', category: 'Red & Maroon' },
+  { name: 'Wine', hex: '#5B1E31', category: 'Red & Maroon' },
+  { name: 'Crimson', hex: '#990000', category: 'Red & Maroon' },
+  { name: 'Red', hex: '#DC2626', category: 'Red & Maroon' },
+  { name: 'Ruby Red', hex: '#9B111E', category: 'Red & Maroon' },
+  { name: 'Rust', hex: '#C04000', category: 'Red & Maroon' },
+  { name: 'Terracotta', hex: '#E2725B', category: 'Red & Maroon' },
+
+  // Pinks & Peaches
+  { name: 'Dusty Pink', hex: '#E08B9B', category: 'Pink & Peach' },
+  { name: 'Blush Pink', hex: '#FFD1DC', category: 'Pink & Peach' },
+  { name: 'Baby Pink', hex: '#FFB6C1', category: 'Pink & Peach' },
+  { name: 'Rose Gold', hex: '#B76E79', category: 'Pink & Peach' },
+  { name: 'Hot Pink', hex: '#FF69B4', category: 'Pink & Peach' },
+  { name: 'Coral', hex: '#F88379', category: 'Pink & Peach' },
+  { name: 'Deep Coral', hex: '#E06352', category: 'Pink & Peach' },
+  { name: 'Peach', hex: '#FFE5B4', category: 'Pink & Peach' },
+
+  // Purples & Lilacs
+  { name: 'Magenta', hex: '#D946EF', category: 'Purple & Lilac' },
+  { name: 'Mauve', hex: '#E0B0FF', category: 'Purple & Lilac' },
+  { name: 'Lavender', hex: '#B57EDC', category: 'Purple & Lilac' },
+  { name: 'Lilac', hex: '#C8A2C8', category: 'Purple & Lilac' },
+  { name: 'Plum', hex: '#4A0E4E', category: 'Purple & Lilac' },
+  { name: 'Purple', hex: '#6B21A8', category: 'Purple & Lilac' },
+  { name: 'Deep Violet', hex: '#2E0854', category: 'Purple & Lilac' },
+
+  // Blues & Teals
+  { name: 'Navy Blue', hex: '#1B2A4A', category: 'Blue & Teal' },
+  { name: 'Royal Blue', hex: '#2563EB', category: 'Blue & Teal' },
+  { name: 'Midnight Blue', hex: '#191970', category: 'Blue & Teal' },
+  { name: 'Teal', hex: '#008080', category: 'Blue & Teal' },
+  { name: 'Peacock Blue', hex: '#005F73', category: 'Blue & Teal' },
+  { name: 'Turquoise', hex: '#40E0D0', category: 'Blue & Teal' },
+  { name: 'Cyan', hex: '#06B6D4', category: 'Blue & Teal' },
+  { name: 'Sky Blue', hex: '#87CEEB', category: 'Blue & Teal' },
+  { name: 'Powder Blue', hex: '#B0E0E6', category: 'Blue & Teal' },
+  { name: 'Ice Blue', hex: '#AFEEEE', category: 'Blue & Teal' },
+  { name: 'Aqua', hex: '#00FFFF', category: 'Blue & Teal' },
+
+  // Golds, Yellows & Browns
+  { name: 'Gold', hex: '#C5A059', category: 'Gold & Brown' },
+  { name: 'Champagne', hex: '#F7E7CE', category: 'Gold & Brown' },
+  { name: 'Copper / Bronze', hex: '#B87333', category: 'Gold & Brown' },
+  { name: 'Mustard', hex: '#DDAA00', category: 'Gold & Brown' },
+  { name: 'Yellow', hex: '#EAB308', category: 'Gold & Brown' },
+  { name: 'Orange', hex: '#EA580C', category: 'Gold & Brown' },
+  { name: 'Amber', hex: '#FFBF00', category: 'Gold & Brown' },
+  { name: 'Brown', hex: '#78350F', category: 'Gold & Brown' },
+  { name: 'Chocolate', hex: '#3E2723', category: 'Gold & Brown' },
+  { name: 'Coffee', hex: '#6F4E37', category: 'Gold & Brown' },
+  { name: 'Caramel', hex: '#AF6E4D', category: 'Gold & Brown' },
 ];
 
 interface ProductImageEntry {
@@ -153,6 +216,10 @@ export default function AdminProductsPage() {
     { title: 'Perfect For Every Occasion', subtitle: 'Festivals, parties, weddings & daily styling', icon: 'check' },
   ]);
 
+  // Color Preset Search & Filter State
+  const [colorSearch, setColorSearch] = useState('');
+  const [selectedColorCategory, setSelectedColorCategory] = useState('ALL');
+
   // Dynamic Variants (Color Swatches, Size, Price, Stock)
   const [variants, setVariants] = useState<
     Array<{
@@ -164,9 +231,7 @@ export default function AdminProductsPage() {
       costPrice: number;
       stock: number;
     }>
-  >([
-    { sku: '', color: 'Olive', colorHex: '#556B2F', size: 'Standard', price: 0, costPrice: 0, stock: 10 },
-  ]);
+  >([]);
 
   // Unsaved changes protection
   useEffect(() => {
@@ -236,9 +301,9 @@ export default function AdminProductsPage() {
       { title: 'Glossy & Elegant Finish', subtitle: 'Flawless look that enhances beauty', icon: 'waves' },
       { title: 'Perfect For Every Occasion', subtitle: 'Festivals, parties, weddings & daily styling', icon: 'check' },
     ]);
-    setVariants([
-      { sku: `AVE-${Date.now().toString().slice(-5)}`, color: 'Olive', colorHex: '#556B2F', size: 'Standard', price: 0, costPrice: 0, stock: 10 },
-    ]);
+    setVariants([]);
+    setColorSearch('');
+    setSelectedColorCategory('ALL');
     setError('');
     setIsDirty(false);
     setIsModalOpen(true);
@@ -347,8 +412,10 @@ export default function AdminProductsPage() {
             costPrice: v.costPrice || 0,
             stock: v.stockQuantity !== undefined ? v.stockQuantity : (v.stock || 0),
           }))
-        : [{ sku: `AVE-${prod.slug || Date.now().toString().slice(-4)}`, color: 'Olive', colorHex: '#556B2F', size: 'Standard', price: prod.salePrice, costPrice: 0, stock: 10 }],
+        : [],
     );
+    setColorSearch('');
+    setSelectedColorCategory('ALL');
 
     setError('');
     setIsDirty(false);
@@ -381,7 +448,7 @@ export default function AdminProductsPage() {
         setUploadProgressText(`Processing & uploading image ${i + 1} of ${files.length}...`);
 
         try {
-          const processed = await processImageForUpload(file, 1400, 0.82);
+          const processed = await processImageForUpload(file, 1800, 0.90);
 
           const res = await authFetch(`${API_BASE_URL}/api/upload/image`, {
             method: 'POST',
@@ -546,39 +613,54 @@ export default function AdminProductsPage() {
     }
   };
 
-  // Variant Controls
-  const addPresetColorVariant = (preset: { name: string; hex: string }) => {
+  // Variant Controls: 1-Click Toggle ON/OFF
+  const togglePresetColorVariant = (preset: { name: string; hex: string }) => {
     setIsDirty(true);
-    const exists = variants.some((v) => v.color.toLowerCase() === preset.name.toLowerCase());
-    if (exists) return;
+    const existingIndex = variants.findIndex(
+      (v) => v.color.toLowerCase().trim() === preset.name.toLowerCase().trim(),
+    );
 
-    const skuSuffix = Math.floor(100 + Math.random() * 900);
-    if (variants.length === 1 && (variants[0].color === 'Standard' || !variants[0].color)) {
-      setVariants([
-        {
-          sku: `AVE-${skuSuffix}`,
-          color: preset.name,
-          colorHex: preset.hex,
-          size: 'Standard',
-          price: salePrice || originalPrice || 0,
-          costPrice: 0,
-          stock: 15,
-        },
-      ]);
+    if (existingIndex >= 0) {
+      // Toggle OFF: Remove this color variant
+      setVariants((prev) => prev.filter((_, idx) => idx !== existingIndex));
     } else {
-      setVariants((prev) => [
-        ...prev,
-        {
-          sku: `AVE-${skuSuffix}`,
-          color: preset.name,
-          colorHex: preset.hex,
-          size: 'Standard',
-          price: salePrice || originalPrice || 0,
-          costPrice: 0,
-          stock: 15,
-        },
-      ]);
+      // Toggle ON: Add this color variant
+      const skuSuffix = Math.floor(100 + Math.random() * 900);
+      if (
+        variants.length === 1 &&
+        (!variants[0].color || variants[0].color === 'Standard')
+      ) {
+        setVariants([
+          {
+            sku: variants[0].sku || `AVE-${skuSuffix}`,
+            color: preset.name,
+            colorHex: preset.hex,
+            size: variants[0].size || 'Standard',
+            price: salePrice || originalPrice || variants[0].price || 0,
+            costPrice: variants[0].costPrice || 0,
+            stock: variants[0].stock || 15,
+          },
+        ]);
+      } else {
+        setVariants((prev) => [
+          ...prev,
+          {
+            sku: `AVE-${skuSuffix}`,
+            color: preset.name,
+            colorHex: preset.hex,
+            size: 'Standard',
+            price: salePrice || originalPrice || 0,
+            costPrice: 0,
+            stock: 15,
+          },
+        ]);
+      }
     }
+  };
+
+  const clearAllVariants = () => {
+    setIsDirty(true);
+    setVariants([]);
   };
 
   const addVariantRow = () => {
@@ -586,12 +668,11 @@ export default function AdminProductsPage() {
     const skuSuffix = Math.floor(100 + Math.random() * 900);
     setVariants((prev) => [
       ...prev,
-      { sku: `AVE-${skuSuffix}`, color: '', colorHex: '#0F172A', size: '', price: salePrice, costPrice: 0, stock: 10 },
+      { sku: `AVE-${skuSuffix}`, color: '', colorHex: '#C5A059', size: 'Standard', price: salePrice || originalPrice || 0, costPrice: 0, stock: 10 },
     ]);
   };
 
   const removeVariantRow = (index: number) => {
-    if (variants.length === 1) return;
     setIsDirty(true);
     setVariants((prev) => prev.filter((_, idx) => idx !== index));
   };
@@ -659,20 +740,33 @@ export default function AdminProductsPage() {
       isPublished,
       dataMode,
       status,
-      variants: variants.map((v) => {
-        const colorName = v.color.trim();
-        const lower = colorName.toLowerCase();
-        const mappedHex = PRESET_COLORS.find((p) => p.name.toLowerCase() === lower)?.hex || '#0F172A';
-        return {
-          sku: v.sku.trim() || `SKU-${Date.now().toString().slice(-4)}`,
-          color: colorName,
-          colorHex: v.colorHex && v.colorHex.trim() !== '' ? v.colorHex.trim() : mappedHex,
-          size: v.size.trim(),
-          price: Number(v.price) > 0 ? Number(v.price) : Number(salePrice) || 0,
-          costPrice: Number(v.costPrice) || 0,
-          stockQuantity: Number(v.stock) || 0,
-        };
-      }),
+      variants:
+        variants.length > 0
+          ? variants.map((v) => {
+              const colorName = v.color ? v.color.trim() : 'Standard';
+              const lower = colorName.toLowerCase();
+              const mappedHex = PRESET_COLORS.find((p) => p.name.toLowerCase() === lower)?.hex || '#0F172A';
+              return {
+                sku: v.sku.trim() || `AVE-${Math.floor(1000 + Math.random() * 9000)}`,
+                color: colorName,
+                colorHex: v.colorHex && v.colorHex.trim() !== '' ? v.colorHex.trim() : mappedHex,
+                size: v.size.trim() || 'Standard',
+                price: Number(v.price) > 0 ? Number(v.price) : Number(salePrice) || Number(originalPrice) || 0,
+                costPrice: Number(v.costPrice) || 0,
+                stockQuantity: Number(v.stock) >= 0 ? Number(v.stock) : 10,
+              };
+            })
+          : [
+              {
+                sku: `AVE-${Date.now().toString().slice(-5)}`,
+                color: 'Standard',
+                colorHex: '#C5A059',
+                size: 'Standard',
+                price: Number(salePrice) || Number(originalPrice) || 0,
+                costPrice: 0,
+                stockQuantity: 10,
+              },
+            ],
     };
 
     try {
@@ -1668,148 +1762,212 @@ export default function AdminProductsPage() {
               <div className="space-y-3 pt-2">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-2 border-b border-gray-200 gap-2">
                   <div>
-                    <label className="font-bold uppercase text-gray-900 text-sm">
-                      Product Variants & Stock (রঙ, সাইজ ও স্টক সংখ্যা)
+                    <label className="font-bold uppercase text-gray-900 text-sm flex items-center gap-2">
+                      <Palette className="w-4 h-4 text-[#C5A059]" />
+                      <span>Product Colors & Variants ({variants.length} Selected)</span>
                     </label>
                     <p className="text-[11px] text-gray-500">
-                      নিচে ক্লিক করে আপনার স্টকে থাকা কালারগুলো যুক্ত করুন (Click to add colors in stock):
+                      নিচের ৬০+ প্রিমিয়াম কালার থেকে ১-ক্লিকে স্টক যোগ করুন বা বাদ দিন (Click to toggle color variants):
                     </p>
                   </div>
-                  <button
-                    type="button"
-                    onClick={addVariantRow}
-                    className="px-3 py-1.5 bg-slate-900 text-white rounded-lg font-bold text-[11px] uppercase tracking-wider hover:bg-[#C5A059] transition flex items-center gap-1 w-fit"
-                  >
-                    <Plus className="w-3.5 h-3.5" /> + Custom Variant
-                  </button>
+                  <div className="flex items-center gap-2">
+                    {variants.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={clearAllVariants}
+                        className="px-2.5 py-1.5 bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 rounded-lg font-bold text-[11px] transition"
+                      >
+                        Clear All ({variants.length})
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={addVariantRow}
+                      className="px-3 py-1.5 bg-slate-900 text-white rounded-lg font-bold text-[11px] uppercase tracking-wider hover:bg-[#C5A059] transition flex items-center gap-1"
+                    >
+                      <Plus className="w-3.5 h-3.5" /> + Custom Variant
+                    </button>
+                  </div>
                 </div>
 
-                {/* 1-Click Color Preset Buttons */}
-                <div className="p-3 bg-white rounded-xl border border-gray-200 shadow-2xs space-y-2">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-gray-700 block">
-                    🎨 Quick-Add Color to Stock (এক ক্লিকে কালার যুক্ত করুন):
-                  </span>
-                  <div className="flex flex-wrap gap-1.5">
-                    {PRESET_COLORS.map((preset) => {
+                {/* 60+ Color Palette with Fast Search & Categories */}
+                <div className="p-3.5 bg-white rounded-xl border border-gray-200 shadow-2xs space-y-3">
+                  {/* Top Bar: Search + Category Filter */}
+                  <div className="flex flex-col sm:flex-row items-center gap-2.5 justify-between">
+                    <div className="relative w-full sm:w-64">
+                      <Search className="w-3.5 h-3.5 text-gray-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+                      <input
+                        type="text"
+                        placeholder="Search 60+ colors (e.g. Sage, Burgundy, Teal)..."
+                        value={colorSearch}
+                        onChange={(e) => setColorSearch(e.target.value)}
+                        className="w-full pl-8 pr-3 py-1.5 rounded-lg border border-gray-300 text-xs bg-gray-50 focus:bg-white focus:outline-none focus:border-[#C5A059]"
+                      />
+                      {colorSearch && (
+                        <button
+                          type="button"
+                          onClick={() => setColorSearch('')}
+                          className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="flex items-center gap-1 overflow-x-auto w-full sm:w-auto pb-1 sm:pb-0 scrollbar-none">
+                      {['ALL', 'Classic & Neutral', 'Green & Earth', 'Red & Maroon', 'Pink & Peach', 'Purple & Lilac', 'Blue & Teal', 'Gold & Brown'].map((cat) => (
+                        <button
+                          key={cat}
+                          type="button"
+                          onClick={() => setSelectedColorCategory(cat)}
+                          className={`px-2 py-1 rounded-full text-[10px] font-bold whitespace-nowrap transition ${
+                            selectedColorCategory === cat
+                              ? 'bg-slate-900 text-white shadow-xs'
+                              : 'bg-gray-100 hover:bg-gray-200 text-gray-600'
+                          }`}
+                        >
+                          {cat === 'ALL' ? 'All (60+)' : cat}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* 1-Click Toggle Color Chips */}
+                  <div className="flex flex-wrap gap-1.5 max-h-48 overflow-y-auto pr-1">
+                    {PRESET_COLORS.filter((preset) => {
+                      const matchesCat = selectedColorCategory === 'ALL' || preset.category === selectedColorCategory;
+                      const matchesSearch = !colorSearch.trim() || preset.name.toLowerCase().includes(colorSearch.toLowerCase().trim());
+                      return matchesCat && matchesSearch;
+                    }).map((preset) => {
                       const isAdded = variants.some((v) => v.color.toLowerCase() === preset.name.toLowerCase());
                       return (
                         <button
                           key={preset.name}
                           type="button"
-                          onClick={() => addPresetColorVariant(preset)}
-                          className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border transition ${
+                          onClick={() => togglePresetColorVariant(preset)}
+                          className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border transition select-none ${
                             isAdded
-                              ? 'bg-emerald-50 text-emerald-800 border-emerald-300 shadow-2xs'
+                              ? 'bg-emerald-50 text-emerald-900 border-emerald-400 ring-2 ring-emerald-500/20 shadow-xs'
                               : 'bg-gray-50 hover:bg-gray-100 text-gray-700 border-gray-300'
                           }`}
-                          title={`Add ${preset.name} with color ${preset.hex}`}
+                          title={`Click to ${isAdded ? 'remove' : 'add'} ${preset.name} (${preset.hex})`}
                         >
                           <span
                             className="w-3 h-3 rounded-full border border-black/20 flex-shrink-0"
                             style={{ backgroundColor: preset.hex }}
                           />
                           <span>{preset.name}</span>
-                          {isAdded && <Check className="w-3 h-3 text-emerald-600" />}
+                          {isAdded && <Check className="w-3 h-3 text-emerald-600 font-bold" />}
                         </button>
                       );
                     })}
                   </div>
                 </div>
 
-                <div className="space-y-2.5">
-                  {variants.map((v, idx) => (
-                    <div key={idx} className="grid grid-cols-2 sm:grid-cols-7 gap-2 items-center bg-gray-50 p-3 rounded-xl border border-gray-200 shadow-2xs">
-                      {/* Color Name */}
-                      <div className="sm:col-span-2 space-y-0.5">
-                        <span className="text-[10px] text-gray-500 font-bold uppercase">Color Name & Swatch</span>
-                        <div className="flex items-center gap-1.5">
-                          <input
-                            type="color"
-                            value={v.colorHex || '#556B2F'}
-                            onChange={(e) => updateVariant(idx, 'colorHex', e.target.value)}
-                            className="w-7 h-7 rounded-full border border-gray-300 cursor-pointer p-0.5 bg-white flex-shrink-0"
-                            title="Choose swatch color"
-                          />
+                {/* Selected Variants List / Empty Placeholder */}
+                {variants.length === 0 ? (
+                  <div className="text-center py-6 border-2 border-dashed border-gray-200 rounded-xl bg-gray-50/50 p-4 space-y-1">
+                    <Palette className="w-6 h-6 text-gray-400 mx-auto" />
+                    <p className="text-xs font-bold text-gray-700">কোনো কালার সিলেক্ট করা নেই (No Colors Selected)</p>
+                    <p className="text-[11px] text-gray-500 max-w-md mx-auto">
+                      উপরের প্যালেট থেকে পছন্দের কালার বাটনে ক্লিক করে এক ক্লিকে স্টকে যোগ করুন অথবা &quot;+ Custom Variant&quot; দিয়ে যুক্ত করুন।
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-2.5">
+                    {variants.map((v, idx) => (
+                      <div key={idx} className="grid grid-cols-2 sm:grid-cols-7 gap-2 items-center bg-gray-50 p-3 rounded-xl border border-gray-200 shadow-2xs">
+                        {/* Color Name & Swatch */}
+                        <div className="sm:col-span-2 space-y-0.5">
+                          <span className="text-[10px] text-gray-500 font-bold uppercase">Color Name & Swatch</span>
+                          <div className="flex items-center gap-1.5">
+                            <input
+                              type="color"
+                              value={v.colorHex || '#C5A059'}
+                              onChange={(e) => updateVariant(idx, 'colorHex', e.target.value)}
+                              className="w-7 h-7 rounded-full border border-gray-300 cursor-pointer p-0.5 bg-white flex-shrink-0"
+                              title="Choose swatch color"
+                            />
+                            <input
+                              type="text"
+                              placeholder="e.g. Sage Green"
+                              value={v.color}
+                              onChange={(e) => updateVariant(idx, 'color', e.target.value)}
+                              className="w-full px-2 py-1.5 rounded border border-gray-300 bg-white text-xs font-semibold"
+                            />
+                          </div>
+                        </div>
+
+                        {/* Size */}
+                        <div className="space-y-0.5">
+                          <span className="text-[10px] text-gray-500 font-bold uppercase">Size</span>
                           <input
                             type="text"
-                            placeholder="e.g. Olive"
-                            value={v.color}
-                            onChange={(e) => updateVariant(idx, 'color', e.target.value)}
-                            className="w-full px-2 py-1.5 rounded border border-gray-300 bg-white text-xs font-semibold"
+                            placeholder="e.g. Standard"
+                            value={v.size}
+                            onChange={(e) => updateVariant(idx, 'size', e.target.value)}
+                            className="w-full px-2 py-1.5 rounded border border-gray-300 bg-white text-xs"
                           />
                         </div>
-                      </div>
 
-                      {/* Size */}
-                      <div className="space-y-0.5">
-                        <span className="text-[10px] text-gray-500 font-bold uppercase">Size</span>
-                        <input
-                          type="text"
-                          placeholder="e.g. Standard"
-                          value={v.size}
-                          onChange={(e) => updateVariant(idx, 'size', e.target.value)}
-                          className="w-full px-2 py-1.5 rounded border border-gray-300 bg-white text-xs"
-                        />
-                      </div>
+                        {/* SKU */}
+                        <div className="space-y-0.5">
+                          <span className="text-[10px] text-gray-500 font-bold uppercase">SKU *</span>
+                          <input
+                            type="text"
+                            required
+                            value={v.sku}
+                            onChange={(e) => updateVariant(idx, 'sku', e.target.value)}
+                            className="w-full px-2 py-1.5 rounded border border-gray-300 bg-white font-mono text-xs"
+                          />
+                        </div>
 
-                      {/* SKU */}
-                      <div className="space-y-0.5">
-                        <span className="text-[10px] text-gray-500 font-bold uppercase">SKU *</span>
-                        <input
-                          type="text"
-                          required
-                          value={v.sku}
-                          onChange={(e) => updateVariant(idx, 'sku', e.target.value)}
-                          className="w-full px-2 py-1.5 rounded border border-gray-300 bg-white font-mono text-xs"
-                        />
-                      </div>
-
-                      {/* Selling Price */}
-                      <div className="space-y-0.5">
-                        <span className="text-[10px] text-gray-500 font-bold uppercase">Selling ৳</span>
-                        <input
-                          type="number"
-                          value={v.price}
-                          onChange={(e) => updateVariant(idx, 'price', Number(e.target.value))}
-                          className="w-full px-2 py-1.5 rounded border border-gray-300 bg-white font-mono text-xs font-bold"
-                        />
-                      </div>
-
-                      {/* Cost Price */}
-                      <div className="space-y-0.5">
-                        <span className="text-[10px] text-gray-500 font-bold uppercase">Cost ৳</span>
-                        <input
-                          type="number"
-                          value={v.costPrice}
-                          onChange={(e) => updateVariant(idx, 'costPrice', Number(e.target.value))}
-                          className="w-full px-2 py-1.5 rounded border border-gray-300 bg-white font-mono text-xs"
-                        />
-                      </div>
-
-                      {/* Stock Quantity & Delete */}
-                      <div className="flex items-center gap-2 space-y-0.5">
-                        <div className="flex-1">
-                          <span className="text-[10px] text-gray-500 font-bold uppercase">Stock</span>
+                        {/* Selling Price */}
+                        <div className="space-y-0.5">
+                          <span className="text-[10px] text-gray-500 font-bold uppercase">Selling ৳</span>
                           <input
                             type="number"
-                            value={v.stock}
-                            onChange={(e) => updateVariant(idx, 'stock', Number(e.target.value))}
-                            className="w-full px-2 py-1.5 rounded border border-gray-300 bg-white font-mono text-xs font-bold text-emerald-700"
+                            value={v.price}
+                            onChange={(e) => updateVariant(idx, 'price', Number(e.target.value))}
+                            className="w-full px-2 py-1.5 rounded border border-gray-300 bg-white font-mono text-xs font-bold"
                           />
                         </div>
-                        {variants.length > 1 && (
+
+                        {/* Cost Price */}
+                        <div className="space-y-0.5">
+                          <span className="text-[10px] text-gray-500 font-bold uppercase">Cost ৳</span>
+                          <input
+                            type="number"
+                            value={v.costPrice}
+                            onChange={(e) => updateVariant(idx, 'costPrice', Number(e.target.value))}
+                            className="w-full px-2 py-1.5 rounded border border-gray-300 bg-white font-mono text-xs"
+                          />
+                        </div>
+
+                        {/* Stock Quantity & Delete */}
+                        <div className="flex items-center gap-2 space-y-0.5">
+                          <div className="flex-1">
+                            <span className="text-[10px] text-gray-500 font-bold uppercase">Stock</span>
+                            <input
+                              type="number"
+                              value={v.stock}
+                              onChange={(e) => updateVariant(idx, 'stock', Number(e.target.value))}
+                              className="w-full px-2 py-1.5 rounded border border-gray-300 bg-white font-mono text-xs font-bold text-emerald-700"
+                            />
+                          </div>
                           <button
                             type="button"
                             onClick={() => removeVariantRow(idx)}
-                            className="p-1.5 text-gray-400 hover:text-red-600 mt-4"
+                            className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg mt-4 transition"
+                            title="Remove this variant"
                           >
                             <Trash2 className="w-4 h-4" />
                           </button>
-                        )}
+                        </div>
                       </div>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
               {/* Publish Toggle */}

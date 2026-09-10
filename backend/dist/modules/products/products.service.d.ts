@@ -1,6 +1,12 @@
+import { OnModuleInit } from '@nestjs/common';
 import { Model } from 'mongoose';
 import { Product, ProductDocument } from '../../schemas/product.schema';
 import { CategoryDocument } from '../../schemas/category.schema';
+import { OrderDocument } from '../../schemas/order.schema';
+import { PurchaseOrderDocument } from '../../schemas/purchase.schema';
+import { InventoryTransactionDocument } from '../../schemas/inventory-transaction.schema';
+import { ReturnRequestDocument } from '../../schemas/return-request.schema';
+import { AuditLogService } from '../audit-log/audit-log.service';
 export declare const DEFAULT_AVELORA_CATEGORIES: {
     slug: string;
     name: string;
@@ -27,12 +33,7 @@ export declare function evaluateProductPricing(product: {
     discountStartDate?: string | Date;
     discountEndDate?: string | Date;
 }, now?: Date): ProductPricingEvaluation;
-import { OrderDocument } from '../../schemas/order.schema';
-import { PurchaseOrderDocument } from '../../schemas/purchase.schema';
-import { InventoryTransactionDocument } from '../../schemas/inventory-transaction.schema';
-import { ReturnRequestDocument } from '../../schemas/return-request.schema';
-import { AuditLogService } from '../audit-log/audit-log.service';
-export declare class ProductsService {
+export declare class ProductsService implements OnModuleInit {
     private productModel;
     private categoryModel;
     private orderModel;
@@ -40,7 +41,10 @@ export declare class ProductsService {
     private transactionModel;
     private returnRequestModel;
     private readonly auditLogService;
+    private readonly logger;
     constructor(productModel: Model<ProductDocument>, categoryModel: Model<CategoryDocument>, orderModel: Model<OrderDocument>, purchaseOrderModel: Model<PurchaseOrderDocument>, transactionModel: Model<InventoryTransactionDocument>, returnRequestModel: Model<ReturnRequestDocument>, auditLogService: AuditLogService);
+    onModuleInit(): Promise<void>;
+    private normalizeLegacyProducts;
     private normalizeProductImages;
     private validatePricingAndDates;
     findPublic(query: {

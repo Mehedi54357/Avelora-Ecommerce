@@ -10,7 +10,7 @@ export const revalidate = 0;
 
 async function getFeaturedProducts() {
   try {
-    const res = await fetch(`${API_BASE_URL}/api/products?limit=8`, {
+    const res = await fetch(`${API_BASE_URL}/api/products?limit=100`, {
       cache: 'no-store',
     });
     if (res.ok) {
