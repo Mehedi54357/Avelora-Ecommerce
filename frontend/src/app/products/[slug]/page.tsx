@@ -256,7 +256,7 @@ export default function ProductDetailPage() {
 
   const selectedVariant = product?.variants?.[selectedVariantIndex] || {
     sku: `SKU-${product?.slug || 'AVE'}`,
-    color: 'Olive',
+    color: '',
     size: 'Standard',
     price: pricing.effectivePrice,
     stockQuantity: 10,
@@ -494,7 +494,7 @@ export default function ProductDetailPage() {
   const badgeText = product.badge || 'BEST SELLER';
   const ratingValue = product.rating || 4.8;
   const reviewsCount = product.reviewsCount || 256;
-  const selectedColorName = selectedVariant.color || product.subtitle || 'Olive';
+  const selectedColorName = selectedVariant.color || product.subtitle || '';
 
   const productJsonLd = {
     '@context': 'https://schema.org',

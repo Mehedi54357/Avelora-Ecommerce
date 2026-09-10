@@ -175,27 +175,31 @@ export default function ProductCard({ product }: ProductCardProps) {
       return 'https://images.unsplash.com/photo-1584917865442-de89df76afd3?auto=format&fit=crop&w=600&q=80';
     }
 
-    // 1. Direct variant image if present
+    // 1. Direct variant image if explicitly configured on variant
     const variantAny = selectedVariant as any;
     if (variantAny.image && typeof variantAny.image === 'string' && variantAny.image.trim() !== '') {
-      return variantAny.image;
+      return variantAny.image.trim();
     }
 
-    // 2. Look for matching variantColor in productImages
-    if (Array.isArray(product.productImages) && selectedVariant.color) {
-      const matched = product.productImages.find(
-        (img: any) => img.variantColor?.toLowerCase().trim() === selectedVariant.color?.toLowerCase().trim(),
-      );
+    // 2. Look for matching variantColor in productImages gallery
+    if (Array.isArray(product.productImages) && selectedVariant.color && selectedVariant.color.trim() !== '') {
+      const selectedColorLower = selectedVariant.color.toLowerCase().trim();
+      const matched = product.productImages.find((img: any) => {
+        const imgColor = (img.variantColor || '').toLowerCase().trim();
+        return imgColor && imgColor === selectedColorLower;
+      });
       if (matched?.url) return matched.url;
     }
 
-    // 3. Fallback to image by index if available
-    if (product.images[selectedVariantIndex]) {
-      return product.images[selectedVariantIndex];
+    // 3. Fallback: If this color does NOT have an assigned picture,
+    // display the product's primary cover image (never jump to arbitrary index)
+    if (Array.isArray(product.productImages) && product.productImages.length > 0) {
+      const primary = product.productImages.find((img: any) => img.isPrimary);
+      if (primary?.url) return primary.url;
     }
 
     return product.images[0];
-  }, [product.images, product.productImages, selectedVariant, selectedVariantIndex]);
+  }, [product.images, product.productImages, selectedVariant]);
 
   const secondaryHoverImage = product.images && product.images.length > 1 ? product.images[1] : currentVariantImage;
   const activeDisplayImage = isHovered && selectedVariantIndex === 0 && product.images && product.images.length > 1
@@ -251,8 +255,12 @@ export default function ProductCard({ product }: ProductCardProps) {
     router.push('/checkout');
   };
 
-  // Extract color swatches
-  const colorList = (product.variants || []).filter((v) => v.color && v.color.trim() !== '');
+  // Extract color swatches with accurate reference to original variant index
+  const colorList = useMemo(() => {
+    return (product.variants || [])
+      .map((v, originalIndex) => ({ ...v, originalIndex }))
+      .filter((v) => v.color && v.color.trim() !== '');
+  }, [product.variants]);
 
   return (
     <div
@@ -322,22 +330,22 @@ export default function ProductCard({ product }: ProductCardProps) {
               )}
             </div>
             <div className="flex items-center gap-1 sm:gap-1.5 flex-wrap">
-              {colorList.slice(0, 6).map((variant, idx) => {
-                const isSelected = selectedVariantIndex === idx;
+              {colorList.slice(0, 6).map((variant) => {
+                const isSelected = selectedVariantIndex === variant.originalIndex;
                 const lower = (variant.color || '').toLowerCase().trim();
                 const hexColor = variant.colorHex || COLOR_MAP[lower] || '#0F172A';
                 const isWhite = hexColor.toUpperCase() === '#FFFFFF' || hexColor.toLowerCase() === '#fff';
 
                 return (
                   <button
-                    key={variant.sku || idx}
+                    key={variant.sku || variant.originalIndex}
                     type="button"
                     onClick={(e) => {
                       e.preventDefault();
                       e.stopPropagation();
-                      setSelectedVariantIndex(idx);
+                      setSelectedVariantIndex(variant.originalIndex);
                     }}
-                    onMouseEnter={() => setSelectedVariantIndex(idx)}
+                    onMouseEnter={() => setSelectedVariantIndex(variant.originalIndex)}
                     className={`w-4 h-4 sm:w-5 sm:h-5 rounded-full transition-all flex items-center justify-center border shadow-2xs ${
                       isSelected
                         ? 'ring-2 ring-slate-900 ring-offset-1 scale-110 border-white'
