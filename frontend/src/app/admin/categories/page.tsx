@@ -35,13 +35,34 @@ export default function AdminCategoriesPage() {
       if (catRes.ok) {
         const catData = await catRes.json();
         setCategories(catData || []);
+      } else {
+        const fallbackCat = await fetch(`${API_BASE_URL}/api/categories`);
+        if (fallbackCat.ok) {
+          const fallbackData = await fallbackCat.json();
+          setCategories(fallbackData || []);
+        }
       }
       if (prodRes.ok) {
         const prodData = await prodRes.json();
-        setProducts(prodData || []);
+        setProducts(Array.isArray(prodData) ? prodData : prodData?.products || []);
+      } else {
+        const fallbackProd = await fetch(`${API_BASE_URL}/api/products?limit=200`);
+        if (fallbackProd.ok) {
+          const fallbackProdData = await fallbackProd.json();
+          setProducts(fallbackProdData.products || []);
+        }
       }
     } catch (e) {
-      console.error(e);
+      console.error('Error fetching categories:', e);
+      try {
+        const fallbackCat = await fetch(`${API_BASE_URL}/api/categories`);
+        if (fallbackCat.ok) {
+          const fallbackData = await fallbackCat.json();
+          setCategories(fallbackData || []);
+        }
+      } catch (err2) {
+        console.error('Fallback fetch error:', err2);
+      }
     } finally {
       setLoading(false);
     }
@@ -104,9 +125,8 @@ export default function AdminCategoriesPage() {
       } catch {
         setImage(compressedDataUrl);
       }
-    } catch (err) {
-      console.error(err);
-      setError('ছবি প্রসেস করতে সমস্যা হয়েছে। অন্য ছবি চেষ্টা করুন।');
+    } catch (err: any) {
+      setError(err.message || 'Error processing image');
     } finally {
       setUploadingImage(false);
     }
@@ -115,22 +135,25 @@ export default function AdminCategoriesPage() {
   const handleSaveCategory = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) {
-      setError('ক্যাটাগরির নাম দেওয়া আবশ্যক।');
+      setError('Category name is required.');
       return;
     }
 
     setSaving(true);
     setError('');
 
-    const autoSlug = slug.trim() || name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+    const cleanSlug = slug.trim() ||
+      name.trim().toLowerCase().replace(/[^a-z0-9\u0980-\u09FF]+/g, '-').replace(/(^-|-$)/g, '') ||
+      `cat-${Date.now().toString().slice(-6)}`;
 
     const payload = {
       name: name.trim(),
-      slug: autoSlug,
-      department,
+      slug: cleanSlug,
+      department: department || 'women',
       description: description.trim(),
-      image,
-      sortOrder: Number(sortOrder),
+      image: image.trim(),
+      isActive: true,
+      sortOrder: Number(sortOrder) || 0,
     };
 
     try {

@@ -10,15 +10,19 @@ export const revalidate = 0;
 
 async function getFeaturedProducts() {
   try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 1000);
     const res = await fetch(`${API_BASE_URL}/api/products?limit=100`, {
       cache: 'no-store',
+      signal: controller.signal,
     });
+    clearTimeout(timeoutId);
     if (res.ok) {
       const data = await res.json();
       return data.products || [];
     }
   } catch (e) {
-    console.error('Error fetching featured products', e);
+    // Graceful SSR fallback: client will render smoothly via HomeFeaturedProducts
   }
   return [];
 }
