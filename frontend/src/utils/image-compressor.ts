@@ -32,9 +32,9 @@ export async function processImageForUpload(
     );
   }
 
-  // 2. Validation: File Size limit (15MB max)
-  if (file.size > 15 * 1024 * 1024) {
-    throw new Error('Image file is too large (max 15MB). Please choose a smaller image.');
+  // 2. Validation: File Size limit (50MB max per file to support any professional DSLR / iPhone RAW)
+  if (file.size > 50 * 1024 * 1024) {
+    throw new Error('Image file exceeds 50MB. Please choose a smaller image.');
   }
 
   return new Promise((resolve, reject) => {
@@ -59,28 +59,18 @@ export async function processImageForUpload(
           return reject(new Error('Corrupted image with zero dimensions detected.'));
         }
 
-        // If image is already modest size (< 3.5MB) and within dimension boundaries, preserve untouched master
-        if (file.size <= 3.5 * 1024 * 1024 && origWidth <= maxDimension && origHeight <= maxDimension) {
-          return resolve({
-            dataUrl: rawDataUrl,
-            width: origWidth,
-            height: origHeight,
-            format: file.type,
-            originalSize: file.size,
-          });
-        }
-
-        // High-fidelity downscaling for oversized images (e.g. 24MP+ DSLR RAW exports)
+        // Always apply smart web optimization (max 1400px, quality 0.82) to prevent MongoDB 16MB document size overflow
         let targetWidth = origWidth;
         let targetHeight = origHeight;
+        const targetMaxDimension = Math.min(maxDimension, 1400);
 
-        if (targetWidth > maxDimension || targetHeight > maxDimension) {
+        if (targetWidth > targetMaxDimension || targetHeight > targetMaxDimension) {
           if (targetWidth >= targetHeight) {
-            targetHeight = Math.round((targetHeight * maxDimension) / targetWidth);
-            targetWidth = maxDimension;
+            targetHeight = Math.round((targetHeight * targetMaxDimension) / targetWidth);
+            targetWidth = targetMaxDimension;
           } else {
-            targetWidth = Math.round((targetWidth * maxDimension) / targetHeight);
-            targetHeight = maxDimension;
+            targetWidth = Math.round((targetWidth * targetMaxDimension) / targetHeight);
+            targetHeight = targetMaxDimension;
           }
         }
 

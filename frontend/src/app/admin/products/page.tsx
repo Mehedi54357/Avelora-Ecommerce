@@ -381,7 +381,7 @@ export default function AdminProductsPage() {
         setUploadProgressText(`Processing & uploading image ${i + 1} of ${files.length}...`);
 
         try {
-          const processed = await processImageForUpload(file, 2500, 0.94);
+          const processed = await processImageForUpload(file, 1400, 0.82);
 
           const res = await authFetch(`${API_BASE_URL}/api/upload/image`, {
             method: 'POST',
@@ -1432,8 +1432,18 @@ export default function AdminProductsPage() {
                       type="checkbox"
                       checked={isDiscountActive}
                       onChange={(e) => {
-                        setIsDiscountActive(e.target.checked);
+                        const enabled = e.target.checked;
+                        setIsDiscountActive(enabled);
                         setIsDirty(true);
+                        if (!enabled) {
+                          setDiscountPercentage(0);
+                          if (originalPrice > 0) {
+                            setSalePrice(originalPrice);
+                            setVariants((prev) =>
+                              prev.map((v) => ({ ...v, price: originalPrice }))
+                            );
+                          }
+                        }
                       }}
                       className="w-4 h-4 text-[#556B2F] rounded border-gray-300"
                     />
@@ -1453,9 +1463,12 @@ export default function AdminProductsPage() {
                         setOriginalPrice(orig);
                         setIsDirty(true);
                         if (discountPercentage > 0) {
-                          setSalePrice(Math.round(orig * (1 - discountPercentage / 100)));
-                        } else if (!salePrice) {
+                          const newSale = Math.round(orig * (1 - discountPercentage / 100));
+                          setSalePrice(newSale);
+                          setVariants((prev) => prev.map((v) => ({ ...v, price: newSale })));
+                        } else if (!isDiscountActive || !salePrice) {
                           setSalePrice(orig);
+                          setVariants((prev) => prev.map((v) => ({ ...v, price: orig })));
                         }
                       }}
                       className="w-full px-3.5 py-2.5 rounded-lg border border-gray-300 bg-white font-mono font-bold"
@@ -1472,7 +1485,9 @@ export default function AdminProductsPage() {
                         setDiscountPercentage(disc);
                         setIsDirty(true);
                         if (originalPrice > 0 && disc > 0) {
-                          setSalePrice(Math.round(originalPrice * (1 - disc / 100)));
+                          const newSale = Math.round(originalPrice * (1 - disc / 100));
+                          setSalePrice(newSale);
+                          setVariants((prev) => prev.map((v) => ({ ...v, price: newSale })));
                         }
                       }}
                       className="w-full px-3.5 py-2.5 rounded-lg border border-gray-300 bg-white font-mono"
@@ -1487,11 +1502,15 @@ export default function AdminProductsPage() {
                       value={salePrice}
                       onChange={(e) => {
                         const sale = Number(e.target.value);
+                        const oldSale = salePrice;
                         setSalePrice(sale);
                         setIsDirty(true);
                         if (originalPrice > 0 && sale > 0 && sale < originalPrice) {
                           setDiscountPercentage(Math.round(((originalPrice - sale) / originalPrice) * 100));
                         }
+                        setVariants((prev) =>
+                          prev.map((v) => (v.price === 0 || v.price === oldSale ? { ...v, price: sale } : v))
+                        );
                       }}
                       className="w-full px-3.5 py-2.5 rounded-lg border border-gray-300 bg-white font-mono font-bold text-[#0F172A]"
                     />
