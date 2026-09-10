@@ -46,10 +46,6 @@ export declare class ProductsService implements OnModuleInit {
     onModuleInit(): Promise<void>;
     seedDefaultProducts(): Promise<{
         message: string;
-        count?: undefined;
-        error?: undefined;
-    } | {
-        message: string;
         count: number;
         error?: undefined;
     } | {

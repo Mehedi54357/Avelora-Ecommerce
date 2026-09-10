@@ -28,10 +28,6 @@ export declare class ProductsController {
     })[]>;
     seedDefaultProducts(): Promise<{
         message: string;
-        count?: undefined;
-        error?: undefined;
-    } | {
-        message: string;
         count: number;
         error?: undefined;
     } | {

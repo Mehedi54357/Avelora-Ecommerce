@@ -134,14 +134,9 @@ export class ProductsService implements OnModuleInit {
 
   async seedDefaultProducts() {
     try {
-      const existingCount = await this.productModel.countDocuments().exec();
-      if (existingCount > 0) {
-        return { message: `Products already exist (${existingCount} found)` };
-      }
-
-      const hijabCat = await this.categoryModel.findOne({ slug: 'women-hijab' }).exec();
-      const churiCat = await this.categoryModel.findOne({ slug: 'women-churi-bangles' }).exec();
-      const jewelleryCat = await this.categoryModel.findOne({ slug: 'women-accessories' }).exec();
+      const hijabCat = await this.categoryModel.findOne({ $or: [{ slug: 'women-hijab' }, { name: /hijab/i }] }).exec();
+      const churiCat = await this.categoryModel.findOne({ $or: [{ slug: 'women-churi-bangles' }, { name: /churi|bangle/i }] }).exec();
+      const jewelleryCat = await this.categoryModel.findOne({ $or: [{ slug: 'women-accessories' }, { name: /jewellery|jewelry|accessories/i }] }).exec();
 
       const defaultProducts = [
         {
