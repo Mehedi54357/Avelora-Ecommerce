@@ -54,6 +54,7 @@ export declare class ProductsService implements OnModuleInit {
         count?: undefined;
     }>;
     private normalizeLegacyProducts;
+    autoDetectCategoryId(nameOrText: string): Promise<any>;
     private normalizeProductImages;
     private validatePricingAndDates;
     findPublic(query: {

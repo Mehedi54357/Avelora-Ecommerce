@@ -414,9 +414,18 @@ let ProductsService = ProductsService_1 = class ProductsService {
                 if (text.includes('চুড়ি') ||
                     text.includes('চুড়ি') ||
                     text.includes('churi') ||
+                    text.includes('curi') ||
                     text.includes('bangle') ||
                     text.includes('reshmi') ||
-                    text.includes('resmi')) {
+                    text.includes('resmi') ||
+                    text.includes('kasmeri') ||
+                    text.includes('kashmiri') ||
+                    text.includes('kacer') ||
+                    text.includes('kacher') ||
+                    text.includes('কাঁচের') ||
+                    text.includes('bala') ||
+                    text.includes('বালা') ||
+                    text.includes('কঙ্কন')) {
                     if (churiCat && String(prod.categoryId) !== String(churiCat._id)) {
                         prod.categoryId = churiCat._id;
                         await prod.save();
@@ -426,7 +435,12 @@ let ProductsService = ProductsService_1 = class ProductsService {
                 else if (text.includes('hijab') ||
                     text.includes('হিজাব') ||
                     text.includes('abaya') ||
-                    text.includes('scarf')) {
+                    text.includes('scarf') ||
+                    text.includes('জাপান') ||
+                    text.includes('জাপ্রান') ||
+                    text.includes('popcorn') ||
+                    text.includes('cherry') ||
+                    text.includes('ceri')) {
                     if (hijabCat && String(prod.categoryId) !== String(hijabCat._id)) {
                         prod.categoryId = hijabCat._id;
                         await prod.save();
@@ -446,18 +460,20 @@ let ProductsService = ProductsService_1 = class ProductsService {
                 }
                 else if (text.includes('jhumka') ||
                     text.includes('ঝুমকা') ||
+                    text.includes('kundan') ||
                     text.includes('jewel') ||
                     text.includes('গহনা') ||
                     text.includes('necklace') ||
                     text.includes('earring') ||
                     text.includes('choker') ||
-                    text.includes('payel')) {
+                    text.includes('payel') ||
+                    text.includes('পায়েল')) {
                     if (jewelleryCat && String(prod.categoryId) !== String(jewelleryCat._id)) {
                         prod.categoryId = jewelleryCat._id;
                         await prod.save();
                     }
                 }
-                else if (text.includes('panjabi') || text.includes('পাঞ্জাবি')) {
+                else if (text.includes('panjabi') || text.includes('পাঞ্জাবি') || text.includes('punjabi')) {
                     if (panjabiCat && String(prod.categoryId) !== String(panjabiCat._id)) {
                         prod.categoryId = panjabiCat._id;
                         await prod.save();
@@ -495,6 +511,80 @@ let ProductsService = ProductsService_1 = class ProductsService {
         catch (e) {
             this.logger.warn(`Failed to normalize legacy products: ${e.message}`);
         }
+    }
+    async autoDetectCategoryId(nameOrText) {
+        const text = (nameOrText || '').toLowerCase();
+        if (!text)
+            return null;
+        if (text.includes('চুড়ি') ||
+            text.includes('চুড়ি') ||
+            text.includes('churi') ||
+            text.includes('curi') ||
+            text.includes('bangle') ||
+            text.includes('reshmi') ||
+            text.includes('resmi') ||
+            text.includes('kasmeri') ||
+            text.includes('kashmiri') ||
+            text.includes('kacer') ||
+            text.includes('kacher') ||
+            text.includes('কাঁচের') ||
+            text.includes('bala') ||
+            text.includes('বালা') ||
+            text.includes('কঙ্কন')) {
+            const cat = await this.categoryModel.findOne({ $or: [{ slug: 'women-churi-bangles' }, { name: /churi|চুড়ি|চুড়ি|bangle/i }] }).exec();
+            return cat?._id || null;
+        }
+        if (text.includes('hijab') ||
+            text.includes('হিজাব') ||
+            text.includes('abaya') ||
+            text.includes('scarf') ||
+            text.includes('জাপান') ||
+            text.includes('জাপ্রান') ||
+            text.includes('popcorn') ||
+            text.includes('cherry') ||
+            text.includes('ceri')) {
+            const cat = await this.categoryModel.findOne({ $or: [{ slug: 'women-hijab' }, { name: /hijab|হিজাব/i }] }).exec();
+            return cat?._id || null;
+        }
+        if (text.includes('jhumka') ||
+            text.includes('ঝুমকা') ||
+            text.includes('kundan') ||
+            text.includes('jewel') ||
+            text.includes('গহনা') ||
+            text.includes('necklace') ||
+            text.includes('earring') ||
+            text.includes('choker') ||
+            text.includes('payel') ||
+            text.includes('পায়েল')) {
+            const cat = await this.categoryModel.findOne({ $or: [{ slug: 'women-accessories' }, { name: /jewel|accessories|জুয়েলারি|জুয়েলারি|গহনা/i }] }).exec();
+            return cat?._id || null;
+        }
+        if (text.includes('hair') ||
+            text.includes('clip') ||
+            text.includes('pin') ||
+            text.includes('headband') ||
+            text.includes('হেয়ার') ||
+            text.includes('হেয়ার')) {
+            const cat = await this.categoryModel.findOne({ $or: [{ slug: 'women-hair-accessories' }, { name: /hair|হেয়ার|হেয়ার/i }] }).exec();
+            return cat?._id || null;
+        }
+        if (text.includes('panjabi') || text.includes('পাঞ্জাবি') || text.includes('punjabi')) {
+            const cat = await this.categoryModel.findOne({ $or: [{ slug: 'men-clothing' }, { name: /panjabi|পাঞ্জাবি/i }] }).exec();
+            return cat?._id || null;
+        }
+        if (text.includes('loafer') || text.includes('লোফার') || text.includes('men')) {
+            const cat = await this.categoryModel.findOne({ $or: [{ slug: 'men-shoes' }, { name: /loafer|men.*shoe|মেনস/i }] }).exec();
+            return cat?._id || null;
+        }
+        if (text.includes('nagra') || text.includes('নাগরা') || text.includes('জুতা') || text.includes('heel')) {
+            const cat = await this.categoryModel.findOne({ $or: [{ slug: 'women-shoes' }, { name: /nagra|shoe|জুতা|নাগরা/i }] }).exec();
+            return cat?._id || null;
+        }
+        if (text.includes('dress') || text.includes('gown') || text.includes('kurti') || text.includes('গাউন') || text.includes('ড্রেস')) {
+            const cat = await this.categoryModel.findOne({ $or: [{ slug: 'women-dresses' }, { name: /dress|ড্রেস|গাউন|kurti/i }] }).exec();
+            return cat?._id || null;
+        }
+        return null;
     }
     normalizeProductImages(payload) {
         if (Array.isArray(payload.productImages) && payload.productImages.length > 0) {
@@ -598,52 +688,78 @@ let ProductsService = ProductsService_1 = class ProductsService {
                     ],
                 });
                 andFilters.push({
-                    name: { $not: /চুড়ি|চুড়ি|churi|bangle|reshmi|resmi|jhumka|ঝুমকা|earring|payel|necklace/i },
+                    name: {
+                        $not: /curi|churi|bangle|bangles|চুড়ি|চুড়ি|reshmi|resmi|kasmeri|kashmiri|kacer|kacher|bala|কাঁচের|কঙ্কন|jhumka|ঝুমকা|earring|payel|necklace|jewel|jewellery|গহনা|জুয়েলারি|জুয়েলারি|hair|clip|pin|headband|panjabi|পাঞ্জাবি|loafer|shoe|nagra|নাগরা|dress|gown/i,
+                    },
                 });
             }
-            else if (catSlugOrId.includes('churi') || catSlugOrId.includes('bangle') || cleanKeyword.includes('churi')) {
+            else if (catSlugOrId.includes('churi') ||
+                catSlugOrId.includes('curi') ||
+                catSlugOrId.includes('bangle') ||
+                cleanKeyword.includes('churi') ||
+                cleanKeyword.includes('curi') ||
+                cleanKeyword.includes('bangle')) {
                 andFilters.push({
                     $or: [
                         ...(matchingCatIds.length > 0 ? [{ categoryId: { $in: matchingCatIds } }] : []),
-                        { name: { $regex: /churi|bangle|চুড়ি|চুড়ি|reshmi|resmi|কঙ্কন/i } },
+                        { name: { $regex: /curi|churi|bangle|bangles|চুড়ি|চুড়ি|reshmi|resmi|kasmeri|kashmiri|kacer|kacher|bala|কাঁচের|কঙ্কন/i } },
                     ],
                 });
                 andFilters.push({
-                    name: { $not: /hijab|হিজাব|abaya|scarf|jhumka|ঝুমকা/i },
+                    name: {
+                        $not: /hijab|হিজাব|abaya|scarf|jhumka|ঝুমকা|earring|payel|jewel|jewellery|hair|clip|panjabi|পাঞ্জাবি|loafer|shoe|nagra|dress|gown/i,
+                    },
                 });
             }
-            else if (catSlugOrId.includes('jewel') || catSlugOrId.includes('jhumka') || catSlugOrId.includes('accessories')) {
+            else if (catSlugOrId.includes('jewel') ||
+                catSlugOrId.includes('jhumka') ||
+                catSlugOrId.includes('accessories') ||
+                cleanKeyword.includes('jewel') ||
+                cleanKeyword.includes('jhumka') ||
+                cleanKeyword.includes('accessories')) {
                 andFilters.push({
                     $or: [
                         ...(matchingCatIds.length > 0 ? [{ categoryId: { $in: matchingCatIds } }] : []),
-                        { name: { $regex: /jewel|jhumka|necklace|earring|গহনা|ঝুমকা|জুয়েলারি|জুয়েলারি|এক্সেসরিজ|payel/i } },
+                        { name: { $regex: /jewel|jewellery|jhumka|kundan|necklace|earring|গহনা|ঝুমকা|জুয়েলারি|জুয়েলারি|এক্সেসরিজ|payel|choker|ring|আংটি/i } },
                     ],
                 });
                 andFilters.push({
-                    name: { $not: /hijab|হিজাব|চুড়ি|চুড়ি|churi|bangle/i },
+                    name: {
+                        $not: /hijab|হিজাব|abaya|curi|churi|bangle|bangles|চুড়ি|চুড়ি|reshmi|resmi|kasmeri|kashmiri|hair|clip|pin|panjabi|loafer|nagra|dress/i,
+                    },
                 });
             }
             else if (catSlugOrId.includes('hair') || cleanKeyword.includes('hair')) {
                 andFilters.push({
                     $or: [
                         ...(matchingCatIds.length > 0 ? [{ categoryId: { $in: matchingCatIds } }] : []),
-                        { name: { $regex: /hair|clip|pin|headband|হেয়ার|হেয়ার/i } },
+                        { name: { $regex: /hair|clip|pin|headband|scrunchie|হেয়ার|হেয়ার|ক্লিপ/i } },
                     ],
+                });
+                andFilters.push({
+                    name: {
+                        $not: /hijab|হিজাব|curi|churi|bangle|jhumka|jewel|panjabi|loafer|nagra|dress/i,
+                    },
                 });
             }
             else if (catSlugOrId.includes('dress') || catSlugOrId.includes('kurti') || catSlugOrId.includes('gown')) {
                 andFilters.push({
                     $or: [
                         ...(matchingCatIds.length > 0 ? [{ categoryId: { $in: matchingCatIds } }] : []),
-                        { name: { $regex: /dress|gown|kurti|ড্রেস|গাউন|কুর্তি/i } },
+                        { name: { $regex: /dress|gown|kurti|ড্রেস|গাউন|কুর্তি|kaftan/i } },
                     ],
+                });
+                andFilters.push({
+                    name: {
+                        $not: /hijab|curi|churi|bangle|jhumka|panjabi|men|shoe/i,
+                    },
                 });
             }
             else if (catSlugOrId.includes('shoe') || catSlugOrId.includes('loafer') || catSlugOrId.includes('nagra')) {
                 andFilters.push({
                     $or: [
                         ...(matchingCatIds.length > 0 ? [{ categoryId: { $in: matchingCatIds } }] : []),
-                        { name: { $regex: /shoe|loafer|nagra|জুতা|নাগরা|লোফার/i } },
+                        { name: { $regex: /shoe|loafer|nagra|জুতা|নাগরা|লোফার|heel|jutti/i } },
                     ],
                 });
             }
@@ -651,8 +767,13 @@ let ProductsService = ProductsService_1 = class ProductsService {
                 andFilters.push({
                     $or: [
                         ...(matchingCatIds.length > 0 ? [{ categoryId: { $in: matchingCatIds } }] : []),
-                        { name: { $regex: /panjabi|পাঞ্জাবি/i } },
+                        { name: { $regex: /panjabi|পাঞ্জাবি|punjabi|sherwani/i } },
                     ],
+                });
+                andFilters.push({
+                    name: {
+                        $not: /hijab|curi|churi|bangle|jhumka|women|dress|gown|hair/i,
+                    },
                 });
             }
             else {
@@ -832,11 +953,23 @@ let ProductsService = ProductsService_1 = class ProductsService {
                 payload.categoryId = resolvedCatId;
             }
             else {
-                delete payload.categoryId;
+                const autoCat = await this.autoDetectCategoryId(payload.name);
+                if (autoCat) {
+                    payload.categoryId = autoCat;
+                }
+                else {
+                    delete payload.categoryId;
+                }
             }
         }
         else {
-            delete payload.categoryId;
+            const autoCat = await this.autoDetectCategoryId(payload.name);
+            if (autoCat) {
+                payload.categoryId = autoCat;
+            }
+            else {
+                delete payload.categoryId;
+            }
         }
         const existing = await this.productModel.findOne({ slug: payload.slug }).exec();
         if (existing) {
@@ -910,8 +1043,11 @@ let ProductsService = ProductsService_1 = class ProductsService {
                 delete payload.categoryId;
             }
         }
-        else if (payload.categoryId === '' || payload.categoryId === null) {
-            delete payload.categoryId;
+        else if (payload.name && (payload.categoryId === '' || payload.categoryId === undefined)) {
+            const autoCat = await this.autoDetectCategoryId(payload.name);
+            if (autoCat) {
+                payload.categoryId = autoCat;
+            }
         }
         this.normalizeProductImages(payload);
         this.validatePricingAndDates(payload);

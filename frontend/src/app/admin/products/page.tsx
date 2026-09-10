@@ -37,7 +37,7 @@ import { buildProductQrUrl } from '../../../utils/qr-generator';
 
 const PRESET_CATEGORIES = [
   { slug: 'women-hijab', name: 'Hijab Collection (হিজাব)', department: 'women' },
-  { slug: 'women-churi-bangles', name: 'Churi & Bangles (কাঁচের ও রেশmi চুড়ি)', department: 'women' },
+  { slug: 'women-churi-bangles', name: 'Churi & Bangles (কাঁচের ও রেশমি চুড়ি)', department: 'women' },
   { slug: 'women-accessories', name: 'Accessories & Fine Jewellery (জুয়েলারি ও গহনা)', department: 'women' },
   { slug: 'women-dresses', name: 'Dresses & Modest Wear (ড্রেস ও গাউন)', department: 'women' },
   { slug: 'women-hair-accessories', name: 'Hair Accessories (হেয়ার এক্সেসরিজ)', department: 'women' },
@@ -293,7 +293,7 @@ export default function AdminProductsPage() {
     setName('');
     setSubtitle('');
     setSlug('');
-    setCategoryId(categories[0]?._id || '');
+    setCategoryId('');
     setBadge('BEST SELLER');
     setUnitBadge('');
     setRating(4.8);
@@ -1294,8 +1294,75 @@ export default function AdminProductsPage() {
                     placeholder="e.g. Ceri Hijab or Reshmi Churi"
                     value={name}
                     onChange={(e) => {
-                      setName(e.target.value);
+                      const val = e.target.value;
+                      setName(val);
                       setIsDirty(true);
+                      // Intelligent Category Auto-Detection for Admin convenience
+                      if (!editingProduct && (!categoryId || categoryId === '')) {
+                        const lower = val.toLowerCase();
+                        if (
+                          lower.includes('curi') ||
+                          lower.includes('churi') ||
+                          lower.includes('চুড়ি') ||
+                          lower.includes('চুড়ি') ||
+                          lower.includes('bangle') ||
+                          lower.includes('reshmi') ||
+                          lower.includes('resmi') ||
+                          lower.includes('kasmeri') ||
+                          lower.includes('kashmiri') ||
+                          lower.includes('kacer') ||
+                          lower.includes('kacher') ||
+                          lower.includes('কাঁচের') ||
+                          lower.includes('bala') ||
+                          lower.includes('কঙ্কন')
+                        ) {
+                          const found = categories.find((c) => c.slug === 'women-churi-bangles') || PRESET_CATEGORIES.find((c) => c.slug === 'women-churi-bangles');
+                          if (found) setCategoryId((found as any)._id || found.slug);
+                        } else if (
+                          lower.includes('hijab') ||
+                          lower.includes('হিজাব') ||
+                          lower.includes('abaya') ||
+                          lower.includes('scarf') ||
+                          lower.includes('popcorn') ||
+                          lower.includes('ceri') ||
+                          lower.includes('cherry') ||
+                          lower.includes('jafran')
+                        ) {
+                          const found = categories.find((c) => c.slug === 'women-hijab') || PRESET_CATEGORIES.find((c) => c.slug === 'women-hijab');
+                          if (found) setCategoryId((found as any)._id || found.slug);
+                        } else if (
+                          lower.includes('jhumka') ||
+                          lower.includes('ঝুমকা') ||
+                          lower.includes('jewel') ||
+                          lower.includes('kundan') ||
+                          lower.includes('necklace') ||
+                          lower.includes('earring') ||
+                          lower.includes('payel')
+                        ) {
+                          const found = categories.find((c) => c.slug === 'women-accessories') || PRESET_CATEGORIES.find((c) => c.slug === 'women-accessories');
+                          if (found) setCategoryId((found as any)._id || found.slug);
+                        } else if (
+                          lower.includes('hair') ||
+                          lower.includes('হেয়ার') ||
+                          lower.includes('হেয়ার') ||
+                          lower.includes('clip')
+                        ) {
+                          const found = categories.find((c) => c.slug === 'women-hair-accessories') || PRESET_CATEGORIES.find((c) => c.slug === 'women-hair-accessories');
+                          if (found) setCategoryId((found as any)._id || found.slug);
+                        } else if (lower.includes('panjabi') || lower.includes('পাঞ্জাবি') || lower.includes('punjabi')) {
+                          const found = categories.find((c) => c.slug === 'men-clothing') || PRESET_CATEGORIES.find((c) => c.slug === 'men-clothing');
+                          if (found) setCategoryId((found as any)._id || found.slug);
+                        } else if (lower.includes('loafer') || lower.includes('লোফার')) {
+                          const found = categories.find((c) => c.slug === 'men-shoes') || PRESET_CATEGORIES.find((c) => c.slug === 'men-shoes');
+                          if (found) setCategoryId((found as any)._id || found.slug);
+                        } else if (lower.includes('nagra') || lower.includes('নাগরা') || lower.includes('জুতা')) {
+                          const found = categories.find((c) => c.slug === 'women-shoes') || PRESET_CATEGORIES.find((c) => c.slug === 'women-shoes');
+                          if (found) setCategoryId((found as any)._id || found.slug);
+                        } else if (lower.includes('dress') || lower.includes('gown') || lower.includes('kurti')) {
+                          const found = categories.find((c) => c.slug === 'women-dresses') || PRESET_CATEGORIES.find((c) => c.slug === 'women-dresses');
+                          if (found) setCategoryId((found as any)._id || found.slug);
+                        }
+                      }
                     }}
                     className="w-full px-3.5 py-2.5 rounded-lg border border-gray-300 focus:outline-none focus:border-[#C5A059] bg-white text-gray-900 font-medium"
                   />
@@ -1375,6 +1442,18 @@ export default function AdminProductsPage() {
                         );
                       })}
                     </optgroup>
+                    {/* Custom Categories created by user */}
+                    {categories.filter((c) => !PRESET_CATEGORIES.some((p) => p.slug === c.slug)).length > 0 && (
+                      <optgroup label="✨ CUSTOM / USER CATEGORIES (অন্যান্য ক্যাটাগরি)">
+                        {categories
+                          .filter((c) => !PRESET_CATEGORIES.some((p) => p.slug === c.slug))
+                          .map((c) => (
+                            <option key={c._id || c.slug} value={c._id || c.slug}>
+                              {c.name}
+                            </option>
+                          ))}
+                      </optgroup>
+                    )}
                   </select>
                 </div>
 
