@@ -255,38 +255,32 @@ export default function AdminProductsPage() {
 
       if (prodRes.ok) {
         const prodData = await prodRes.json();
-        setProducts(prodData || []);
+        setProducts(Array.isArray(prodData) ? prodData : prodData?.products || []);
+      } else {
+        // Fallback: If admin auth has issues, fetch via public endpoint
+        const fallbackRes = await fetch(`${API_BASE_URL}/api/products?limit=200`);
+        if (fallbackRes.ok) {
+          const fallbackData = await fallbackRes.json();
+          setProducts(fallbackData.products || []);
+        }
       }
       if (catRes.ok) {
         const catData = await catRes.json();
         setCategories(catData || []);
       }
     } catch (e) {
-      console.error(e);
+      console.error('Error fetching admin product catalog', e);
+      try {
+        const fallbackRes = await fetch(`${API_BASE_URL}/api/products?limit=200`);
+        if (fallbackRes.ok) {
+          const fallbackData = await fallbackRes.json();
+          setProducts(fallbackData.products || []);
+        }
+      } catch (err2) {
+        console.error('Fallback fetch error:', err2);
+      }
     } finally {
       setLoading(false);
-    }
-  };
-
-  const [seeding, setSeeding] = useState(false);
-
-  const handleSeedDefaults = async () => {
-    setSeeding(true);
-    setError('');
-    try {
-      const res = await authFetch(`${API_BASE_URL}/api/admin/products/seed-defaults`, {
-        method: 'POST',
-      });
-      if (res.ok) {
-        await fetchData();
-      } else {
-        const err = await res.json();
-        setError(err.message || 'Failed to initialize default products.');
-      }
-    } catch (e: any) {
-      setError(e.message || 'Failed to initialize default products.');
-    } finally {
-      setSeeding(false);
     }
   };
 
@@ -1040,25 +1034,16 @@ export default function AdminProductsPage() {
           <div className="p-12 text-center text-gray-500 space-y-4">
             <Sparkles className="w-10 h-10 text-[#C5A059] mx-auto opacity-70" />
             <div className="space-y-1">
-              <p className="text-base font-bold text-gray-800">No products found in database</p>
+              <p className="text-base font-bold text-gray-800">No products found</p>
               <p className="text-xs text-gray-500 max-w-sm mx-auto">
-                Your catalog is currently empty. You can add a new product or initialize the default luxury showcase products with one click.
+                No products match the selected filters or search terms.
               </p>
             </div>
             <div className="flex items-center justify-center gap-3 pt-2">
               <button
                 type="button"
-                onClick={handleSeedDefaults}
-                disabled={seeding}
-                className="px-4 py-2.5 bg-[#C5A059] hover:bg-[#b08b3a] text-slate-950 font-bold text-xs uppercase tracking-wider rounded-xl transition shadow flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
-              >
-                {seeding ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-                <span>{seeding ? 'Initializing...' : 'Initialize Showcase Products'}</span>
-              </button>
-              <button
-                type="button"
                 onClick={openCreateModal}
-                className="px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs uppercase tracking-wider rounded-xl transition shadow flex items-center gap-1.5 cursor-pointer"
+                className="px-5 py-2.5 bg-slate-900 hover:bg-[#C5A059] text-white font-bold text-xs uppercase tracking-wider rounded-xl transition shadow flex items-center gap-1.5 cursor-pointer"
               >
                 <Plus className="w-4 h-4" />
                 <span>Create New Product</span>

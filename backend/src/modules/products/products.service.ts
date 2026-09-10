@@ -129,7 +129,6 @@ export class ProductsService implements OnModuleInit {
 
   async onModuleInit() {
     await this.normalizeLegacyProducts();
-    await this.seedDefaultProducts();
   }
 
   async seedDefaultProducts() {
@@ -419,7 +418,18 @@ export class ProductsService implements OnModuleInit {
 
   private async normalizeLegacyProducts() {
     try {
-      // 1. Ensure all products without explicit status are set to ACTIVE
+      // Clean up any test/demo product slugs if present
+      const demoSlugs = [
+        'cy-cotton-hijab',
+        'popcorn-cotton-hijab',
+        'dubai-ceri-hijab',
+        'jafran-hijab',
+        'velvet-reshmi-churi-box-set',
+        '18k-gold-plated-kundan-jhumka-set',
+      ];
+      await this.productModel.deleteMany({ slug: { $in: demoSlugs } }).exec();
+
+      // 1. Ensure all user products without explicit status are set to ACTIVE
       await this.productModel.updateMany(
         { $or: [{ status: { $exists: false } }, { status: null }, { status: '' }] },
         { $set: { status: 'ACTIVE' } },

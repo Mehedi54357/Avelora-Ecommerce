@@ -103,7 +103,6 @@ let ProductsService = ProductsService_1 = class ProductsService {
     }
     async onModuleInit() {
         await this.normalizeLegacyProducts();
-        await this.seedDefaultProducts();
     }
     async seedDefaultProducts() {
         try {
@@ -389,6 +388,15 @@ let ProductsService = ProductsService_1 = class ProductsService {
     }
     async normalizeLegacyProducts() {
         try {
+            const demoSlugs = [
+                'cy-cotton-hijab',
+                'popcorn-cotton-hijab',
+                'dubai-ceri-hijab',
+                'jafran-hijab',
+                'velvet-reshmi-churi-box-set',
+                '18k-gold-plated-kundan-jhumka-set',
+            ];
+            await this.productModel.deleteMany({ slug: { $in: demoSlugs } }).exec();
             await this.productModel.updateMany({ $or: [{ status: { $exists: false } }, { status: null }, { status: '' }] }, { $set: { status: 'ACTIVE' } });
             await this.productModel.updateMany({ $or: [{ dataMode: { $exists: false } }, { dataMode: null }, { dataMode: '' }] }, { $set: { dataMode: 'PRODUCTION' } });
             await this.productModel.updateMany({ isPublished: { $exists: false } }, { $set: { isPublished: true } });

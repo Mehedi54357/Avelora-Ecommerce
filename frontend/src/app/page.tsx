@@ -1,7 +1,7 @@
 import React from 'react';
 import Link from 'next/link';
 import BadgeStrip from '../components/badge-strip';
-import ProductCard from '../components/product-card';
+import HomeFeaturedProducts from '../components/home-featured-products';
 import { ArrowRight, Sparkles, Shield, Gift, ChevronRight, Star } from 'lucide-react';
 import { API_BASE_URL } from '../utils/api-config';
 
@@ -145,43 +145,7 @@ export default async function HomePage() {
       </section>
 
       {/* 4. Featured Trending Products */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex flex-col md:flex-row md:items-end justify-between mb-12 gap-4">
-          <div>
-            <span className="text-[11px] font-bold uppercase tracking-[0.3em] text-[#C5A059]">
-              Hand-Selected Pieces
-            </span>
-            <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 font-serif-luxury mt-1">
-              Featured Trending Releases
-            </h2>
-          </div>
-          <Link
-            href="/products"
-            className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-[#0F172A] hover:text-[#C5A059] transition"
-          >
-            <span>View All Collections</span>
-            <ArrowRight className="w-4 h-4" />
-          </Link>
-        </div>
-
-        {products.length === 0 ? (
-          <div className="text-center py-12 bg-white rounded-2xl border border-gray-200 p-8 space-y-3">
-            <Sparkles className="w-8 h-8 text-[#C5A059] mx-auto" />
-            <h3 className="text-base font-bold font-serif-luxury text-gray-900 uppercase tracking-wider">
-              New Collections Arriving Soon
-            </h3>
-            <p className="text-xs text-gray-500 max-w-md mx-auto">
-              Our master artisans are hand-crafting new pieces. Check back shortly or explore our department collections above.
-            </p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 min-[375px]:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-6 lg:gap-8">
-            {products.map((product: any) => (
-              <ProductCard key={product._id} product={product} />
-            ))}
-          </div>
-        )}
-      </section>
+      <HomeFeaturedProducts initialProducts={products} />
 
       {/* 5. Brand Experience & Packaging Promise */}
       <section className="bg-[#FAF7F0] py-20 border-y border-[#D4AF37]/20">
