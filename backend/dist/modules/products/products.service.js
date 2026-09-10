@@ -505,27 +505,67 @@ let ProductsService = ProductsService_1 = class ProductsService {
         }
     }
     async findPublic(query) {
-        const filter = {
-            isPublished: { $ne: false },
-            status: { $nin: ['DRAFT', 'HIDDEN', 'ARCHIVED'] },
-            dataMode: { $ne: 'TEST' },
-        };
+        const andFilters = [
+            {
+                isPublished: { $ne: false },
+                status: { $nin: ['DRAFT', 'HIDDEN', 'ARCHIVED'] },
+                dataMode: { $ne: 'TEST' },
+            },
+        ];
         if (query.category && query.category.trim() !== '') {
             const catSlugOrId = query.category.trim();
-            const categoryDoc = await this.categoryModel
-                .findOne({
+            const cleanKeyword = catSlugOrId.replace(/^women-|^men-|^kids-/, '').trim();
+            const matchingCats = await this.categoryModel
+                .find({
                 $or: [
                     { slug: catSlugOrId },
                     { name: catSlugOrId },
+                    ...(cleanKeyword
+                        ? [
+                            { slug: { $regex: cleanKeyword, $options: 'i' } },
+                            { name: { $regex: cleanKeyword, $options: 'i' } },
+                        ]
+                        : []),
                     ...(catSlugOrId.match(/^[0-9a-fA-F]{24}$/) ? [{ _id: catSlugOrId }] : []),
                 ],
             })
+                .select('_id')
                 .exec();
-            if (categoryDoc) {
-                filter.categoryId = categoryDoc._id;
+            const matchingCatIds = matchingCats.map((c) => c._id);
+            let nameRegex = null;
+            if (catSlugOrId.includes('hijab') || cleanKeyword.includes('hijab')) {
+                nameRegex = /hijab|হিজাব/i;
+            }
+            else if (catSlugOrId.includes('churi') || catSlugOrId.includes('bangle') || cleanKeyword.includes('churi')) {
+                nameRegex = /churi|bangle|চুড়ি|চুড়ি|রেশমি/i;
+            }
+            else if (catSlugOrId.includes('hair') || cleanKeyword.includes('hair')) {
+                nameRegex = /hair|clip|pin|headband|হেয়ার|হেয়ার/i;
+            }
+            else if (catSlugOrId.includes('dress') || catSlugOrId.includes('kurti') || catSlugOrId.includes('gown')) {
+                nameRegex = /dress|gown|kurti|ড্রেস|গাউন|কুর্তি/i;
+            }
+            else if (catSlugOrId.includes('shoe') || catSlugOrId.includes('loafer') || catSlugOrId.includes('nagra')) {
+                nameRegex = /shoe|loafer|nagra|জুতা|নাগরা|লোফার/i;
+            }
+            else if (catSlugOrId.includes('jewel') || catSlugOrId.includes('jhumka') || catSlugOrId.includes('accessories')) {
+                nameRegex = /jewel|jhumka|necklace|earring|গহনা|ঝুমকা|জুয়েলারি|এক্সেসরিজ/i;
+            }
+            else if (catSlugOrId.includes('panjabi')) {
+                nameRegex = /panjabi|পাঞ্জাবি/i;
+            }
+            const orClauses = [];
+            if (matchingCatIds.length > 0) {
+                orClauses.push({ categoryId: { $in: matchingCatIds } });
+            }
+            if (nameRegex) {
+                orClauses.push({ name: { $regex: nameRegex } });
+            }
+            if (orClauses.length > 0) {
+                andFilters.push({ $or: orClauses });
             }
             else {
-                filter.categoryId = '000000000000000000000000';
+                andFilters.push({ categoryId: '000000000000000000000000' });
             }
         }
         else if (query.department && query.department.trim() !== '') {
@@ -535,15 +575,28 @@ let ProductsService = ProductsService_1 = class ProductsService {
                 .select('_id')
                 .exec();
             const catIds = deptCats.map((c) => c._id);
-            filter.categoryId = { $in: catIds };
+            const deptClauses = [{ categoryId: { $in: catIds } }];
+            if (dept === 'women') {
+                deptClauses.push({ name: { $regex: /hijab|হিজাব|churi|bangle|চুড়ি|চুড়ি|jhumka|jewel|kurti|dress|গাউন/i } });
+            }
+            else if (dept === 'men') {
+                deptClauses.push({ name: { $regex: /panjabi|পাঞ্জাবি|loafer|shoe|men|oxford/i } });
+            }
+            else if (dept === 'kids') {
+                deptClauses.push({ name: { $regex: /kids|baby|princess|frock|বাচ্চা/i } });
+            }
+            andFilters.push({ $or: deptClauses });
         }
         if (query.search && query.search.trim() !== '') {
             const s = query.search.trim();
-            filter.$or = [
-                { name: { $regex: s, $options: 'i' } },
-                { description: { $regex: s, $options: 'i' } },
-            ];
+            andFilters.push({
+                $or: [
+                    { name: { $regex: s, $options: 'i' } },
+                    { description: { $regex: s, $options: 'i' } },
+                ],
+            });
         }
+        const filter = andFilters.length > 1 ? { $and: andFilters } : andFilters[0] || {};
         if (query.minPrice !== undefined || query.maxPrice !== undefined) {
             filter.salePrice = {};
             if (query.minPrice !== undefined)
