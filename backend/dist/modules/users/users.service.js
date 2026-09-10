@@ -120,11 +120,23 @@ let UsersService = UsersService_1 = class UsersService {
                 this.logger.log(`Initialized default SUPER_ADMIN account: ${email}`);
             }
             else {
-                existing.role = user_schema_1.UserRole.SUPER_ADMIN;
-                existing.isActive = true;
-                existing.passwordHash = passwordHash;
-                await existing.save();
-                this.logger.log(`Synchronized SUPER_ADMIN credentials for: ${email}`);
+                let modified = false;
+                if (existing.role !== user_schema_1.UserRole.SUPER_ADMIN) {
+                    existing.role = user_schema_1.UserRole.SUPER_ADMIN;
+                    modified = true;
+                }
+                if (!existing.isActive) {
+                    existing.isActive = true;
+                    modified = true;
+                }
+                if (!existing.passwordHash) {
+                    existing.passwordHash = passwordHash;
+                    modified = true;
+                }
+                if (modified) {
+                    await existing.save();
+                    this.logger.log(`Synchronized SUPER_ADMIN privileges for: ${email}`);
+                }
             }
         }
     }

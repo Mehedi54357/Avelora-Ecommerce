@@ -84,12 +84,23 @@ export class UsersService implements OnModuleInit {
         });
         this.logger.log(`Initialized default SUPER_ADMIN account: ${email}`);
       } else {
-        existing.role = UserRole.SUPER_ADMIN;
-        existing.isActive = true;
-        // Keep credentials synchronized with INITIAL_ADMIN_PASSWORD
-        existing.passwordHash = passwordHash;
-        await existing.save();
-        this.logger.log(`Synchronized SUPER_ADMIN credentials for: ${email}`);
+        let modified = false;
+        if (existing.role !== UserRole.SUPER_ADMIN) {
+          existing.role = UserRole.SUPER_ADMIN;
+          modified = true;
+        }
+        if (!existing.isActive) {
+          existing.isActive = true;
+          modified = true;
+        }
+        if (!existing.passwordHash) {
+          existing.passwordHash = passwordHash;
+          modified = true;
+        }
+        if (modified) {
+          await existing.save();
+          this.logger.log(`Synchronized SUPER_ADMIN privileges for: ${email}`);
+        }
       }
     }
   }
