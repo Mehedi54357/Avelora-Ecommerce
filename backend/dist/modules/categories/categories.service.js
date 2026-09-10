@@ -108,6 +108,15 @@ let CategoriesService = CategoriesService_1 = class CategoriesService {
                 });
                 this.logger.log(`Initialized default category: ${cat.name}`);
             }
+            else {
+                await this.categoryModel.findByIdAndUpdate(existing._id, {
+                    name: cat.name,
+                    department: cat.department,
+                    description: cat.description,
+                    sortOrder: cat.sortOrder,
+                    isActive: true,
+                }).exec();
+            }
         }
     }
     async findAll(activeOnly = false) {
