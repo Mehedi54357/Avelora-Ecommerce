@@ -103,6 +103,293 @@ let ProductsService = ProductsService_1 = class ProductsService {
     }
     async onModuleInit() {
         await this.normalizeLegacyProducts();
+        await this.seedDefaultProducts();
+    }
+    async seedDefaultProducts() {
+        try {
+            const existingCount = await this.productModel.countDocuments().exec();
+            if (existingCount > 0) {
+                return { message: `Products already exist (${existingCount} found)` };
+            }
+            const hijabCat = await this.categoryModel.findOne({ slug: 'women-hijab' }).exec();
+            const churiCat = await this.categoryModel.findOne({ slug: 'women-churi-bangles' }).exec();
+            const jewelleryCat = await this.categoryModel.findOne({ slug: 'women-accessories' }).exec();
+            const defaultProducts = [
+                {
+                    name: 'CY Cotton Hijab',
+                    subtitle: 'Soft, Lightweight & Breathable Daily Hijab',
+                    slug: 'cy-cotton-hijab',
+                    categoryId: hijabCat?._id,
+                    badge: 'BEST SELLER',
+                    unitBadge: '',
+                    rating: 4.9,
+                    reviewsCount: 142,
+                    originalPrice: 450,
+                    salePrice: 350,
+                    discountPercentage: 22,
+                    isDiscountActive: true,
+                    isPublished: true,
+                    status: 'ACTIVE',
+                    dataMode: 'PRODUCTION',
+                    images: [
+                        'https://images.unsplash.com/photo-1583391733956-3750e0ff4e8b?auto=format&fit=crop&w=1200&q=85',
+                        'https://images.unsplash.com/photo-1609357605129-26f69add5d6e?auto=format&fit=crop&w=1200&q=85',
+                    ],
+                    productImages: [
+                        {
+                            url: 'https://images.unsplash.com/photo-1583391733956-3750e0ff4e8b?auto=format&fit=crop&w=1200&q=85',
+                            isPrimary: true,
+                            sortOrder: 0,
+                            variantColor: 'Olive',
+                        },
+                        {
+                            url: 'https://images.unsplash.com/photo-1609357605129-26f69add5d6e?auto=format&fit=crop&w=1200&q=85',
+                            isPrimary: false,
+                            sortOrder: 1,
+                            variantColor: 'Dusty Pink',
+                        },
+                    ],
+                    features: [
+                        { title: 'Soft & Comfortable', subtitle: '100% fine cotton yarn, non-irritating', icon: 'feather' },
+                        { title: 'Lightweight & Breathable', subtitle: 'Designed for effortless all-day wear', icon: 'wind' },
+                        { title: 'Non-Slip Texture', subtitle: 'Stays in place without frequent readjustment', icon: 'layers' },
+                        { title: 'Glossy & Elegant Finish', subtitle: 'Flawless drape for work, party & casual', icon: 'waves' },
+                        { title: 'Signature Packaging', subtitle: 'Arrives in Avelora gold-embossed bag', icon: 'crown' },
+                    ],
+                    description: 'Crafted from premium CY cotton yarn, this hijab provides a lightweight, airy drape with a subtle luster that stays in place all day.',
+                    variants: [
+                        { sku: 'AVE-CY-01', color: 'Olive', colorHex: '#556B2F', size: 'Standard', price: 350, costPrice: 180, stockQuantity: 25 },
+                        { sku: 'AVE-CY-02', color: 'Dusty Pink', colorHex: '#E08B9B', size: 'Standard', price: 350, costPrice: 180, stockQuantity: 20 },
+                        { sku: 'AVE-CY-03', color: 'Purple', colorHex: '#6B21A8', size: 'Standard', price: 350, costPrice: 180, stockQuantity: 15 },
+                        { sku: 'AVE-CY-04', color: 'Magenta', colorHex: '#D946EF', size: 'Standard', price: 350, costPrice: 180, stockQuantity: 15 },
+                        { sku: 'AVE-CY-05', color: 'Cyan', colorHex: '#06B6D4', size: 'Standard', price: 350, costPrice: 180, stockQuantity: 15 },
+                    ],
+                },
+                {
+                    name: 'Popcorn Cotton Hijab',
+                    subtitle: 'Textured Soft Luxury Feel Hijab',
+                    slug: 'popcorn-cotton-hijab',
+                    categoryId: hijabCat?._id,
+                    badge: 'BEST SELLER',
+                    rating: 4.8,
+                    reviewsCount: 98,
+                    originalPrice: 420,
+                    salePrice: 350,
+                    discountPercentage: 17,
+                    isDiscountActive: true,
+                    isPublished: true,
+                    status: 'ACTIVE',
+                    dataMode: 'PRODUCTION',
+                    images: [
+                        'https://images.unsplash.com/photo-1609357605129-26f69add5d6e?auto=format&fit=crop&w=1200&q=85',
+                        'https://images.unsplash.com/photo-1583391733956-3750e0ff4e8b?auto=format&fit=crop&w=1200&q=85',
+                    ],
+                    productImages: [
+                        {
+                            url: 'https://images.unsplash.com/photo-1609357605129-26f69add5d6e?auto=format&fit=crop&w=1200&q=85',
+                            isPrimary: true,
+                            sortOrder: 0,
+                            variantColor: 'Lavender',
+                        },
+                    ],
+                    features: [
+                        { title: 'Rich Popcorn Texture', subtitle: 'Tactile textured surface with rich body', icon: 'layers' },
+                        { title: 'Breathable Pure Cotton', subtitle: 'Ultra-gentle against sensitive hair and skin', icon: 'feather' },
+                        { title: 'Generous 90x30 Coverage', subtitle: 'Ideal for chest coverage and layered styling', icon: 'wind' },
+                        { title: 'No-Iron Ease', subtitle: 'Resists wrinkles and folds naturally', icon: 'waves' },
+                        { title: 'Artisan Quality', subtitle: 'Hand-finished neat laser cut hems', icon: 'award' },
+                    ],
+                    description: 'The Popcorn Cotton Hijab features a signature textured weave that gives extra volume and a sophisticated tactile appearance.',
+                    variants: [
+                        { sku: 'AVE-PC-01', color: 'Lavender', colorHex: '#B57EDC', size: 'Standard', price: 350, costPrice: 190, stockQuantity: 30 },
+                        { sku: 'AVE-PC-02', color: 'Olive', colorHex: '#556B2F', size: 'Standard', price: 350, costPrice: 190, stockQuantity: 20 },
+                        { sku: 'AVE-PC-03', color: 'Dusty Pink', colorHex: '#E08B9B', size: 'Standard', price: 350, costPrice: 190, stockQuantity: 20 },
+                        { sku: 'AVE-PC-04', color: 'Purple', colorHex: '#6B21A8', size: 'Standard', price: 350, costPrice: 190, stockQuantity: 15 },
+                        { sku: 'AVE-PC-05', color: 'Cyan', colorHex: '#06B6D4', size: 'Standard', price: 350, costPrice: 190, stockQuantity: 15 },
+                    ],
+                },
+                {
+                    name: 'Dubai Ceri Hijab',
+                    subtitle: 'Premium Cherry Fabric Luxury Feel',
+                    slug: 'dubai-ceri-hijab',
+                    categoryId: hijabCat?._id,
+                    badge: 'BEST SELLER',
+                    rating: 4.9,
+                    reviewsCount: 184,
+                    originalPrice: 480,
+                    salePrice: 350,
+                    discountPercentage: 27,
+                    isDiscountActive: true,
+                    isPublished: true,
+                    status: 'ACTIVE',
+                    dataMode: 'PRODUCTION',
+                    images: [
+                        'https://images.unsplash.com/photo-1584917865442-de89df76afd3?auto=format&fit=crop&w=1200&q=85',
+                        'https://images.unsplash.com/photo-1583391733956-3750e0ff4e8b?auto=format&fit=crop&w=1200&q=85',
+                    ],
+                    productImages: [
+                        {
+                            url: 'https://images.unsplash.com/photo-1584917865442-de89df76afd3?auto=format&fit=crop&w=1200&q=85',
+                            isPrimary: true,
+                            sortOrder: 0,
+                            variantColor: 'Nude Beige',
+                        },
+                    ],
+                    features: [
+                        { title: 'Dubai Cherry Georgette', subtitle: 'Silky smooth premium import fabric', icon: 'feather' },
+                        { title: 'Fluid Royal Drape', subtitle: 'Falls gracefully without bunching', icon: 'waves' },
+                        { title: 'Anti-Sweat Weave', subtitle: 'Keeps you fresh throughout warm days', icon: 'wind' },
+                        { title: 'Fade-Resistant Colors', subtitle: 'Stays vibrant wash after wash', icon: 'sparkles' },
+                        { title: 'Signature Packaging', subtitle: 'Wrapped with satin ribbon and certificate', icon: 'crown' },
+                    ],
+                    description: 'Imported Dubai Cherry fabric hijab with a silky smooth touch and rich regal drape.',
+                    variants: [
+                        { sku: 'AVE-DC-01', color: 'Nude Beige', colorHex: '#CDB49B', size: 'Standard', price: 350, costPrice: 195, stockQuantity: 40 },
+                        { sku: 'AVE-DC-02', color: 'Olive', colorHex: '#556B2F', size: 'Standard', price: 350, costPrice: 195, stockQuantity: 25 },
+                        { sku: 'AVE-DC-03', color: 'Black', colorHex: '#0F172A', size: 'Standard', price: 350, costPrice: 195, stockQuantity: 30 },
+                        { sku: 'AVE-DC-04', color: 'White', colorHex: '#FFFFFF', size: 'Standard', price: 350, costPrice: 195, stockQuantity: 20 },
+                        { sku: 'AVE-DC-05', color: 'Maroon', colorHex: '#58111A', size: 'Standard', price: 350, costPrice: 195, stockQuantity: 20 },
+                        { sku: 'AVE-DC-06', color: 'Navy Blue', colorHex: '#1B2A4A', size: 'Standard', price: 350, costPrice: 195, stockQuantity: 20 },
+                    ],
+                },
+                {
+                    name: 'JAFRAN HIJAB',
+                    subtitle: '90/30 Inch Exclusive Luxury Wrap',
+                    slug: 'jafran-hijab',
+                    categoryId: hijabCat?._id,
+                    badge: 'BEST SELLER',
+                    rating: 5.0,
+                    reviewsCount: 210,
+                    originalPrice: 450,
+                    salePrice: 350,
+                    discountPercentage: 22,
+                    isDiscountActive: true,
+                    isPublished: true,
+                    status: 'ACTIVE',
+                    dataMode: 'PRODUCTION',
+                    images: [
+                        'https://images.unsplash.com/photo-1583391733956-3750e0ff4e8b?auto=format&fit=crop&w=1200&q=85',
+                        'https://images.unsplash.com/photo-1609357605129-26f69add5d6e?auto=format&fit=crop&w=1200&q=85',
+                    ],
+                    productImages: [
+                        {
+                            url: 'https://images.unsplash.com/photo-1583391733956-3750e0ff4e8b?auto=format&fit=crop&w=1200&q=85',
+                            isPrimary: true,
+                            sortOrder: 0,
+                            variantColor: 'Olive',
+                        },
+                    ],
+                    features: [
+                        { title: 'Fine Jafran Weave', subtitle: 'Ultra-soft microfilament blend', icon: 'feather' },
+                        { title: 'Generous 90x30 Inch', subtitle: 'Full modest wrap and styling freedom', icon: 'layers' },
+                        { title: 'Non-Irritating Skin Feel', subtitle: 'Dermatologically comfortable', icon: 'heart' },
+                        { title: 'Vibrant Pastel Shades', subtitle: 'Exclusively dyed luxury hues', icon: 'sparkles' },
+                        { title: 'Avelora Atelier Quality', subtitle: 'Every piece inspected by hand', icon: 'award' },
+                    ],
+                    description: 'The iconic Jafran Hijab is beloved for its unmatched softness, perfect weight, and luxurious look.',
+                    variants: [
+                        { sku: 'AVE-JF-01', color: 'Olive', colorHex: '#556B2F', size: 'Standard', price: 350, costPrice: 185, stockQuantity: 35 },
+                        { sku: 'AVE-JF-02', color: 'Magenta', colorHex: '#D946EF', size: 'Standard', price: 350, costPrice: 185, stockQuantity: 25 },
+                        { sku: 'AVE-JF-03', color: 'Dusty Pink', colorHex: '#E08B9B', size: 'Standard', price: 350, costPrice: 185, stockQuantity: 25 },
+                        { sku: 'AVE-JF-04', color: 'Purple', colorHex: '#6B21A8', size: 'Standard', price: 350, costPrice: 185, stockQuantity: 20 },
+                        { sku: 'AVE-JF-05', color: 'Cyan', colorHex: '#06B6D4', size: 'Standard', price: 350, costPrice: 185, stockQuantity: 20 },
+                    ],
+                },
+                {
+                    name: 'Velvet Reshmi Churi Box Set (ভেলভেট রেশমি চুড়ি)',
+                    subtitle: 'ঐতিহ্যবাহী ভেলভেট চুড়ি ও গোল্ড প্লেটেড কঙ্কন সেট',
+                    slug: 'velvet-reshmi-churi-box-set',
+                    categoryId: churiCat?._id,
+                    badge: 'TRENDING',
+                    rating: 4.9,
+                    reviewsCount: 76,
+                    originalPrice: 750,
+                    salePrice: 550,
+                    discountPercentage: 27,
+                    isDiscountActive: true,
+                    isPublished: true,
+                    status: 'ACTIVE',
+                    dataMode: 'PRODUCTION',
+                    images: [
+                        'https://images.unsplash.com/photo-1611591475152-478311399767?auto=format&fit=crop&w=1200&q=85',
+                    ],
+                    productImages: [
+                        {
+                            url: 'https://images.unsplash.com/photo-1611591475152-478311399767?auto=format&fit=crop&w=1200&q=85',
+                            isPrimary: true,
+                            sortOrder: 0,
+                            variantColor: 'Maroon',
+                        },
+                    ],
+                    features: [
+                        { title: 'Velvet Reshmi Finish', subtitle: 'Royal soft velvet touch on durable glass', icon: 'feather' },
+                        { title: '24-Piece Box Set', subtitle: 'Complete set with gold side bangles', icon: 'layers' },
+                        { title: 'Snug Fit Sizes', subtitle: 'Available in 2-4, 2-6, and 2-8 diameters', icon: 'check' },
+                        { title: 'Festive & Bridal', subtitle: 'Perfect for Eid, Holud, weddings & parties', icon: 'sparkles' },
+                        { title: 'Velvet Keepsake Box', subtitle: 'Includes protective magnetic closure box', icon: 'crown' },
+                    ],
+                    description: 'Handcrafted velvet reshmi bangles paired with gold-accented side bracelets, presented in a luxury velvet gift box.',
+                    variants: [
+                        { sku: 'AVE-CHR-01', color: 'Maroon', colorHex: '#58111A', size: '2-4', price: 550, costPrice: 280, stockQuantity: 20 },
+                        { sku: 'AVE-CHR-02', color: 'Maroon', colorHex: '#58111A', size: '2-6', price: 550, costPrice: 280, stockQuantity: 25 },
+                        { sku: 'AVE-CHR-03', color: 'Red', colorHex: '#DC2626', size: '2-6', price: 550, costPrice: 280, stockQuantity: 20 },
+                        { sku: 'AVE-CHR-04', color: 'Emerald Green', colorHex: '#16A34A', size: '2-6', price: 550, costPrice: 280, stockQuantity: 15 },
+                        { sku: 'AVE-CHR-05', color: 'Gold', colorHex: '#C5A059', size: '2-6', price: 550, costPrice: 280, stockQuantity: 15 },
+                    ],
+                },
+                {
+                    name: '18K Gold-Plated Kundan Jhumka Set',
+                    subtitle: 'Artisan Hand-Set Stones & Pearl Drops',
+                    slug: '18k-gold-plated-kundan-jhumka-set',
+                    categoryId: jewelleryCat?._id,
+                    badge: 'LUXURY',
+                    rating: 4.9,
+                    reviewsCount: 64,
+                    originalPrice: 1200,
+                    salePrice: 850,
+                    discountPercentage: 29,
+                    isDiscountActive: true,
+                    isPublished: true,
+                    status: 'ACTIVE',
+                    dataMode: 'PRODUCTION',
+                    images: [
+                        'https://images.unsplash.com/photo-1599643478518-a784e5dc4c8f?auto=format&fit=crop&w=1200&q=85',
+                    ],
+                    productImages: [
+                        {
+                            url: 'https://images.unsplash.com/photo-1599643478518-a784e5dc4c8f?auto=format&fit=crop&w=1200&q=85',
+                            isPrimary: true,
+                            sortOrder: 0,
+                            variantColor: 'Gold',
+                        },
+                    ],
+                    features: [
+                        { title: '18K Gold Electroplating', subtitle: 'Anti-tarnish long-lasting brilliant shine', icon: 'sparkles' },
+                        { title: 'Hand-Cut Kundan Stones', subtitle: 'Glittering artisanal faceted glass crystals', icon: 'crown' },
+                        { title: 'Natural Pearl Drops', subtitle: 'Delicate cluster pearl tassels', icon: 'feather' },
+                        { title: 'Hypoallergenic Posts', subtitle: 'Nickel-free safe for sensitive ears', icon: 'shield' },
+                        { title: 'Bespoke Jewelry Pouch', subtitle: 'Comes in Avelora satin travel pouch', icon: 'award' },
+                    ],
+                    description: 'A timeless heirloom Kundan jhumka set crafted with 18K gold finish and freshwater pearl tassels.',
+                    variants: [
+                        { sku: 'AVE-JHM-01', color: 'Gold', colorHex: '#C5A059', size: 'Standard', price: 850, costPrice: 420, stockQuantity: 30 },
+                        { sku: 'AVE-JHM-02', color: 'Silver / Ash', colorHex: '#CBD5E1', size: 'Standard', price: 850, costPrice: 420, stockQuantity: 15 },
+                    ],
+                },
+            ];
+            for (const prod of defaultProducts) {
+                const existing = await this.productModel.findOne({ slug: prod.slug }).exec();
+                if (!existing) {
+                    await this.productModel.create(prod);
+                    this.logger.log(`Seeded default product: ${prod.name}`);
+                }
+            }
+            return { message: 'Successfully initialized default showcase catalog', count: defaultProducts.length };
+        }
+        catch (e) {
+            this.logger.error(`Error seeding default products: ${e.message}`);
+            return { error: e.message };
+        }
     }
     async normalizeLegacyProducts() {
         try {

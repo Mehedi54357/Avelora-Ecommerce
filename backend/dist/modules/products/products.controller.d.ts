@@ -26,6 +26,19 @@ export declare class ProductsController {
     } & {
         id: string;
     })[]>;
+    seedDefaultProducts(): Promise<{
+        message: string;
+        count?: undefined;
+        error?: undefined;
+    } | {
+        message: string;
+        count: number;
+        error?: undefined;
+    } | {
+        error: any;
+        message?: undefined;
+        count?: undefined;
+    }>;
     getProductById(id: string): Promise<Product>;
     createProduct(body: Partial<Product>): Promise<Product>;
     updateProduct(id: string, body: Partial<Product>): Promise<Product>;

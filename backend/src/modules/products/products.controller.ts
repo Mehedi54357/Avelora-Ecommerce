@@ -33,12 +33,18 @@ export class ProductsController {
     return this.productsService.findBySlug(slug);
   }
 
-  // Admin Endpoints
   @UseGuards(AuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN, UserRole.MANAGER, UserRole.STAFF)
   @Get('admin/products')
   async getAdminProducts(@Query() query: any) {
     return this.productsService.findAdminAll(query);
+  }
+
+  @UseGuards(AuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN, UserRole.MANAGER)
+  @Post('admin/products/seed-defaults')
+  async seedDefaultProducts() {
+    return this.productsService.seedDefaultProducts();
   }
 
   @UseGuards(AuthGuard, RolesGuard)

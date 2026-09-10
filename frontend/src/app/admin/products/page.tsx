@@ -268,6 +268,28 @@ export default function AdminProductsPage() {
     }
   };
 
+  const [seeding, setSeeding] = useState(false);
+
+  const handleSeedDefaults = async () => {
+    setSeeding(true);
+    setError('');
+    try {
+      const res = await authFetch(`${API_BASE_URL}/api/admin/products/seed-defaults`, {
+        method: 'POST',
+      });
+      if (res.ok) {
+        await fetchData();
+      } else {
+        const err = await res.json();
+        setError(err.message || 'Failed to initialize default products.');
+      }
+    } catch (e: any) {
+      setError(e.message || 'Failed to initialize default products.');
+    } finally {
+      setSeeding(false);
+    }
+  };
+
   useEffect(() => {
     fetchData();
   }, []);
@@ -1015,8 +1037,33 @@ export default function AdminProductsPage() {
             <span className="text-xs font-medium">Loading catalog products...</span>
           </div>
         ) : filteredProducts.length === 0 ? (
-          <div className="p-12 text-center text-gray-400">
-            <p className="text-sm">No products found.</p>
+          <div className="p-12 text-center text-gray-500 space-y-4">
+            <Sparkles className="w-10 h-10 text-[#C5A059] mx-auto opacity-70" />
+            <div className="space-y-1">
+              <p className="text-base font-bold text-gray-800">No products found in database</p>
+              <p className="text-xs text-gray-500 max-w-sm mx-auto">
+                Your catalog is currently empty. You can add a new product or initialize the default luxury showcase products with one click.
+              </p>
+            </div>
+            <div className="flex items-center justify-center gap-3 pt-2">
+              <button
+                type="button"
+                onClick={handleSeedDefaults}
+                disabled={seeding}
+                className="px-4 py-2.5 bg-[#C5A059] hover:bg-[#b08b3a] text-slate-950 font-bold text-xs uppercase tracking-wider rounded-xl transition shadow flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+              >
+                {seeding ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                <span>{seeding ? 'Initializing...' : 'Initialize Showcase Products'}</span>
+              </button>
+              <button
+                type="button"
+                onClick={openCreateModal}
+                className="px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs uppercase tracking-wider rounded-xl transition shadow flex items-center gap-1.5 cursor-pointer"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Create New Product</span>
+              </button>
+            </div>
           </div>
         ) : (
           <div className="overflow-x-auto">

@@ -32,6 +32,9 @@ let ProductsController = class ProductsController {
     async getAdminProducts(query) {
         return this.productsService.findAdminAll(query);
     }
+    async seedDefaultProducts() {
+        return this.productsService.seedDefaultProducts();
+    }
     async getProductById(id) {
         return this.productsService.findById(id);
     }
@@ -81,6 +84,14 @@ __decorate([
     __metadata("design:paramtypes", [Object]),
     __metadata("design:returntype", Promise)
 ], ProductsController.prototype, "getAdminProducts", null);
+__decorate([
+    (0, common_1.UseGuards)(auth_guard_1.AuthGuard, roles_guard_1.RolesGuard),
+    (0, roles_decorator_1.Roles)(user_schema_1.UserRole.ADMIN, user_schema_1.UserRole.SUPER_ADMIN, user_schema_1.UserRole.MANAGER),
+    (0, common_1.Post)('admin/products/seed-defaults'),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", []),
+    __metadata("design:returntype", Promise)
+], ProductsController.prototype, "seedDefaultProducts", null);
 __decorate([
     (0, common_1.UseGuards)(auth_guard_1.AuthGuard, roles_guard_1.RolesGuard),
     (0, roles_decorator_1.Roles)(user_schema_1.UserRole.ADMIN, user_schema_1.UserRole.SUPER_ADMIN, user_schema_1.UserRole.MANAGER, user_schema_1.UserRole.STAFF),

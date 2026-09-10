@@ -44,6 +44,19 @@ export declare class ProductsService implements OnModuleInit {
     private readonly logger;
     constructor(productModel: Model<ProductDocument>, categoryModel: Model<CategoryDocument>, orderModel: Model<OrderDocument>, purchaseOrderModel: Model<PurchaseOrderDocument>, transactionModel: Model<InventoryTransactionDocument>, returnRequestModel: Model<ReturnRequestDocument>, auditLogService: AuditLogService);
     onModuleInit(): Promise<void>;
+    seedDefaultProducts(): Promise<{
+        message: string;
+        count?: undefined;
+        error?: undefined;
+    } | {
+        message: string;
+        count: number;
+        error?: undefined;
+    } | {
+        error: any;
+        message?: undefined;
+        count?: undefined;
+    }>;
     private normalizeLegacyProducts;
     private normalizeProductImages;
     private validatePricingAndDates;
