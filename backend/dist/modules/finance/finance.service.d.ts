@@ -10,6 +10,7 @@ import { PaymentDocument } from '../../schemas/payment.schema';
 import { ReturnRequestDocument } from '../../schemas/return-request.schema';
 import { CategoryDocument } from '../../schemas/category.schema';
 import { InventoryTransactionDocument } from '../../schemas/inventory-transaction.schema';
+import { ProductInvestmentDocument } from '../../schemas/product-investment.schema';
 import { AuditLogService } from '../audit-log/audit-log.service';
 export declare class FinanceService {
     private expenseModel;
@@ -23,8 +24,9 @@ export declare class FinanceService {
     private paymentModel;
     private returnModel;
     private inventoryTxnModel;
+    private productInvestmentModel;
     private auditLogService;
-    constructor(expenseModel: Model<ExpenseDocument>, orderModel: Model<OrderDocument>, productModel: Model<ProductDocument>, categoryModel: Model<CategoryDocument>, supplierModel: Model<SupplierDocument>, purchaseModel: Model<PurchaseOrderDocument>, capitalModel: Model<CapitalTransactionDocument>, settlementModel: Model<CourierSettlementDocument>, paymentModel: Model<PaymentDocument>, returnModel: Model<ReturnRequestDocument>, inventoryTxnModel: Model<InventoryTransactionDocument>, auditLogService: AuditLogService);
+    constructor(expenseModel: Model<ExpenseDocument>, orderModel: Model<OrderDocument>, productModel: Model<ProductDocument>, categoryModel: Model<CategoryDocument>, supplierModel: Model<SupplierDocument>, purchaseModel: Model<PurchaseOrderDocument>, capitalModel: Model<CapitalTransactionDocument>, settlementModel: Model<CourierSettlementDocument>, paymentModel: Model<PaymentDocument>, returnModel: Model<ReturnRequestDocument>, inventoryTxnModel: Model<InventoryTransactionDocument>, productInvestmentModel: Model<ProductInvestmentDocument>, auditLogService: AuditLogService);
     getExpenses(query: {
         category?: string;
         limit?: number;
@@ -142,6 +144,7 @@ export declare class FinanceService {
         };
         outflows: {
             supplierPaid: number;
+            productInvestmentOutflow: number;
             operatingExpensesPaid: number;
             capitalWithdrawals: number;
             totalCashOut: number;
@@ -273,6 +276,10 @@ export declare class FinanceService {
             cogs: number;
             grossProfit: number;
             grossMarginPercent: number;
+            profitPerUnit: number;
+            operatingExpenses: number;
+            netBusinessProfit: number;
+            netMarginPercent: number;
             physicalStock: number;
             reservedStock: number;
             availableStock: number;

@@ -12,6 +12,7 @@ import { Payment, PaymentDocument } from '../../schemas/payment.schema';
 import { ReturnRequest, ReturnRequestDocument, ReturnStatus } from '../../schemas/return-request.schema';
 import { Category, CategoryDocument } from '../../schemas/category.schema';
 import { InventoryTransaction, InventoryTransactionDocument, InventoryTransactionType } from '../../schemas/inventory-transaction.schema';
+import { ProductInvestment, ProductInvestmentDocument } from '../../schemas/product-investment.schema';
 import { AuditLogService } from '../audit-log/audit-log.service';
 
 @Injectable()
@@ -28,6 +29,7 @@ export class FinanceService {
     @InjectModel(Payment.name) private paymentModel: Model<PaymentDocument>,
     @InjectModel(ReturnRequest.name) private returnModel: Model<ReturnRequestDocument>,
     @InjectModel(InventoryTransaction.name) private inventoryTxnModel: Model<InventoryTransactionDocument>,
+    @InjectModel(ProductInvestment.name) private productInvestmentModel: Model<ProductInvestmentDocument>,
     private auditLogService: AuditLogService,
   ) {}
 
@@ -400,11 +402,12 @@ export class FinanceService {
   // ================= CASH FLOW & WORKING CAPITAL =================
 
   async getCashFlow() {
-    const [orders, expenses, capital, purchases] = await Promise.all([
+    const [orders, expenses, capital, purchases, productInvestments] = await Promise.all([
       this.orderModel.find({ dataMode: { $ne: 'TEST' } }).exec(),
       this.expenseModel.find().exec(),
       this.capitalModel.find().exec(),
       this.purchaseModel.find().exec(),
+      this.productInvestmentModel.find().exec(),
     ]);
 
     // Inflows
@@ -446,12 +449,17 @@ export class FinanceService {
       supplierPaid += p.paidAmount || 0;
     }
 
+    let productInvestmentOutflow = 0;
+    for (const pi of productInvestments) {
+      productInvestmentOutflow += pi.totalInvestment || 0;
+    }
+
     let operatingExpensesPaid = 0;
     for (const e of expenses) {
       operatingExpensesPaid += e.amount || 0;
     }
 
-    const totalCashOut = supplierPaid + operatingExpensesPaid + capitalWithdrawals;
+    const totalCashOut = supplierPaid + productInvestmentOutflow + operatingExpensesPaid + capitalWithdrawals;
     const netCashPosition = totalCashIn - totalCashOut;
 
     return {
@@ -463,6 +471,7 @@ export class FinanceService {
       },
       outflows: {
         supplierPaid,
+        productInvestmentOutflow,
         operatingExpensesPaid,
         capitalWithdrawals,
         totalCashOut,
@@ -915,6 +924,7 @@ export class FinanceService {
       allReturns,
       allExpenses,
       allCapital,
+      allProductInvestments,
     ] = await Promise.all([
       this.productModel.find({ dataMode: { $ne: 'TEST' } }).populate('categoryId').exec(),
       this.categoryModel.find().exec(),
@@ -923,6 +933,7 @@ export class FinanceService {
       this.returnModel.find({ dataMode: { $ne: 'TEST' } }).exec(),
       this.expenseModel.find({ dataMode: { $ne: 'TEST' } }).exec(),
       this.capitalModel.find({ dataMode: { $ne: 'TEST' } }).exec(),
+      this.productInvestmentModel.find().exec(),
     ]);
 
     const categoryMap = new Map<string, any>();
@@ -943,7 +954,7 @@ export class FinanceService {
     };
     categoryMap.set('uncategorized', uncategorizedCat);
 
-    // Group purchases by SKU
+    // Group purchases and product investments by SKU
     const purchasesBySku = new Map<string, { totalQty: number; totalCost: number; periodQty: number; periodCost: number; lastReceiptDate?: Date }>();
     
     for (const po of allPurchases) {
@@ -978,6 +989,31 @@ export class FinanceService {
             entry.periodCost += item.totalCost || (item.quantity * item.unitCost) || 0;
           }
         }
+      }
+    }
+
+    for (const inv of allProductInvestments) {
+      const sku = (inv.variantSku || '').trim();
+      if (!sku) continue;
+
+      let entry = purchasesBySku.get(sku);
+      if (!entry) {
+        entry = { totalQty: 0, totalCost: 0, periodQty: 0, periodCost: 0 };
+        purchasesBySku.set(sku, entry);
+      }
+
+      const invDate = inv.date ? new Date(inv.date) : new Date((inv as any).createdAt);
+      const inPeriod = !isNaN(invDate.getTime()) && invDate >= fromDate && invDate <= toDate;
+
+      entry.totalQty += inv.quantity || 0;
+      entry.totalCost += inv.totalInvestment || (inv.quantity * inv.actualCostPerUnit) || 0;
+      if (!entry.lastReceiptDate || invDate > entry.lastReceiptDate) {
+        entry.lastReceiptDate = invDate;
+      }
+
+      if (inPeriod) {
+        entry.periodQty += inv.quantity || 0;
+        entry.periodCost += inv.totalInvestment || (inv.quantity * inv.actualCostPerUnit) || 0;
       }
     }
 
@@ -1110,6 +1146,7 @@ export class FinanceService {
         cogs: 0,
         grossProfit: 0,
         grossMarginPercent: 0,
+        profitPerUnit: 0,
         physicalStock: 0,
         reservedStock: 0,
         availableStock: 0,
@@ -1143,6 +1180,7 @@ export class FinanceService {
         const vMargin = vRevenue > 0 ? (vGrossProfit / vRevenue) * 100 : 0;
         const vAvgSellingPrice = sData.periodSoldQty > 0 ? vRevenue / sData.periodSoldQty : (v.price || p.salePrice || 0);
         const vDamageLoss = rData.periodDamageQty * unitCost;
+        const vProfitPerUnit = sData.periodSoldQty > 0 ? Math.round(vGrossProfit / sData.periodSoldQty) : Math.round(vAvgSellingPrice - unitCost);
 
         const variantEntry = {
           productId: p._id.toString(),
@@ -1160,6 +1198,7 @@ export class FinanceService {
           averageCost: unitCost,
           soldQty: sData.periodSoldQty,
           averageSellingPrice: Math.round(vAvgSellingPrice),
+          profitPerUnit: vProfitPerUnit,
           revenue: vRevenue,
           cogs: vCogs,
           grossProfit: vGrossProfit,
@@ -1208,6 +1247,7 @@ export class FinanceService {
       }
 
       productEntry.averageSellingPrice = productEntry.soldQty > 0 ? Math.round(productEntry.revenue / productEntry.soldQty) : (p.salePrice || 0);
+      productEntry.profitPerUnit = productEntry.soldQty > 0 ? Math.round(productEntry.grossProfit / productEntry.soldQty) : Math.round(productEntry.averageSellingPrice - productEntry.averageCost);
       productEntry.grossMarginPercent = productEntry.revenue > 0 ? Number(((productEntry.grossProfit / productEntry.revenue) * 100).toFixed(2)) : 0;
 
       productList.push(productEntry);
@@ -1231,6 +1271,7 @@ export class FinanceService {
     const categoryList: any[] = [];
     for (const cat of categoryResultMap.values()) {
       cat.grossMarginPercent = cat.revenue > 0 ? Number(((cat.grossProfit / cat.revenue) * 100).toFixed(2)) : 0;
+      cat.profitPerUnit = cat.soldQty > 0 ? Math.round(cat.grossProfit / cat.soldQty) : 0;
       categoryList.push(cat);
     }
 
@@ -1242,6 +1283,10 @@ export class FinanceService {
       cogs: 0,
       grossProfit: 0,
       grossMarginPercent: 0,
+      profitPerUnit: 0,
+      operatingExpenses: 0,
+      netBusinessProfit: 0,
+      netMarginPercent: 0,
       physicalStock: 0,
       reservedStock: 0,
       availableStock: 0,
@@ -1270,6 +1315,21 @@ export class FinanceService {
 
     allBusiness.grossMarginPercent = allBusiness.revenue > 0 ? Number(((allBusiness.grossProfit / allBusiness.revenue) * 100).toFixed(2)) : 0;
     allBusiness.capitalRecoveryPercent = allBusiness.purchaseInvestment > 0 ? Number(((allBusiness.cogs / allBusiness.purchaseInvestment) * 100).toFixed(2)) : 0;
+    allBusiness.profitPerUnit = allBusiness.soldQty > 0 ? Math.round(allBusiness.grossProfit / allBusiness.soldQty) : 0;
+
+    // Period Operating Expenses & Net Business Profit
+    let periodOperatingExpenses = 0;
+    for (const exp of allExpenses) {
+      const expDate = exp.date ? new Date(exp.date) : new Date((exp as any).createdAt);
+      const inPeriod = !isNaN(expDate.getTime()) && expDate >= fromDate && expDate <= toDate;
+      if (inPeriod || range === 'all') {
+        periodOperatingExpenses += exp.amount || 0;
+      }
+    }
+
+    allBusiness.operatingExpenses = periodOperatingExpenses;
+    allBusiness.netBusinessProfit = allBusiness.grossProfit - periodOperatingExpenses;
+    allBusiness.netMarginPercent = allBusiness.revenue > 0 ? Number(((allBusiness.netBusinessProfit / allBusiness.revenue) * 100).toFixed(2)) : 0;
 
     for (const cat of categoryList) {
       cat.contributionPercent = allBusiness.revenue > 0 ? Number(((cat.revenue / allBusiness.revenue) * 100).toFixed(2)) : 0;

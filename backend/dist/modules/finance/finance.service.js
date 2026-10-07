@@ -27,9 +27,10 @@ const payment_schema_1 = require("../../schemas/payment.schema");
 const return_request_schema_1 = require("../../schemas/return-request.schema");
 const category_schema_1 = require("../../schemas/category.schema");
 const inventory_transaction_schema_1 = require("../../schemas/inventory-transaction.schema");
+const product_investment_schema_1 = require("../../schemas/product-investment.schema");
 const audit_log_service_1 = require("../audit-log/audit-log.service");
 let FinanceService = class FinanceService {
-    constructor(expenseModel, orderModel, productModel, categoryModel, supplierModel, purchaseModel, capitalModel, settlementModel, paymentModel, returnModel, inventoryTxnModel, auditLogService) {
+    constructor(expenseModel, orderModel, productModel, categoryModel, supplierModel, purchaseModel, capitalModel, settlementModel, paymentModel, returnModel, inventoryTxnModel, productInvestmentModel, auditLogService) {
         this.expenseModel = expenseModel;
         this.orderModel = orderModel;
         this.productModel = productModel;
@@ -41,6 +42,7 @@ let FinanceService = class FinanceService {
         this.paymentModel = paymentModel;
         this.returnModel = returnModel;
         this.inventoryTxnModel = inventoryTxnModel;
+        this.productInvestmentModel = productInvestmentModel;
         this.auditLogService = auditLogService;
     }
     async getExpenses(query) {
@@ -348,11 +350,12 @@ let FinanceService = class FinanceService {
         };
     }
     async getCashFlow() {
-        const [orders, expenses, capital, purchases] = await Promise.all([
+        const [orders, expenses, capital, purchases, productInvestments] = await Promise.all([
             this.orderModel.find({ dataMode: { $ne: 'TEST' } }).exec(),
             this.expenseModel.find().exec(),
             this.capitalModel.find().exec(),
             this.purchaseModel.find().exec(),
+            this.productInvestmentModel.find().exec(),
         ]);
         let customerAdvancePaid = 0;
         let codSettledFromDelivered = 0;
@@ -386,11 +389,15 @@ let FinanceService = class FinanceService {
         for (const p of purchases) {
             supplierPaid += p.paidAmount || 0;
         }
+        let productInvestmentOutflow = 0;
+        for (const pi of productInvestments) {
+            productInvestmentOutflow += pi.totalInvestment || 0;
+        }
         let operatingExpensesPaid = 0;
         for (const e of expenses) {
             operatingExpensesPaid += e.amount || 0;
         }
-        const totalCashOut = supplierPaid + operatingExpensesPaid + capitalWithdrawals;
+        const totalCashOut = supplierPaid + productInvestmentOutflow + operatingExpensesPaid + capitalWithdrawals;
         const netCashPosition = totalCashIn - totalCashOut;
         return {
             inflows: {
@@ -401,6 +408,7 @@ let FinanceService = class FinanceService {
             },
             outflows: {
                 supplierPaid,
+                productInvestmentOutflow,
                 operatingExpensesPaid,
                 capitalWithdrawals,
                 totalCashOut,
@@ -755,7 +763,7 @@ let FinanceService = class FinanceService {
         else {
             fromDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
         }
-        const [allProducts, allCategories, allPurchases, allOrders, allReturns, allExpenses, allCapital,] = await Promise.all([
+        const [allProducts, allCategories, allPurchases, allOrders, allReturns, allExpenses, allCapital, allProductInvestments,] = await Promise.all([
             this.productModel.find({ dataMode: { $ne: 'TEST' } }).populate('categoryId').exec(),
             this.categoryModel.find().exec(),
             this.purchaseModel.find({ dataMode: { $ne: 'TEST' } }).exec(),
@@ -763,6 +771,7 @@ let FinanceService = class FinanceService {
             this.returnModel.find({ dataMode: { $ne: 'TEST' } }).exec(),
             this.expenseModel.find({ dataMode: { $ne: 'TEST' } }).exec(),
             this.capitalModel.find({ dataMode: { $ne: 'TEST' } }).exec(),
+            this.productInvestmentModel.find().exec(),
         ]);
         const categoryMap = new Map();
         allCategories.forEach((c) => {
@@ -811,6 +820,27 @@ let FinanceService = class FinanceService {
                         entry.periodCost += item.totalCost || (item.quantity * item.unitCost) || 0;
                     }
                 }
+            }
+        }
+        for (const inv of allProductInvestments) {
+            const sku = (inv.variantSku || '').trim();
+            if (!sku)
+                continue;
+            let entry = purchasesBySku.get(sku);
+            if (!entry) {
+                entry = { totalQty: 0, totalCost: 0, periodQty: 0, periodCost: 0 };
+                purchasesBySku.set(sku, entry);
+            }
+            const invDate = inv.date ? new Date(inv.date) : new Date(inv.createdAt);
+            const inPeriod = !isNaN(invDate.getTime()) && invDate >= fromDate && invDate <= toDate;
+            entry.totalQty += inv.quantity || 0;
+            entry.totalCost += inv.totalInvestment || (inv.quantity * inv.actualCostPerUnit) || 0;
+            if (!entry.lastReceiptDate || invDate > entry.lastReceiptDate) {
+                entry.lastReceiptDate = invDate;
+            }
+            if (inPeriod) {
+                entry.periodQty += inv.quantity || 0;
+                entry.periodCost += inv.totalInvestment || (inv.quantity * inv.actualCostPerUnit) || 0;
             }
         }
         const salesBySku = new Map();
@@ -920,6 +950,7 @@ let FinanceService = class FinanceService {
                 cogs: 0,
                 grossProfit: 0,
                 grossMarginPercent: 0,
+                profitPerUnit: 0,
                 physicalStock: 0,
                 reservedStock: 0,
                 availableStock: 0,
@@ -949,6 +980,7 @@ let FinanceService = class FinanceService {
                 const vMargin = vRevenue > 0 ? (vGrossProfit / vRevenue) * 100 : 0;
                 const vAvgSellingPrice = sData.periodSoldQty > 0 ? vRevenue / sData.periodSoldQty : (v.price || p.salePrice || 0);
                 const vDamageLoss = rData.periodDamageQty * unitCost;
+                const vProfitPerUnit = sData.periodSoldQty > 0 ? Math.round(vGrossProfit / sData.periodSoldQty) : Math.round(vAvgSellingPrice - unitCost);
                 const variantEntry = {
                     productId: p._id.toString(),
                     productName: p.name,
@@ -965,6 +997,7 @@ let FinanceService = class FinanceService {
                     averageCost: unitCost,
                     soldQty: sData.periodSoldQty,
                     averageSellingPrice: Math.round(vAvgSellingPrice),
+                    profitPerUnit: vProfitPerUnit,
                     revenue: vRevenue,
                     cogs: vCogs,
                     grossProfit: vGrossProfit,
@@ -1009,6 +1042,7 @@ let FinanceService = class FinanceService {
                 productEntry.averageCost = productEntry.physicalStock > 0 ? Math.round(productEntry.inventoryValue / productEntry.physicalStock) : (productEntry.variants[0]?.averageCost || 0);
             }
             productEntry.averageSellingPrice = productEntry.soldQty > 0 ? Math.round(productEntry.revenue / productEntry.soldQty) : (p.salePrice || 0);
+            productEntry.profitPerUnit = productEntry.soldQty > 0 ? Math.round(productEntry.grossProfit / productEntry.soldQty) : Math.round(productEntry.averageSellingPrice - productEntry.averageCost);
             productEntry.grossMarginPercent = productEntry.revenue > 0 ? Number(((productEntry.grossProfit / productEntry.revenue) * 100).toFixed(2)) : 0;
             productList.push(productEntry);
             catEntry.products.push(productEntry);
@@ -1029,6 +1063,7 @@ let FinanceService = class FinanceService {
         const categoryList = [];
         for (const cat of categoryResultMap.values()) {
             cat.grossMarginPercent = cat.revenue > 0 ? Number(((cat.grossProfit / cat.revenue) * 100).toFixed(2)) : 0;
+            cat.profitPerUnit = cat.soldQty > 0 ? Math.round(cat.grossProfit / cat.soldQty) : 0;
             categoryList.push(cat);
         }
         const allBusiness = {
@@ -1039,6 +1074,10 @@ let FinanceService = class FinanceService {
             cogs: 0,
             grossProfit: 0,
             grossMarginPercent: 0,
+            profitPerUnit: 0,
+            operatingExpenses: 0,
+            netBusinessProfit: 0,
+            netMarginPercent: 0,
             physicalStock: 0,
             reservedStock: 0,
             availableStock: 0,
@@ -1065,6 +1104,18 @@ let FinanceService = class FinanceService {
         }
         allBusiness.grossMarginPercent = allBusiness.revenue > 0 ? Number(((allBusiness.grossProfit / allBusiness.revenue) * 100).toFixed(2)) : 0;
         allBusiness.capitalRecoveryPercent = allBusiness.purchaseInvestment > 0 ? Number(((allBusiness.cogs / allBusiness.purchaseInvestment) * 100).toFixed(2)) : 0;
+        allBusiness.profitPerUnit = allBusiness.soldQty > 0 ? Math.round(allBusiness.grossProfit / allBusiness.soldQty) : 0;
+        let periodOperatingExpenses = 0;
+        for (const exp of allExpenses) {
+            const expDate = exp.date ? new Date(exp.date) : new Date(exp.createdAt);
+            const inPeriod = !isNaN(expDate.getTime()) && expDate >= fromDate && expDate <= toDate;
+            if (inPeriod || range === 'all') {
+                periodOperatingExpenses += exp.amount || 0;
+            }
+        }
+        allBusiness.operatingExpenses = periodOperatingExpenses;
+        allBusiness.netBusinessProfit = allBusiness.grossProfit - periodOperatingExpenses;
+        allBusiness.netMarginPercent = allBusiness.revenue > 0 ? Number(((allBusiness.netBusinessProfit / allBusiness.revenue) * 100).toFixed(2)) : 0;
         for (const cat of categoryList) {
             cat.contributionPercent = allBusiness.revenue > 0 ? Number(((cat.revenue / allBusiness.revenue) * 100).toFixed(2)) : 0;
             for (const prod of cat.products) {
@@ -1240,7 +1291,9 @@ exports.FinanceService = FinanceService = __decorate([
     __param(8, (0, mongoose_1.InjectModel)(payment_schema_1.Payment.name)),
     __param(9, (0, mongoose_1.InjectModel)(return_request_schema_1.ReturnRequest.name)),
     __param(10, (0, mongoose_1.InjectModel)(inventory_transaction_schema_1.InventoryTransaction.name)),
+    __param(11, (0, mongoose_1.InjectModel)(product_investment_schema_1.ProductInvestment.name)),
     __metadata("design:paramtypes", [mongoose_2.Model,
+        mongoose_2.Model,
         mongoose_2.Model,
         mongoose_2.Model,
         mongoose_2.Model,

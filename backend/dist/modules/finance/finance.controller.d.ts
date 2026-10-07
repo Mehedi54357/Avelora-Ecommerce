@@ -25,6 +25,10 @@ export declare class FinanceController {
             cogs: number;
             grossProfit: number;
             grossMarginPercent: number;
+            profitPerUnit: number;
+            operatingExpenses: number;
+            netBusinessProfit: number;
+            netMarginPercent: number;
             physicalStock: number;
             reservedStock: number;
             availableStock: number;
@@ -197,6 +201,7 @@ export declare class FinanceController {
         };
         outflows: {
             supplierPaid: number;
+            productInvestmentOutflow: number;
             operatingExpensesPaid: number;
             capitalWithdrawals: number;
             totalCashOut: number;

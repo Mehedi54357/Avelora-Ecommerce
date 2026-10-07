@@ -12,6 +12,7 @@ import { CourierSettlement } from '../../schemas/courier-settlement.schema';
 import { Payment } from '../../schemas/payment.schema';
 import { ReturnRequest, ReturnStatus } from '../../schemas/return-request.schema';
 import { InventoryTransaction } from '../../schemas/inventory-transaction.schema';
+import { ProductInvestment } from '../../schemas/product-investment.schema';
 import { AuditLogService } from '../audit-log/audit-log.service';
 
 describe('Business Owner Profitability, Investment & Inventory Intelligence (Deep Analysis)', () => {
@@ -98,6 +99,7 @@ describe('Business Owner Profitability, Investment & Inventory Intelligence (Dee
         { provide: getModelToken(Payment.name), useValue: createMockModel(() => []) },
         { provide: getModelToken(ReturnRequest.name), useValue: createMockModel(() => mockReturns) },
         { provide: getModelToken(InventoryTransaction.name), useValue: createMockModel(() => mockInventoryTxns) },
+        { provide: getModelToken(ProductInvestment.name), useValue: createMockModel(() => []) },
         { provide: AuditLogService, useValue: { logAction: jest.fn().mockResolvedValue(true) } },
       ],
     }).compile();

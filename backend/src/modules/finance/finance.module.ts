@@ -13,6 +13,7 @@ import { Payment, PaymentSchema } from '../../schemas/payment.schema';
 import { ReturnRequest, ReturnRequestSchema } from '../../schemas/return-request.schema';
 import { Category, CategorySchema } from '../../schemas/category.schema';
 import { InventoryTransaction, InventoryTransactionSchema } from '../../schemas/inventory-transaction.schema';
+import { ProductInvestment, ProductInvestmentSchema } from '../../schemas/product-investment.schema';
 import { AuthModule } from '../auth/auth.module';
 import { AuditLogModule } from '../audit-log/audit-log.module';
 
@@ -30,6 +31,7 @@ import { AuditLogModule } from '../audit-log/audit-log.module';
       { name: Payment.name, schema: PaymentSchema },
       { name: ReturnRequest.name, schema: ReturnRequestSchema },
       { name: InventoryTransaction.name, schema: InventoryTransactionSchema },
+      { name: ProductInvestment.name, schema: ProductInvestmentSchema },
     ]),
     AuthModule,
     AuditLogModule,

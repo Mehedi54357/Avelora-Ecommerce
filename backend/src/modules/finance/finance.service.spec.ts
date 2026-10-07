@@ -14,6 +14,7 @@ import { AuditLogService } from '../audit-log/audit-log.service';
 
 import { Category } from '../../schemas/category.schema';
 import { InventoryTransaction } from '../../schemas/inventory-transaction.schema';
+import { ProductInvestment } from '../../schemas/product-investment.schema';
 
 describe('FinanceService - Management P&L and Working Capital', () => {
   let service: FinanceService;
@@ -66,6 +67,9 @@ describe('FinanceService - Management P&L and Working Capital', () => {
     mockInventoryTxnModel = {
       find: jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue([]) }),
     };
+    const mockProductInvestmentModel = {
+      find: jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue([]) }),
+    };
     mockAuditLogService = {
       logAction: jest.fn().mockResolvedValue(true),
     };
@@ -84,6 +88,7 @@ describe('FinanceService - Management P&L and Working Capital', () => {
         { provide: getModelToken(Payment.name), useValue: mockPaymentModel },
         { provide: getModelToken(ReturnRequest.name), useValue: mockReturnModel },
         { provide: getModelToken(InventoryTransaction.name), useValue: mockInventoryTxnModel },
+        { provide: getModelToken(ProductInvestment.name), useValue: mockProductInvestmentModel },
         { provide: AuditLogService, useValue: mockAuditLogService },
       ],
     }).compile();

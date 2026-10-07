@@ -12,6 +12,9 @@ const mongoose_1 = require("@nestjs/mongoose");
 const capital_service_1 = require("./capital.service");
 const capital_controller_1 = require("./capital.controller");
 const capital_schema_1 = require("../../schemas/capital.schema");
+const product_investment_schema_1 = require("../../schemas/product-investment.schema");
+const product_schema_1 = require("../../schemas/product.schema");
+const inventory_transaction_schema_1 = require("../../schemas/inventory-transaction.schema");
 const audit_log_module_1 = require("../audit-log/audit-log.module");
 let CapitalModule = class CapitalModule {
 };
@@ -21,6 +24,9 @@ exports.CapitalModule = CapitalModule = __decorate([
         imports: [
             mongoose_1.MongooseModule.forFeature([
                 { name: capital_schema_1.CapitalTransaction.name, schema: capital_schema_1.CapitalTransactionSchema },
+                { name: product_investment_schema_1.ProductInvestment.name, schema: product_investment_schema_1.ProductInvestmentSchema },
+                { name: product_schema_1.Product.name, schema: product_schema_1.ProductSchema },
+                { name: inventory_transaction_schema_1.InventoryTransaction.name, schema: inventory_transaction_schema_1.InventoryTransactionSchema },
             ]),
             audit_log_module_1.AuditLogModule,
         ],

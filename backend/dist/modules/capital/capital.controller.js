@@ -37,6 +37,31 @@ let CapitalController = class CapitalController {
         const actor = req.user?.email || 'ADMIN';
         return this.capitalService.deleteTransaction(id, actor);
     }
+    async getProductInvestments(query) {
+        return this.capitalService.getProductInvestments(query);
+    }
+    async exportProductInvestments(query, res) {
+        const csvData = await this.capitalService.exportProductInvestmentsCsv(query);
+        res.setHeader('Content-Type', 'text/csv');
+        res.setHeader('Content-Disposition', `attachment; filename="avelora-investments-${Date.now()}.csv"`);
+        return res.send(csvData);
+    }
+    async createProductInvestment(body, req) {
+        const actor = req.user?.email || 'ADMIN';
+        return this.capitalService.createProductInvestment(body, actor);
+    }
+    async updateProductInvestment(id, body, req) {
+        const actor = req.user?.email || 'ADMIN';
+        return this.capitalService.updateProductInvestment(id, body, actor);
+    }
+    async deleteProductInvestment(id, req) {
+        const actor = req.user?.email || 'ADMIN';
+        return this.capitalService.deleteProductInvestment(id, actor);
+    }
+    async adjustDamagedOrLostStock(body, req) {
+        const actor = req.user?.email || 'ADMIN';
+        return this.capitalService.adjustDamagedOrLostStock(body, actor);
+    }
 };
 exports.CapitalController = CapitalController;
 __decorate([
@@ -72,6 +97,60 @@ __decorate([
     __metadata("design:paramtypes", [String, Object]),
     __metadata("design:returntype", Promise)
 ], CapitalController.prototype, "deleteTransaction", null);
+__decorate([
+    (0, common_1.Get)('product-investments'),
+    (0, roles_decorator_1.Roles)(user_schema_1.UserRole.SUPER_ADMIN, user_schema_1.UserRole.ADMIN, user_schema_1.UserRole.MANAGER),
+    __param(0, (0, common_1.Query)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", Promise)
+], CapitalController.prototype, "getProductInvestments", null);
+__decorate([
+    (0, common_1.Get)('product-investments/export'),
+    (0, roles_decorator_1.Roles)(user_schema_1.UserRole.SUPER_ADMIN, user_schema_1.UserRole.ADMIN, user_schema_1.UserRole.MANAGER),
+    __param(0, (0, common_1.Query)()),
+    __param(1, (0, common_1.Res)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, Object]),
+    __metadata("design:returntype", Promise)
+], CapitalController.prototype, "exportProductInvestments", null);
+__decorate([
+    (0, common_1.Post)('product-investments'),
+    (0, roles_decorator_1.Roles)(user_schema_1.UserRole.SUPER_ADMIN, user_schema_1.UserRole.ADMIN),
+    __param(0, (0, common_1.Body)()),
+    __param(1, (0, common_1.Request)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, Object]),
+    __metadata("design:returntype", Promise)
+], CapitalController.prototype, "createProductInvestment", null);
+__decorate([
+    (0, common_1.Put)('product-investments/:id'),
+    (0, roles_decorator_1.Roles)(user_schema_1.UserRole.SUPER_ADMIN, user_schema_1.UserRole.ADMIN),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.Body)()),
+    __param(2, (0, common_1.Request)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object, Object]),
+    __metadata("design:returntype", Promise)
+], CapitalController.prototype, "updateProductInvestment", null);
+__decorate([
+    (0, common_1.Delete)('product-investments/:id'),
+    (0, roles_decorator_1.Roles)(user_schema_1.UserRole.SUPER_ADMIN, user_schema_1.UserRole.ADMIN),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.Request)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:returntype", Promise)
+], CapitalController.prototype, "deleteProductInvestment", null);
+__decorate([
+    (0, common_1.Post)('stock-adjust'),
+    (0, roles_decorator_1.Roles)(user_schema_1.UserRole.SUPER_ADMIN, user_schema_1.UserRole.ADMIN, user_schema_1.UserRole.MANAGER),
+    __param(0, (0, common_1.Body)()),
+    __param(1, (0, common_1.Request)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, Object]),
+    __metadata("design:returntype", Promise)
+], CapitalController.prototype, "adjustDamagedOrLostStock", null);
 exports.CapitalController = CapitalController = __decorate([
     (0, common_1.Controller)('admin/capital'),
     (0, common_1.UseGuards)(auth_guard_1.AuthGuard, roles_guard_1.RolesGuard),

@@ -22,6 +22,7 @@ const payment_schema_1 = require("../../schemas/payment.schema");
 const return_request_schema_1 = require("../../schemas/return-request.schema");
 const category_schema_1 = require("../../schemas/category.schema");
 const inventory_transaction_schema_1 = require("../../schemas/inventory-transaction.schema");
+const product_investment_schema_1 = require("../../schemas/product-investment.schema");
 const auth_module_1 = require("../auth/auth.module");
 const audit_log_module_1 = require("../audit-log/audit-log.module");
 let FinanceModule = class FinanceModule {
@@ -42,6 +43,7 @@ exports.FinanceModule = FinanceModule = __decorate([
                 { name: payment_schema_1.Payment.name, schema: payment_schema_1.PaymentSchema },
                 { name: return_request_schema_1.ReturnRequest.name, schema: return_request_schema_1.ReturnRequestSchema },
                 { name: inventory_transaction_schema_1.InventoryTransaction.name, schema: inventory_transaction_schema_1.InventoryTransactionSchema },
+                { name: product_investment_schema_1.ProductInvestment.name, schema: product_investment_schema_1.ProductInvestmentSchema },
             ]),
             auth_module_1.AuthModule,
             audit_log_module_1.AuditLogModule,
