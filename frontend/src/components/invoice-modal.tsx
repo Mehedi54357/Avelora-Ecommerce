@@ -95,7 +95,16 @@ export default function InvoiceModal({ order, isOpen, onClose }: InvoiceModalPro
                 Payment & Order Details:
               </h4>
               <p className="text-xs text-gray-700">Payment Method: <span className="font-semibold">{order.paymentMethod}</span></p>
-              <p className="text-xs text-gray-700 mt-0.5">Delivery Service: <span className="font-semibold">AVELORA Express Insured</span></p>
+              <p className="text-xs text-gray-700 mt-0.5">
+                Delivery Service:{' '}
+                <span className="font-semibold">
+                  {order.fulfillmentMethod === 'SHOWROOM_PICKUP'
+                    ? 'Showroom Pickup (FREE)'
+                    : order.fulfillmentMethod === 'CUSTOMER_PICKUP'
+                    ? 'Customer Pickup Point'
+                    : 'AVELORA Express Insured'}
+                </span>
+              </p>
               {order.notes && (
                 <p className="text-xs text-gray-500 mt-2 italic bg-white p-2 rounded border border-gray-100">
                   Note: "{order.notes}"
@@ -158,7 +167,11 @@ export default function InvoiceModal({ order, isOpen, onClose }: InvoiceModalPro
               )}
               <div className="flex justify-between text-gray-600">
                 <span>Delivery Charge:</span>
-                <span className="font-semibold font-mono">৳{(order.deliveryCharge || 0).toLocaleString()}</span>
+                <span className="font-semibold font-mono">
+                  {order.fulfillmentMethod === 'SHOWROOM_PICKUP'
+                    ? 'FREE (৳0)'
+                    : `৳${(order.deliveryCharge || 0).toLocaleString()}`}
+                </span>
               </div>
               <div className="flex justify-between text-sm font-bold text-gray-900 pt-2 border-t-2 border-gray-900">
                 <span>Total Amount:</span>
@@ -172,8 +185,10 @@ export default function InvoiceModal({ order, isOpen, onClose }: InvoiceModalPro
                   <span className="font-mono">৳{(order.paidAmount || (order.paymentMethod === 'COD' ? order.deliveryCharge : order.totalAmount) || 0).toLocaleString()}</span>
                 </div>
                 <div className="flex justify-between text-amber-800 font-semibold">
-                  <span>Cash Due on Delivery:</span>
-                  <span className="font-mono">৳{(order.dueAmount || (order.paymentMethod === 'COD' ? order.subtotal : 0) || 0).toLocaleString()}</span>
+                  <span>
+                    {order.fulfillmentMethod === 'SHOWROOM_PICKUP' ? 'Cash Due on Pickup:' : 'Cash Due on Delivery:'}
+                  </span>
+                  <span className="font-mono">৳{(order.dueAmount || (order.paymentMethod === 'COD' ? (order.fulfillmentMethod === 'SHOWROOM_PICKUP' ? order.totalAmount : order.subtotal) : 0) || 0).toLocaleString()}</span>
                 </div>
                 {order.transactionId && (
                   <p className="text-[10px] text-gray-500 font-mono pt-0.5">

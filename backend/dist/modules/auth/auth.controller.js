@@ -91,7 +91,11 @@ let AuthController = class AuthController {
             domain: cookieOptions.domain,
             path: '/',
         });
-        const token = req.cookies?.token;
+        const authHeader = req.headers?.authorization;
+        const bearerToken = typeof authHeader === 'string' && authHeader.startsWith('Bearer ')
+            ? authHeader.substring(7).trim()
+            : undefined;
+        const token = req.cookies?.token || bearerToken;
         const adminId = req.user?.sub;
         return this.authService.logout(token, adminId, ip, userAgent);
     }

@@ -150,7 +150,10 @@ export class OrdersService {
       (data.customerDetails.division || '').trim().toLowerCase().includes('dhaka');
 
     const storeSettings = await this.settingsService.getSettings();
-    const deliveryCharge = chosenFulfillment === FulfillmentMethod.CUSTOMER_PICKUP
+    const isFreeFulfillment =
+      chosenFulfillment === FulfillmentMethod.SHOWROOM_PICKUP ||
+      chosenFulfillment === FulfillmentMethod.CUSTOMER_PICKUP;
+    const deliveryCharge = isFreeFulfillment
       ? 0
       : isDhaka
         ? (storeSettings.defaultDhakaDeliveryCharge || 70)
@@ -687,7 +690,7 @@ export class OrdersService {
 
     const oldStatus = order.status;
 
-    if (oldStatus !== OrderStatus.DELIVERED) {
+    if (oldStatus !== OrderStatus.DELIVERED && oldStatus !== OrderStatus.COMPLETED) {
       for (const item of order.items) {
         await this.inventoryService.fulfillStock(
           item.productId.toString(),
@@ -698,7 +701,12 @@ export class OrdersService {
       }
     }
 
-    order.status = OrderStatus.DELIVERED;
+    const finalStatus =
+      order.fulfillmentMethod === FulfillmentMethod.SHOWROOM_PICKUP
+        ? OrderStatus.COMPLETED
+        : OrderStatus.DELIVERED;
+
+    order.status = finalStatus;
     order.fulfillmentStatus = FulfillmentStatus.DELIVERED;
     order.courierSettlementStatus = CourierSettlementStatus.NOT_APPLICABLE;
 
@@ -710,10 +718,10 @@ export class OrdersService {
         amount: payAmount,
         paymentMethod: payload.paymentMethod || 'Cash',
         transactionReference: payload.transactionReference || '',
-        account: payload.account || 'Cash On Hand',
+        account: payload.account || (order.fulfillmentMethod === FulfillmentMethod.SHOWROOM_PICKUP ? 'Showroom Cash Register' : 'Cash On Hand'),
         paymentDate: new Date(),
         recordedBy: actor,
-        notes: payload.notes || 'Customer Pickup Payment',
+        notes: payload.notes || (order.fulfillmentMethod === FulfillmentMethod.SHOWROOM_PICKUP ? 'Showroom Pickup Handover Payment' : 'Customer Pickup Payment'),
       });
 
       order.paidAmount = (order.paidAmount || 0) + payAmount;
@@ -860,8 +868,12 @@ export class OrdersService {
       return order;
     }
 
-    // 1. Transitioning to DELIVERED (Fulfilled):
-    if (newStatus === OrderStatus.DELIVERED && oldStatus !== OrderStatus.DELIVERED) {
+    // 1. Transitioning to DELIVERED or COMPLETED (Fulfilled):
+    if (
+      (newStatus === OrderStatus.DELIVERED || newStatus === OrderStatus.COMPLETED) &&
+      oldStatus !== OrderStatus.DELIVERED &&
+      oldStatus !== OrderStatus.COMPLETED
+    ) {
       for (const item of order.items) {
         await this.inventoryService.fulfillStock(
           item.productId.toString(),
@@ -883,6 +895,7 @@ export class OrdersService {
       newStatus === OrderStatus.CANCELLED &&
       oldStatus !== OrderStatus.CANCELLED &&
       oldStatus !== OrderStatus.DELIVERED &&
+      oldStatus !== OrderStatus.COMPLETED &&
       oldStatus !== OrderStatus.RETURNED
     ) {
       for (const item of order.items) {
@@ -896,8 +909,11 @@ export class OrdersService {
       order.cancellationReason = note || 'Cancelled by staff';
     }
 
-    // 3. Transitioning to RETURNED from DELIVERED:
-    else if (newStatus === OrderStatus.RETURNED && oldStatus === OrderStatus.DELIVERED) {
+    // 3. Transitioning to RETURNED from DELIVERED / COMPLETED:
+    else if (
+      newStatus === OrderStatus.RETURNED &&
+      (oldStatus === OrderStatus.DELIVERED || oldStatus === OrderStatus.COMPLETED)
+    ) {
       for (const item of order.items) {
         await this.inventoryService.returnStock(
           item.productId.toString(),
@@ -909,12 +925,22 @@ export class OrdersService {
       order.fulfillmentStatus = FulfillmentStatus.RETURNED;
     }
 
-    // 4. Transitioning to SHIPPED:
+    // 4. Transitioning to READY_FOR_PICKUP:
+    else if (newStatus === OrderStatus.READY_FOR_PICKUP) {
+      order.fulfillmentStatus = FulfillmentStatus.READY_FOR_PICKUP;
+    }
+
+    // 5. Transitioning to PROCESSING:
+    else if (newStatus === OrderStatus.PROCESSING) {
+      order.fulfillmentStatus = FulfillmentStatus.PROCESSING;
+    }
+
+    // 6. Transitioning to SHIPPED:
     else if (newStatus === OrderStatus.SHIPPED) {
       order.fulfillmentStatus = FulfillmentStatus.SHIPPED;
     }
 
-    // 5. Transitioning to PACKED:
+    // 7. Transitioning to PACKED:
     else if (newStatus === OrderStatus.PACKED) {
       order.fulfillmentStatus = FulfillmentStatus.PACKED;
     }

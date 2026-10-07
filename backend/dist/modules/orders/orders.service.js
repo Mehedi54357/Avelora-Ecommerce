@@ -105,7 +105,9 @@ let OrdersService = OrdersService_1 = class OrdersService {
             districtLower === 'dhaka' ||
             (data.customerDetails.division || '').trim().toLowerCase().includes('dhaka');
         const storeSettings = await this.settingsService.getSettings();
-        const deliveryCharge = chosenFulfillment === order_schema_1.FulfillmentMethod.CUSTOMER_PICKUP
+        const isFreeFulfillment = chosenFulfillment === order_schema_1.FulfillmentMethod.SHOWROOM_PICKUP ||
+            chosenFulfillment === order_schema_1.FulfillmentMethod.CUSTOMER_PICKUP;
+        const deliveryCharge = isFreeFulfillment
             ? 0
             : isDhaka
                 ? (storeSettings.defaultDhakaDeliveryCharge || 70)
@@ -518,12 +520,15 @@ let OrdersService = OrdersService_1 = class OrdersService {
         if (!order)
             throw new common_1.NotFoundException('Order not found');
         const oldStatus = order.status;
-        if (oldStatus !== order_schema_1.OrderStatus.DELIVERED) {
+        if (oldStatus !== order_schema_1.OrderStatus.DELIVERED && oldStatus !== order_schema_1.OrderStatus.COMPLETED) {
             for (const item of order.items) {
                 await this.inventoryService.fulfillStock(item.productId.toString(), item.sku, item.quantity, order.orderId);
             }
         }
-        order.status = order_schema_1.OrderStatus.DELIVERED;
+        const finalStatus = order.fulfillmentMethod === order_schema_1.FulfillmentMethod.SHOWROOM_PICKUP
+            ? order_schema_1.OrderStatus.COMPLETED
+            : order_schema_1.OrderStatus.DELIVERED;
+        order.status = finalStatus;
         order.fulfillmentStatus = order_schema_1.FulfillmentStatus.DELIVERED;
         order.courierSettlementStatus = order_schema_1.CourierSettlementStatus.NOT_APPLICABLE;
         if (payload.paymentReceived && Number(payload.amount) > 0) {
@@ -534,10 +539,10 @@ let OrdersService = OrdersService_1 = class OrdersService {
                 amount: payAmount,
                 paymentMethod: payload.paymentMethod || 'Cash',
                 transactionReference: payload.transactionReference || '',
-                account: payload.account || 'Cash On Hand',
+                account: payload.account || (order.fulfillmentMethod === order_schema_1.FulfillmentMethod.SHOWROOM_PICKUP ? 'Showroom Cash Register' : 'Cash On Hand'),
                 paymentDate: new Date(),
                 recordedBy: actor,
-                notes: payload.notes || 'Customer Pickup Payment',
+                notes: payload.notes || (order.fulfillmentMethod === order_schema_1.FulfillmentMethod.SHOWROOM_PICKUP ? 'Showroom Pickup Handover Payment' : 'Customer Pickup Payment'),
             });
             order.paidAmount = (order.paidAmount || 0) + payAmount;
             order.dueAmount = Math.max(0, order.totalAmount - order.paidAmount);
@@ -646,7 +651,9 @@ let OrdersService = OrdersService_1 = class OrdersService {
             }
             return order;
         }
-        if (newStatus === order_schema_1.OrderStatus.DELIVERED && oldStatus !== order_schema_1.OrderStatus.DELIVERED) {
+        if ((newStatus === order_schema_1.OrderStatus.DELIVERED || newStatus === order_schema_1.OrderStatus.COMPLETED) &&
+            oldStatus !== order_schema_1.OrderStatus.DELIVERED &&
+            oldStatus !== order_schema_1.OrderStatus.COMPLETED) {
             for (const item of order.items) {
                 await this.inventoryService.fulfillStock(item.productId.toString(), item.sku, item.quantity, order.orderId);
             }
@@ -660,17 +667,25 @@ let OrdersService = OrdersService_1 = class OrdersService {
         else if (newStatus === order_schema_1.OrderStatus.CANCELLED &&
             oldStatus !== order_schema_1.OrderStatus.CANCELLED &&
             oldStatus !== order_schema_1.OrderStatus.DELIVERED &&
+            oldStatus !== order_schema_1.OrderStatus.COMPLETED &&
             oldStatus !== order_schema_1.OrderStatus.RETURNED) {
             for (const item of order.items) {
                 await this.inventoryService.releaseReservation(item.productId.toString(), item.sku, item.quantity, order.orderId);
             }
             order.cancellationReason = note || 'Cancelled by staff';
         }
-        else if (newStatus === order_schema_1.OrderStatus.RETURNED && oldStatus === order_schema_1.OrderStatus.DELIVERED) {
+        else if (newStatus === order_schema_1.OrderStatus.RETURNED &&
+            (oldStatus === order_schema_1.OrderStatus.DELIVERED || oldStatus === order_schema_1.OrderStatus.COMPLETED)) {
             for (const item of order.items) {
                 await this.inventoryService.returnStock(item.productId.toString(), item.sku, item.quantity, order.orderId);
             }
             order.fulfillmentStatus = order_schema_1.FulfillmentStatus.RETURNED;
+        }
+        else if (newStatus === order_schema_1.OrderStatus.READY_FOR_PICKUP) {
+            order.fulfillmentStatus = order_schema_1.FulfillmentStatus.READY_FOR_PICKUP;
+        }
+        else if (newStatus === order_schema_1.OrderStatus.PROCESSING) {
+            order.fulfillmentStatus = order_schema_1.FulfillmentStatus.PROCESSING;
         }
         else if (newStatus === order_schema_1.OrderStatus.SHIPPED) {
             order.fulfillmentStatus = order_schema_1.FulfillmentStatus.SHIPPED;

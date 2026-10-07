@@ -23,6 +23,7 @@ import {
   Info,
   Check,
   PackageCheck,
+  Store,
 } from 'lucide-react';
 
 import {
@@ -48,7 +49,7 @@ export default function CheckoutPage() {
   const [detailedAddress, setDetailedAddress] = useState<string>('');
 
   const [notes, setNotes] = useState('');
-  const [deliveryMethod, setDeliveryMethod] = useState<'HOME' | 'PICKUP'>('HOME');
+  const [deliveryMethod, setDeliveryMethod] = useState<'HOME' | 'PICKUP' | 'SHOWROOM'>('HOME');
 
   // Modals & Process State
   const [isInvoiceOpen, setIsInvoiceOpen] = useState(false);
@@ -100,7 +101,8 @@ export default function CheckoutPage() {
   };
 
   const isDhakaCity = selectedDistrictId === 'dhaka';
-  const deliveryCharge = isDhakaCity ? 70 : 130;
+  const baseDeliveryCharge = isDhakaCity ? 70 : 130;
+  const deliveryCharge = deliveryMethod === 'SHOWROOM' ? 0 : baseDeliveryCharge;
   const totalAmount = Math.max(0, subtotal - couponDiscount + deliveryCharge);
 
   const handleApplyCoupon = async (e: React.FormEvent) => {
@@ -185,7 +187,7 @@ export default function CheckoutPage() {
         sku: item.sku || (item as any).variant?.sku || 'STD',
         quantity: item.quantity,
       })),
-      notes: notes.trim(),
+      notes: deliveryMethod === 'PICKUP' ? (notes.trim() ? `${notes.trim()} (Pickup Point)` : 'Pickup Point') : notes.trim(),
       couponCode: couponApplied ? couponCode.trim().toUpperCase() : undefined,
       paymentMethod: 'COD',
       paymentProvider: 'COD',
@@ -193,6 +195,7 @@ export default function CheckoutPage() {
       transactionId: '',
       paidAmount: 0,
       dueAmount: totalAmount,
+      fulfillmentMethod: deliveryMethod === 'SHOWROOM' ? 'SHOWROOM_PICKUP' : 'COURIER',
     };
 
     try {
@@ -399,20 +402,22 @@ export default function CheckoutPage() {
             </div>
 
             {/* Delivery Charge Indicator Badge */}
-            <div className="p-2.5 bg-gray-50 rounded-xl border border-gray-200/80 flex items-center justify-between text-xs flex-wrap gap-2">
-              <div className="flex items-center gap-2">
-                <Truck className="w-4 h-4 text-[#997B21]" />
-                <span className="text-gray-700">
-                  Location:{' '}
-                  <strong className="text-gray-900 font-semibold">
-                    {currentDistrict.name}, {currentDivision.name.replace(' Division', '')}
-                  </strong>
+            {deliveryMethod !== 'SHOWROOM' && (
+              <div className="p-2.5 bg-gray-50 rounded-xl border border-gray-200/80 flex items-center justify-between text-xs flex-wrap gap-2">
+                <div className="flex items-center gap-2">
+                  <Truck className="w-4 h-4 text-[#997B21]" />
+                  <span className="text-gray-700">
+                    Location:{' '}
+                    <strong className="text-gray-900 font-semibold">
+                      {currentDistrict.name}, {currentDivision.name.replace(' Division', '')}
+                    </strong>
+                  </span>
+                </div>
+                <span className="font-bold font-mono px-2 py-0.5 bg-white border border-gray-200 rounded-md text-emerald-800 text-xs">
+                  Delivery Charge: ৳{deliveryCharge} ({isDhakaCity ? 'Inside Dhaka' : 'Outside Dhaka'})
                 </span>
               </div>
-              <span className="font-bold font-mono px-2 py-0.5 bg-white border border-gray-200 rounded-md text-emerald-800 text-xs">
-                Delivery Charge: ৳{deliveryCharge} ({isDhakaCity ? 'Inside Dhaka' : 'Outside Dhaka'})
-              </span>
-            </div>
+            )}
 
             {/* Detailed Street Address */}
             <div className="space-y-1">
@@ -451,7 +456,7 @@ export default function CheckoutPage() {
               </h3>
             </div>
 
-            <div className="grid grid-cols-2 gap-3 sm:gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
               <label
                 className={`p-3 sm:p-3.5 rounded-xl border-2 cursor-pointer flex items-center gap-2.5 transition min-h-[44px] ${
                   deliveryMethod === 'HOME'
@@ -466,7 +471,10 @@ export default function CheckoutPage() {
                   onChange={() => setDeliveryMethod('HOME')}
                   className="w-4 h-4 text-emerald-600 focus:ring-emerald-500"
                 />
-                <span className="text-xs">Home Delivery</span>
+                <span className="text-xs flex items-center gap-1.5">
+                  <span>🚚</span>
+                  <span>Home Delivery</span>
+                </span>
               </label>
 
               <label
@@ -483,17 +491,51 @@ export default function CheckoutPage() {
                   onChange={() => setDeliveryMethod('PICKUP')}
                   className="w-4 h-4 text-emerald-600 focus:ring-emerald-500"
                 />
-                <span className="text-xs">Pickup Point</span>
+                <span className="text-xs flex items-center gap-1.5">
+                  <span>📍</span>
+                  <span>Pickup Point</span>
+                </span>
+              </label>
+
+              <label
+                className={`p-3 sm:p-3.5 rounded-xl border-2 cursor-pointer flex items-center gap-2.5 transition min-h-[44px] ${
+                  deliveryMethod === 'SHOWROOM'
+                    ? 'border-emerald-600 bg-emerald-50/50 text-emerald-950 font-bold'
+                    : 'border-gray-200 hover:border-gray-300 text-gray-700'
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="deliveryMethod"
+                  checked={deliveryMethod === 'SHOWROOM'}
+                  onChange={() => setDeliveryMethod('SHOWROOM')}
+                  className="w-4 h-4 text-emerald-600 focus:ring-emerald-500"
+                />
+                <span className="text-xs flex items-center gap-1.5 flex-wrap">
+                  <span>🏬</span>
+                  <span>Showroom Pickup — <strong className="text-emerald-700 font-extrabold uppercase">FREE</strong></span>
+                </span>
               </label>
             </div>
 
-            {/* Courier Notice Info */}
-            <div className="p-3 bg-amber-50/70 border border-amber-200 rounded-xl flex items-start gap-2 text-[11px] text-amber-900">
-              <Info className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
-              <span>
-                জেলা ও উপজেলা সদরে দ্রুততম সময়ে সরাসরি হোম ডেলিভারি পৌঁছে দেওয়া হবে।
-              </span>
-            </div>
+            {/* Courier / Showroom Notice Info */}
+            {deliveryMethod === 'SHOWROOM' ? (
+              <div className="p-3 bg-emerald-50/70 border border-emerald-200 rounded-xl flex items-start gap-2 text-[11px] text-emerald-900">
+                <Store className="w-4 h-4 text-emerald-600 flex-shrink-0 mt-0.5" />
+                <span>
+                  আমাদের শোরুম থেকে সরাসরি পণ্য সংগ্রহ করতে পারবেন। কোনো ডেলিভারি চার্জ প্রযোজ্য নয় (সম্পূর্ণ ফ্রি)।
+                </span>
+              </div>
+            ) : (
+              <div className="p-3 bg-amber-50/70 border border-amber-200 rounded-xl flex items-start gap-2 text-[11px] text-amber-900">
+                <Info className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
+                <span>
+                  {deliveryMethod === 'PICKUP'
+                    ? 'নিকটস্থ হাব বা পিকআপ পয়েন্ট থেকে পণ্য সংগ্রহ করতে পারবেন।'
+                    : 'জেলা ও উপজেলা সদরে দ্রুততম সময়ে সরাসরি হোম ডেলিভারি পৌঁছে দেওয়া হবে।'}
+                </span>
+              </div>
+            )}
           </div>
 
           {/* 3. Pure Cash on Delivery Payment Method Box (No advance requirement) */}
@@ -629,10 +671,20 @@ export default function CheckoutPage() {
                 </div>
               )}
 
-              <div className="flex justify-between text-gray-600">
-                <span>ডেলিভারি চার্জ ({isDhakaCity ? 'ঢাকা শহর' : 'ঢাকার বাইরে'}):</span>
-                <span className="font-mono font-semibold">৳{deliveryCharge}</span>
-              </div>
+              {deliveryMethod === 'SHOWROOM' ? (
+                <div className="flex justify-between text-emerald-700 font-semibold">
+                  <span className="flex items-center gap-1.5">
+                    <span>🏬</span>
+                    <span>Showroom Pickup:</span>
+                  </span>
+                  <span className="font-mono font-bold uppercase tracking-wider text-emerald-700">FREE</span>
+                </div>
+              ) : (
+                <div className="flex justify-between text-gray-600">
+                  <span>ডেলিভারি চার্জ ({isDhakaCity ? 'ঢাকা শহর' : 'ঢাকার বাইরে'}):</span>
+                  <span className="font-mono font-semibold">৳{deliveryCharge}</span>
+                </div>
+              )}
 
               <div className="flex justify-between text-sm font-bold text-gray-900 pt-2 border-t">
                 <span>সর্বমোট বিল (Total):</span>
@@ -644,13 +696,19 @@ export default function CheckoutPage() {
             <div className="p-3.5 bg-emerald-50 rounded-xl border border-emerald-200 space-y-1 text-xs">
               <div className="flex items-center gap-1.5 text-emerald-900 font-bold">
                 <PackageCheck className="w-4 h-4 text-emerald-700" />
-                <span>ডেলিভারির সময় প্রদেয় (Pay on Delivery):</span>
+                <span>
+                  {deliveryMethod === 'SHOWROOM'
+                    ? 'শোরুম থেকে সংগ্রহের সময় প্রদেয় (Pay on Pickup):'
+                    : 'ডেলিভারির সময় প্রদেয় (Pay on Delivery):'}
+                </span>
               </div>
               <p className="text-base font-bold font-mono text-emerald-950 pl-5">
                 ৳{totalAmount.toLocaleString()}
               </p>
               <p className="text-[10px] text-emerald-800 pl-5">
-                কোনো অগ্রিম পেমেন্ট নেই। পার্সেল পেয়ে সম্পূর্ণ টাকা দিন।
+                {deliveryMethod === 'SHOWROOM'
+                  ? 'কোনো অগ্রিম পেমেন্ট নেই। শোরুমে এসে পণ্য দেখে সম্পূর্ণ টাকা দিন।'
+                  : 'কোনো অগ্রিম পেমেন্ট নেই। পার্সেল পেয়ে সম্পূর্ণ টাকা দিন।'}
               </p>
             </div>
 
@@ -663,6 +721,8 @@ export default function CheckoutPage() {
               <span>
                 {submitting
                   ? 'অর্ডার প্রসেস হচ্ছে...'
+                  : deliveryMethod === 'SHOWROOM'
+                  ? `অর্ডার কনফার্ম করুন (৳${totalAmount.toLocaleString()} Pay on Pickup)`
                   : `অর্ডার কনফার্ম করুন (৳${totalAmount.toLocaleString()} Cash on Delivery)`}
               </span>
               <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />

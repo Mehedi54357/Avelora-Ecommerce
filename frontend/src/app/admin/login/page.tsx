@@ -73,11 +73,39 @@ export default function AdminLoginPage() {
     return () => clearInterval(timer);
   }, [screen, resendCountdown]);
 
+  // Synchronize browser autofilled credentials into state on mount and screen transitions
+  useEffect(() => {
+    if (screen !== 'LOGIN') return;
+    const syncAutofill = () => {
+      const emailEl = document.getElementById('email') as HTMLInputElement | null;
+      const passEl = document.getElementById('password') as HTMLInputElement | null;
+      if (emailEl?.value) setEmail((prev) => prev || emailEl.value);
+      if (passEl?.value) setPassword((prev) => prev || passEl.value);
+    };
+
+    syncAutofill();
+    const timer = setTimeout(syncAutofill, 400);
+    return () => clearTimeout(timer);
+  }, [screen]);
+
   // Handle Step 1: Login Submission (Email + Password)
-  const handleLoginSubmit = async (e: React.FormEvent) => {
+  const handleLoginSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError('');
     setNotice('');
+
+    // Extract values directly from form elements as primary/fallback to catch browser autofilled credentials
+    const form = e.currentTarget;
+    const emailInput = form?.elements?.namedItem('email') as HTMLInputElement | null;
+    const passwordInput = form?.elements?.namedItem('password') as HTMLInputElement | null;
+    const effectiveEmail = (emailInput?.value || email || '').trim();
+    const effectivePassword = passwordInput?.value || password || '';
+
+    if (!effectiveEmail || !effectivePassword) {
+      setError('Please provide both admin email and password.');
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -85,7 +113,7 @@ export default function AdminLoginPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ email: email.trim(), password }),
+        body: JSON.stringify({ email: effectiveEmail, password: effectivePassword }),
       });
 
       const data = await res.json();
@@ -94,7 +122,7 @@ export default function AdminLoginPage() {
         if (data.requiresOtp) {
           // Transition to OTP verification screen
           setChallengeId(data.challengeId);
-          setMaskedEmail(data.maskedEmail || email);
+          setMaskedEmail(data.maskedEmail || effectiveEmail);
           setResendCountdown(30);
           setCanResend(false);
           setOtpDigits(['', '', '', '', '', '']);
@@ -285,12 +313,14 @@ export default function AdminLoginPage() {
       const data = await res.json();
       if (res.ok) {
         setForgotSuccess(true);
+        setEmail(forgotEmail.trim());
+        setPassword(newPassword);
         setTimeout(() => {
           setScreen('LOGIN');
           setForgotSuccess(false);
           setForgotStep('ENTER_EMAIL');
-          setNotice('Password reset successfully. Please sign in.');
-        }, 2000);
+          setNotice('Password reset successfully. Please sign in with your new credentials.');
+        }, 1500);
       } else {
         setError(data.message || 'Failed to reset password.');
       }
@@ -446,8 +476,10 @@ export default function AdminLoginPage() {
                     <div className="relative">
                       <input
                         type="email"
+                        id="email"
+                        name="email"
                         required
-                        autoComplete="email"
+                        autoComplete="username email"
                         placeholder="aveloraelegance@gmail.com"
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
@@ -478,6 +510,8 @@ export default function AdminLoginPage() {
                     <div className="relative">
                       <input
                         type={showPassword ? 'text' : 'password'}
+                        id="password"
+                        name="password"
                         required
                         autoComplete="current-password"
                         placeholder="••••••••••••"
@@ -691,12 +725,25 @@ export default function AdminLoginPage() {
                   </form>
                 ) : (
                   <form onSubmit={handleResetPasswordSubmit} className="space-y-4">
+                    {/* Hidden username context for browser password managers */}
+                    <input
+                      type="text"
+                      name="username"
+                      autoComplete="username"
+                      value={forgotEmail}
+                      readOnly
+                      className="sr-only hidden"
+                      tabIndex={-1}
+                      aria-hidden="true"
+                    />
+
                     <div className="space-y-1.5">
                       <label className="block text-[11px] font-bold uppercase tracking-wider text-gray-700">
                         6-Digit Reset Code
                       </label>
                       <input
                         type="text"
+                        name="resetCode"
                         required
                         placeholder="• • • • • •"
                         maxLength={6}
@@ -713,7 +760,10 @@ export default function AdminLoginPage() {
                       <div className="relative">
                         <input
                           type={showNewPassword ? 'text' : 'password'}
+                          id="newPassword"
+                          name="newPassword"
                           required
+                          autoComplete="new-password"
                           placeholder="••••••••••••"
                           value={newPassword}
                           onChange={(e) => setNewPassword(e.target.value)}
@@ -758,7 +808,10 @@ export default function AdminLoginPage() {
                       </label>
                       <input
                         type="password"
+                        id="confirmPassword"
+                        name="confirmPassword"
                         required
+                        autoComplete="new-password"
                         placeholder="••••••••••••"
                         value={confirmPassword}
                         onChange={(e) => setConfirmPassword(e.target.value)}

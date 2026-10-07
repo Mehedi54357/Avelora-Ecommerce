@@ -27,6 +27,14 @@ const ORDER_STEPS = [
   { key: 'DELIVERED', label: 'Delivered', desc: 'Safely delivered to patron' },
 ];
 
+const SHOWROOM_ORDER_STEPS = [
+  { key: 'PENDING', label: 'Order Placed', desc: 'Received & stock reserved' },
+  { key: 'CONFIRMED', label: 'Confirmed', desc: 'Order verified by atelier' },
+  { key: 'PROCESSING', label: 'Preparing', desc: 'Products prepared for collection' },
+  { key: 'READY_FOR_PICKUP', label: 'Ready for Pickup', desc: 'Ready for patron collection at showroom' },
+  { key: 'COMPLETED', label: 'Completed', desc: 'Handover & collection completed' },
+];
+
 export default function TrackOrderPage() {
   const [orderId, setOrderId] = useState('');
   const [mobile, setMobile] = useState('');
@@ -81,18 +89,35 @@ export default function TrackOrderPage() {
     fetchOrder(orderId, mobile);
   };
 
-  const getStepIndex = (status: string) => {
+  const isShowroom = order?.fulfillmentMethod === 'SHOWROOM_PICKUP';
+
+  const getStepIndex = (status: string, showroom = false) => {
+    if (showroom) {
+      switch (status) {
+        case 'PENDING': return 0;
+        case 'CONFIRMED': return 1;
+        case 'PROCESSING':
+        case 'PACKED': return 2;
+        case 'READY_FOR_PICKUP': return 3;
+        case 'COMPLETED':
+        case 'DELIVERED': return 4;
+        default: return 0;
+      }
+    }
     switch (status) {
       case 'PENDING': return 0;
       case 'CONFIRMED': return 1;
-      case 'PROCESSING': return 2;
+      case 'PROCESSING':
+      case 'PACKED': return 2;
+      case 'COURIER_BOOKED':
       case 'SHIPPED': return 3;
-      case 'DELIVERED': return 4;
+      case 'DELIVERED':
+      case 'COMPLETED': return 4;
       default: return 0;
     }
   };
 
-  const currentStep = order ? getStepIndex(order.status) : 0;
+  const currentStep = order ? getStepIndex(order.status, isShowroom) : 0;
   const isCancelled = order?.status === 'CANCELLED';
   const isReturned = order?.status === 'RETURNED' || order?.status === 'RETURN_REQUESTED';
 
@@ -240,7 +265,7 @@ export default function TrackOrderPage() {
                 Delivery Timeline Progress:
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-                {ORDER_STEPS.map((step, idx) => {
+                {(isShowroom ? SHOWROOM_ORDER_STEPS : ORDER_STEPS).map((step, idx) => {
                   const isCompleted = idx <= currentStep;
                   const isCurrent = idx === currentStep;
 
@@ -316,10 +341,17 @@ export default function TrackOrderPage() {
                 <span>Subtotal</span>
                 <span className="font-mono font-semibold">৳{order.subtotal?.toLocaleString()}</span>
               </div>
-              <div className="flex justify-between text-gray-600">
-                <span>Delivery Charge ({order.customerDetails?.district || 'Dhaka'})</span>
-                <span className="font-mono font-semibold">৳{order.deliveryCharge?.toLocaleString()}</span>
-              </div>
+              {isShowroom ? (
+                <div className="flex justify-between text-emerald-700 font-semibold">
+                  <span>Delivery Method: Showroom Pickup</span>
+                  <span className="font-mono font-bold uppercase">FREE</span>
+                </div>
+              ) : (
+                <div className="flex justify-between text-gray-600">
+                  <span>Delivery Charge ({order.customerDetails?.district || 'Dhaka'})</span>
+                  <span className="font-mono font-semibold">৳{order.deliveryCharge?.toLocaleString()}</span>
+                </div>
+              )}
               <div className="flex justify-between text-sm font-bold text-gray-900 pt-2 border-t border-gray-200">
                 <span>Total Amount Payable</span>
                 <span className="font-mono text-base text-[#0F172A]">৳{order.totalAmount?.toLocaleString()}</span>

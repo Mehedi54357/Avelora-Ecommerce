@@ -93,12 +93,13 @@ let FinanceService = class FinanceService {
             this.capitalModel.find().exec(),
             this.purchaseModel.find().exec(),
         ]);
-        const deliveredOrders = allOrders.filter((o) => o.status === order_schema_1.OrderStatus.DELIVERED);
+        const deliveredOrders = allOrders.filter((o) => o.status === order_schema_1.OrderStatus.DELIVERED || o.status === order_schema_1.OrderStatus.COMPLETED);
         const pipelineOrders = allOrders.filter((o) => o.status === order_schema_1.OrderStatus.PENDING ||
             o.status === order_schema_1.OrderStatus.CONFIRMED ||
             o.status === order_schema_1.OrderStatus.PROCESSING ||
             o.status === order_schema_1.OrderStatus.PACKED ||
-            o.status === order_schema_1.OrderStatus.SHIPPED);
+            o.status === order_schema_1.OrderStatus.SHIPPED ||
+            o.status === order_schema_1.OrderStatus.READY_FOR_PICKUP);
         const cancelledOrders = allOrders.filter((o) => o.status === order_schema_1.OrderStatus.CANCELLED);
         const returnedOrders = allOrders.filter((o) => o.status === order_schema_1.OrderStatus.RETURNED);
         let deliveredRevenue = 0;
@@ -254,7 +255,7 @@ let FinanceService = class FinanceService {
             this.orderModel.find({ createdAt: { $gte: fromDate, $lte: toDate }, dataMode: { $ne: 'TEST' } }).exec(),
             this.expenseModel.find({ date: { $gte: fromDate, $lte: toDate } }).exec(),
         ]);
-        const delivered = orders.filter((o) => o.status === order_schema_1.OrderStatus.DELIVERED);
+        const delivered = orders.filter((o) => o.status === order_schema_1.OrderStatus.DELIVERED || o.status === order_schema_1.OrderStatus.COMPLETED);
         const returned = orders.filter((o) => o.status === order_schema_1.OrderStatus.RETURNED || o.status === order_schema_1.OrderStatus.REFUNDED);
         let grossProductSales = 0;
         let productDiscounts = 0;
@@ -814,7 +815,7 @@ let FinanceService = class FinanceService {
         }
         const salesBySku = new Map();
         for (const order of allOrders) {
-            if (order.status !== order_schema_1.OrderStatus.DELIVERED)
+            if (order.status !== order_schema_1.OrderStatus.DELIVERED && order.status !== order_schema_1.OrderStatus.COMPLETED)
                 continue;
             const orderDate = order.createdAt ? new Date(order.createdAt) : new Date();
             const inPeriod = !isNaN(orderDate.getTime()) && orderDate >= fromDate && orderDate <= toDate;

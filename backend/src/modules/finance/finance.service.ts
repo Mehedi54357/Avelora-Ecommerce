@@ -92,16 +92,19 @@ export class FinanceService {
     ]);
 
     // 1. Delivered / Fulfilled Orders (Realized Revenue Basis)
-    const deliveredOrders = allOrders.filter((o) => o.status === OrderStatus.DELIVERED);
+    const deliveredOrders = allOrders.filter(
+      (o) => o.status === OrderStatus.DELIVERED || o.status === OrderStatus.COMPLETED,
+    );
 
-    // 2. Active Pipeline Orders (Pending, Confirmed, Processing, Packed, Shipped)
+    // 2. Active Pipeline Orders (Pending, Confirmed, Processing, Packed, Shipped, Ready for Pickup)
     const pipelineOrders = allOrders.filter(
       (o) =>
         o.status === OrderStatus.PENDING ||
         o.status === OrderStatus.CONFIRMED ||
         o.status === OrderStatus.PROCESSING ||
         o.status === OrderStatus.PACKED ||
-        o.status === OrderStatus.SHIPPED,
+        o.status === OrderStatus.SHIPPED ||
+        o.status === OrderStatus.READY_FOR_PICKUP,
     );
 
     const cancelledOrders = allOrders.filter((o) => o.status === OrderStatus.CANCELLED);
@@ -296,7 +299,7 @@ export class FinanceService {
       this.expenseModel.find({ date: { $gte: fromDate, $lte: toDate } }).exec(),
     ]);
 
-    const delivered = orders.filter((o) => o.status === OrderStatus.DELIVERED);
+    const delivered = orders.filter((o) => o.status === OrderStatus.DELIVERED || o.status === OrderStatus.COMPLETED);
     const returned = orders.filter((o) => o.status === OrderStatus.RETURNED || o.status === OrderStatus.REFUNDED);
 
     let grossProductSales = 0;
@@ -990,7 +993,7 @@ export class FinanceService {
     }>();
 
     for (const order of allOrders) {
-      if (order.status !== OrderStatus.DELIVERED) continue;
+      if (order.status !== OrderStatus.DELIVERED && order.status !== OrderStatus.COMPLETED) continue;
       const orderDate = (order as any).createdAt ? new Date((order as any).createdAt) : new Date();
       const inPeriod = !isNaN(orderDate.getTime()) && orderDate >= fromDate && orderDate <= toDate;
 

@@ -48,9 +48,11 @@ const STATUS_OPTIONS = [
   'CONFIRMED',
   'PROCESSING',
   'PACKED',
+  'READY_FOR_PICKUP',
   'COURIER_BOOKED',
   'SHIPPED',
   'DELIVERED',
+  'COMPLETED',
   'CANCELLED',
   'RETURN_REQUESTED',
   'RETURNED',
@@ -378,7 +380,7 @@ export default function AdminOrdersPage() {
     setPaymentReceivedNow(false);
     setDeliveryPaymentMethod('Cash');
     setDeliveryTransactionRef('');
-    setDeliveryAccount(type === 'DIRECT_HAND_DELIVERY' ? 'Cash On Hand' : 'Store Cash Register');
+    setDeliveryAccount(type === 'DIRECT_HAND_DELIVERY' ? 'Cash On Hand' : type === 'SHOWROOM_PICKUP' ? 'Showroom Cash Register' : 'Store Cash Register');
     setDeliveryNotes('');
     setShowDeliveryModal(true);
   };
@@ -768,6 +770,7 @@ export default function AdminOrdersPage() {
                 <option value="COURIER">Courier (Pathao)</option>
                 <option value="DIRECT_HAND_DELIVERY">Direct Hand Delivery</option>
                 <option value="CUSTOMER_PICKUP">Customer Pickup</option>
+                <option value="SHOWROOM_PICKUP">🏬 Showroom Pickup</option>
               </select>
             </div>
 
@@ -945,7 +948,7 @@ export default function AdminOrdersPage() {
                 orders.map((order) => {
                   const isSelected = selectedIds.includes(order._id);
                   const isUpdating = updatingId === order._id;
-                  const isDelivered = order.status === 'DELIVERED';
+                  const isDelivered = order.status === 'DELIVERED' || order.status === 'COMPLETED';
                   const isTest = order.dataMode === 'TEST';
                   const method = order.fulfillmentMethod || 'COURIER';
                   const due =
@@ -1050,8 +1053,10 @@ export default function AdminOrdersPage() {
                           disabled={isUpdating}
                           onChange={(e) => handleStatusChange(order._id, e.target.value)}
                           className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider outline-none border transition cursor-pointer ${
-                            order.status === 'DELIVERED'
+                            order.status === 'DELIVERED' || order.status === 'COMPLETED'
                               ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
+                              : order.status === 'READY_FOR_PICKUP'
+                              ? 'bg-purple-50 text-purple-800 border-purple-300'
                               : order.status === 'SHIPPED'
                               ? 'bg-blue-50 text-blue-800 border-blue-300'
                               : order.status === 'COURIER_BOOKED'
@@ -1142,6 +1147,57 @@ export default function AdminOrdersPage() {
                                 </button>
                               ) : (
                                 <span className="text-[10px] text-emerald-700 font-bold block">✓ Picked Up</span>
+                              )}
+                            </div>
+                          )}
+
+                          {method === 'SHOWROOM_PICKUP' && (
+                            <div className="space-y-1">
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-amber-50 text-amber-900 border border-amber-300 shadow-2xs">
+                                <span>🏬</span>
+                                <span>SHOWROOM PICKUP</span>
+                              </span>
+                              <span className="text-[10px] text-gray-500 font-medium block">
+                                Courier: Not Required
+                              </span>
+                              {order.status === 'PENDING' && (
+                                <button
+                                  onClick={() => handleStatusChange(order._id, 'CONFIRMED')}
+                                  disabled={isUpdating}
+                                  className="px-2 py-0.5 bg-amber-100 hover:bg-amber-200 text-amber-900 border border-amber-300 rounded text-[9px] font-bold uppercase tracking-wider transition block mx-auto cursor-pointer"
+                                >
+                                  Confirm
+                                </button>
+                              )}
+                              {order.status === 'CONFIRMED' && (
+                                <button
+                                  onClick={() => handleStatusChange(order._id, 'PROCESSING')}
+                                  disabled={isUpdating}
+                                  className="px-2 py-0.5 bg-blue-100 hover:bg-blue-200 text-blue-900 border border-blue-300 rounded text-[9px] font-bold uppercase tracking-wider transition block mx-auto cursor-pointer"
+                                >
+                                  Prepare
+                                </button>
+                              )}
+                              {order.status === 'PROCESSING' && (
+                                <button
+                                  onClick={() => handleStatusChange(order._id, 'READY_FOR_PICKUP')}
+                                  disabled={isUpdating}
+                                  className="px-2 py-0.5 bg-purple-100 hover:bg-purple-200 text-purple-900 border border-purple-300 rounded text-[9px] font-bold uppercase tracking-wider transition block mx-auto cursor-pointer"
+                                >
+                                  Ready
+                                </button>
+                              )}
+                              {order.status === 'READY_FOR_PICKUP' && (
+                                <button
+                                  onClick={() => openDeliveryModal(order, 'SHOWROOM_PICKUP')}
+                                  disabled={isUpdating}
+                                  className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-[10px] font-bold uppercase tracking-wider transition block mx-auto cursor-pointer shadow-xs"
+                                >
+                                  Complete Pickup
+                                </button>
+                              )}
+                              {isDelivered && (
+                                <span className="text-[10px] text-emerald-700 font-bold block">✓ Completed</span>
                               )}
                             </div>
                           )}
@@ -1305,6 +1361,53 @@ export default function AdminOrdersPage() {
                 </div>
               </div>
 
+              {/* Fulfillment & Status Information */}
+              <div className="bg-gray-50 p-4 rounded-xl space-y-2 border border-gray-100">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-gray-500">Fulfillment &amp; Dispatch</h4>
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div>
+                    <span className="text-gray-400">Fulfillment Method:</span>
+                    <p className="font-semibold text-slate-900 mt-0.5">
+                      {activeOrder.fulfillmentMethod === 'SHOWROOM_PICKUP' ? (
+                        <span className="inline-flex items-center gap-1 font-bold text-amber-900">
+                          <span>🏬</span> Showroom Pickup
+                        </span>
+                      ) : activeOrder.fulfillmentMethod === 'CUSTOMER_PICKUP' ? (
+                        <span>Pickup Point / Store</span>
+                      ) : activeOrder.fulfillmentMethod === 'DIRECT_HAND_DELIVERY' ? (
+                        <span>Direct Hand Delivery</span>
+                      ) : (
+                        <span>Courier (Pathao)</span>
+                      )}
+                    </p>
+                  </div>
+                  <div>
+                    <span className="text-gray-400">Courier:</span>
+                    <p className="font-semibold text-slate-900 mt-0.5">
+                      {activeOrder.fulfillmentMethod === 'SHOWROOM_PICKUP' ? (
+                        <span className="text-gray-600 font-medium">Not Required</span>
+                      ) : activeOrder.courier?.consignmentId ? (
+                        `#${activeOrder.courier.consignmentId}`
+                      ) : (
+                        'Not Booked'
+                      )}
+                    </p>
+                  </div>
+                  <div>
+                    <span className="text-gray-400">Order Status:</span>
+                    <p className="font-bold text-slate-900 uppercase mt-0.5">
+                      {activeOrder.status?.replace(/_/g, ' ')}
+                    </p>
+                  </div>
+                  <div>
+                    <span className="text-gray-400">Payment Status:</span>
+                    <p className="font-bold text-slate-900 uppercase mt-0.5">
+                      {activeOrder.paymentStatus} ({activeOrder.paymentMethod || 'COD'})
+                    </p>
+                  </div>
+                </div>
+              </div>
+
               {/* Financial Breakdown */}
               <div className="bg-gray-50 p-4 rounded-xl space-y-2 border border-gray-100">
                 <h4 className="text-xs font-bold uppercase tracking-wider text-gray-500">Financial Breakdown</h4>
@@ -1315,7 +1418,13 @@ export default function AdminOrdersPage() {
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-500">Delivery Charge:</span>
-                    <span className="font-mono font-bold">৳{(activeOrder.deliveryCharge || 0).toLocaleString()}</span>
+                    <span className="font-mono font-bold">
+                      {activeOrder.fulfillmentMethod === 'SHOWROOM_PICKUP' ? (
+                        <span className="text-emerald-700">৳0 / FREE</span>
+                      ) : (
+                        `৳${(activeOrder.deliveryCharge || 0).toLocaleString()}`
+                      )}
+                    </span>
                   </div>
                   {activeOrder.discount > 0 && (
                     <div className="flex justify-between text-emerald-700">
@@ -1398,10 +1507,20 @@ export default function AdminOrdersPage() {
             <div className="flex justify-between items-start border-b pb-3">
               <div>
                 <span className="text-[10px] font-bold uppercase tracking-widest text-[#8C6D23]">
-                  {deliveryType === 'DIRECT_HAND_DELIVERY' ? 'Direct Doorstep Delivery' : 'Customer Store Pickup'}
+                  {deliveryType === 'DIRECT_HAND_DELIVERY'
+                    ? 'Direct Doorstep Delivery'
+                    : deliveryType === 'SHOWROOM_PICKUP'
+                    ? 'Showroom Pickup Handover'
+                    : 'Customer Store Pickup'}
                 </span>
                 <h3 className="text-lg font-bold text-slate-950 font-serif-luxury mt-0.5">
-                  Confirm {deliveryType === 'DIRECT_HAND_DELIVERY' ? 'Delivery' : 'Pickup'} (#{deliveryTargetOrder.orderId})
+                  Confirm{' '}
+                  {deliveryType === 'DIRECT_HAND_DELIVERY'
+                    ? 'Delivery'
+                    : deliveryType === 'SHOWROOM_PICKUP'
+                    ? 'Showroom Handover'
+                    : 'Pickup'}{' '}
+                  (#{deliveryTargetOrder.orderId})
                 </h3>
               </div>
               <button onClick={() => setShowDeliveryModal(false)} className="p-1 hover:bg-gray-100 rounded-full cursor-pointer">
@@ -1411,9 +1530,13 @@ export default function AdminOrdersPage() {
 
             <form onSubmit={handleConfirmDelivery} className="space-y-4">
               <div className="bg-amber-50 p-3 rounded-xl border border-amber-200 text-xs text-amber-900">
-                <p className="font-bold">Independent Delivery &amp; Payment</p>
+                <p className="font-bold">
+                  {deliveryType === 'SHOWROOM_PICKUP' ? 'Showroom Handover & Payment' : 'Independent Delivery & Payment'}
+                </p>
                 <p className="text-[11px] text-amber-800 mt-0.5">
-                  Confirming delivery sets Order Status to <strong>DELIVERED</strong>. You can choose whether payment is collected now or left as UNPAID/Due.
+                  Confirming handover sets Order Status to{' '}
+                  <strong>{deliveryType === 'SHOWROOM_PICKUP' ? 'COMPLETED' : 'DELIVERED'}</strong>. You can choose whether
+                  payment is collected now or left as UNPAID/Due.
                 </p>
               </div>
 

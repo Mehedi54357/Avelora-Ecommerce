@@ -31,6 +31,7 @@ import {
   Loader2,
 } from 'lucide-react';
 import { API_BASE_URL, authFetch } from '../../utils/api-config';
+import { AdminContext } from '../../context/admin-context';
 
 interface NavSection {
   title: string;
@@ -332,9 +333,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         </header>
 
         {/* Dynamic Page Content */}
-        <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-[1400px] w-full mx-auto">
-          {children}
-        </main>
+        <AdminContext.Provider value={{ currentUser, userRole }}>
+          <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-[1400px] w-full mx-auto">
+            {children}
+          </main>
+        </AdminContext.Provider>
       </div>
     </div>
   );

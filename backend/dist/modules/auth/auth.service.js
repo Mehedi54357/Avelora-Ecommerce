@@ -98,13 +98,25 @@ let AuthService = AuthService_1 = class AuthService {
     }
     async validateUser(email, pass, ip, userAgent) {
         const cleanEmail = String(email || '').trim().toLowerCase();
+        const rawPass = String(pass || '');
+        if (!cleanEmail || !rawPass) {
+            throw new common_1.UnauthorizedException('Email and password are required.');
+        }
         const rateLimitKey = `login_${cleanEmail}_${ip || ''}`;
         this.checkRateLimit(rateLimitKey);
         const user = await this.usersService.findByEmail(cleanEmail);
         if (user && user.isActive) {
-            const isMatch = await bcrypt.compare(pass, user.passwordHash);
+            let isMatch = await bcrypt.compare(rawPass, user.passwordHash);
+            if (!isMatch && rawPass.trim() !== rawPass) {
+                isMatch = await bcrypt.compare(rawPass.trim(), user.passwordHash);
+            }
             if (isMatch) {
                 this.clearFailedAttempts(rateLimitKey);
+                for (const k of this.failedAttempts.keys()) {
+                    if (k.includes(cleanEmail)) {
+                        this.failedAttempts.delete(k);
+                    }
+                }
                 const { passwordHash, ...result } = user.toObject ? user.toObject() : user;
                 return result;
             }
@@ -390,6 +402,11 @@ let AuthService = AuthService_1 = class AuthService {
         const newHash = await bcrypt.hash(newPassword, 10);
         user.passwordHash = newHash;
         await user.save();
+        for (const key of this.failedAttempts.keys()) {
+            if (key.includes(cleanEmail)) {
+                this.failedAttempts.delete(key);
+            }
+        }
         await this.auditLogService.logAction({
             adminId: user._id.toString(),
             action: 'PASSWORD_RESET_COMPLETED',

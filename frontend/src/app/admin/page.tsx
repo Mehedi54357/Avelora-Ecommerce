@@ -31,6 +31,7 @@ import {
   Download,
 } from 'lucide-react';
 import { API_BASE_URL, authFetch } from '../../utils/api-config';
+import AveloraDashboardHeader from '../../components/admin/avelora-dashboard-header';
 
 // Mini Sparkline SVG Generator
 function Sparkline({ isPositive = true, color = '#10B981' }: { isPositive?: boolean; color?: string }) {
@@ -281,8 +282,15 @@ export default function AdminExecutiveDashboard() {
   // Loading Skeleton View
   if (loading) {
     return (
-      <div className="space-y-6 pb-12 animate-pulse">
-        <div className="h-12 bg-gray-200 rounded-xl w-1/3"></div>
+      <div className="space-y-6 pb-12">
+        <AveloraDashboardHeader
+          timeRange={timeRange}
+          onTimeRangeChange={setTimeRange}
+          onRefresh={() => fetchDashboard(timeRange)}
+          refreshing={true}
+        />
+        <div className="space-y-6 animate-pulse">
+          <div className="h-12 bg-gray-200 rounded-xl w-1/3"></div>
         <div className="grid grid-cols-1 xl:grid-cols-12 gap-5">
           <div className="xl:col-span-8 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
             {[...Array(6)].map((_, i) => (
@@ -296,6 +304,7 @@ export default function AdminExecutiveDashboard() {
           {[...Array(4)].map((_, i) => (
             <div key={i} className="h-72 bg-gray-200 rounded-xl"></div>
           ))}
+        </div>
         </div>
       </div>
     );
@@ -337,6 +346,14 @@ export default function AdminExecutiveDashboard() {
 
   return (
     <div className="space-y-6 pb-12 text-slate-900">
+      {/* Time-Aware Dynamic Executive Header Banner */}
+      <AveloraDashboardHeader
+        timeRange={timeRange}
+        onTimeRangeChange={setTimeRange}
+        onRefresh={() => fetchDashboard(timeRange)}
+        refreshing={refreshing}
+      />
+
       {/* ========================================================================= */}
       {/* 1. TOP HEADER & RANGE SELECTOR                                            */}
       {/* ========================================================================= */}

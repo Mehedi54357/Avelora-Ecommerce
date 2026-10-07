@@ -5,9 +5,11 @@ export declare enum OrderStatus {
     CONFIRMED = "CONFIRMED",
     PROCESSING = "PROCESSING",
     PACKED = "PACKED",
+    READY_FOR_PICKUP = "READY_FOR_PICKUP",
     COURIER_BOOKED = "COURIER_BOOKED",
     SHIPPED = "SHIPPED",
     DELIVERED = "DELIVERED",
+    COMPLETED = "COMPLETED",
     CANCELLED = "CANCELLED",
     RETURN_REQUESTED = "RETURN_REQUESTED",
     RETURNED = "RETURNED",
@@ -34,6 +36,7 @@ export declare enum FulfillmentStatus {
     UNFULFILLED = "UNFULFILLED",
     PROCESSING = "PROCESSING",
     PACKED = "PACKED",
+    READY_FOR_PICKUP = "READY_FOR_PICKUP",
     COURIER_BOOKED = "COURIER_BOOKED",
     SHIPPED = "SHIPPED",
     DELIVERED = "DELIVERED",
@@ -42,7 +45,8 @@ export declare enum FulfillmentStatus {
 export declare enum FulfillmentMethod {
     COURIER = "COURIER",
     DIRECT_HAND_DELIVERY = "DIRECT_HAND_DELIVERY",
-    CUSTOMER_PICKUP = "CUSTOMER_PICKUP"
+    CUSTOMER_PICKUP = "CUSTOMER_PICKUP",
+    SHOWROOM_PICKUP = "SHOWROOM_PICKUP"
 }
 export declare class OrderItem {
     productId: MongooseSchema.Types.ObjectId;
