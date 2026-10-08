@@ -149,32 +149,7 @@ let SeedService = SeedService_1 = class SeedService {
         this.logger.log('Successfully seeded clean Avelora category taxonomy (Hijabs, Churi & Bangles, Jewellery, Shoes, Panjabi, Kids) with ZERO demo products.');
     }
     async seedExpenses() {
-        const count = await this.expenseModel.countDocuments().exec();
-        if (count > 0)
-            return;
-        await this.expenseModel.insertMany([
-            {
-                title: 'Custom Luxury Shopping Bags & Churi Box Packaging Production',
-                category: expense_schema_1.ExpenseCategory.PACKAGING_COST,
-                amount: 8500,
-                date: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000),
-                description: 'Premium gold-embossed paper bags and ribbon boxes',
-            },
-            {
-                title: 'Eid Collection Photoshoot & Social Media Ad Campaign',
-                category: expense_schema_1.ExpenseCategory.MARKETING_EXPENSE,
-                amount: 12000,
-                date: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000),
-                description: 'Meta Ads & model photoshoot',
-            },
-            {
-                title: 'Courier Express Dispatch Bulk Prepaid Credits',
-                category: expense_schema_1.ExpenseCategory.DELIVERY_COST,
-                amount: 4500,
-                date: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000),
-                description: 'Courier delivery charges prepaid deposit',
-            },
-        ]);
+        return;
     }
 };
 exports.SeedService = SeedService;

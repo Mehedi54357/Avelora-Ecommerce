@@ -150,31 +150,7 @@ export class SeedService implements OnApplicationBootstrap {
   }
 
   private async seedExpenses() {
-    const count = await this.expenseModel.countDocuments().exec();
-    if (count > 0) return;
-
-    await this.expenseModel.insertMany([
-      {
-        title: 'Custom Luxury Shopping Bags & Churi Box Packaging Production',
-        category: ExpenseCategory.PACKAGING_COST,
-        amount: 8500,
-        date: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000),
-        description: 'Premium gold-embossed paper bags and ribbon boxes',
-      },
-      {
-        title: 'Eid Collection Photoshoot & Social Media Ad Campaign',
-        category: ExpenseCategory.MARKETING_EXPENSE,
-        amount: 12000,
-        date: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000),
-        description: 'Meta Ads & model photoshoot',
-      },
-      {
-        title: 'Courier Express Dispatch Bulk Prepaid Credits',
-        category: ExpenseCategory.DELIVERY_COST,
-        amount: 4500,
-        date: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000),
-        description: 'Courier delivery charges prepaid deposit',
-      },
-    ]);
+    // Production & Clean Accounting: Zero demo/dummy expenses
+    return;
   }
 }
