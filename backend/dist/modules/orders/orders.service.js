@@ -100,16 +100,16 @@ let OrdersService = OrdersService_1 = class OrdersService {
                 this.logger.warn(`Coupon evaluation note: ${couponErr.message}`);
             }
         }
-        const districtLower = (data.customerDetails.district || '').trim().toLowerCase();
-        const isDhaka = districtLower.includes('dhaka') ||
-            districtLower === 'dhaka' ||
-            (data.customerDetails.division || '').trim().toLowerCase().includes('dhaka');
+        const districtLower = (data.customerDetails?.district || '').trim().toLowerCase();
+        const isDhakaCity = districtLower === 'dhaka' ||
+            districtLower === 'dhaka city' ||
+            (districtLower.includes('dhaka') && !districtLower.includes('outside'));
         const storeSettings = await this.settingsService.getSettings();
         const isFreeFulfillment = chosenFulfillment === order_schema_1.FulfillmentMethod.SHOWROOM_PICKUP ||
             chosenFulfillment === order_schema_1.FulfillmentMethod.CUSTOMER_PICKUP;
         const deliveryCharge = isFreeFulfillment
             ? 0
-            : isDhaka
+            : isDhakaCity
                 ? (storeSettings.defaultDhakaDeliveryCharge || 70)
                 : (storeSettings.defaultOutsideDhakaDeliveryCharge || 130);
         const taxableSubtotal = Math.max(0, subtotal - couponDiscount);
@@ -121,12 +121,7 @@ let OrdersService = OrdersService_1 = class OrdersService {
         const paidAmount = Number(data.paidAmount) || 0;
         const isAdvancePaid = paidAmount > 0;
         const dueAmount = Math.max(0, totalAmount - paidAmount);
-        const today = new Date();
-        const yyyymmdd = today.toISOString().slice(0, 10).replace(/-/g, '');
-        const randomSuffix = Math.floor(10000 + Math.random() * 90000);
-        const orderId = isTestData
-            ? `TST-${yyyymmdd}-${randomSuffix}`
-            : `AVE-${yyyymmdd}-${randomSuffix}`;
+        const orderId = await this.generateUniqueOrderId(isTestData);
         for (const item of orderItems) {
             await this.inventoryService.reserveStock(item.productId.toString(), item.sku, item.quantity, orderId);
         }
@@ -239,6 +234,37 @@ let OrdersService = OrdersService_1 = class OrdersService {
             await this.couponsService.recordUsage(appliedCouponCode);
         }
         return order;
+    }
+    async generateUniqueOrderId(isTestData = false) {
+        const now = new Date();
+        const bdTime = new Date(now.getTime() + 6 * 60 * 60 * 1000);
+        const yy = String(bdTime.getUTCFullYear()).slice(-2);
+        const mm = String(bdTime.getUTCMonth() + 1).padStart(2, '0');
+        const dd = String(bdTime.getUTCDate()).padStart(2, '0');
+        const yymmdd = `${yy}${mm}${dd}`;
+        const prefix = isTestData ? 'TST' : 'AVL';
+        const regex = new RegExp(`^${prefix}-${yymmdd}-(\\d+)`);
+        const latestOrder = await this.orderModel
+            .findOne({ orderId: regex })
+            .sort({ orderId: -1 })
+            .exec();
+        let nextSeq = 1;
+        if (latestOrder && latestOrder.orderId) {
+            const match = latestOrder.orderId.match(regex);
+            if (match && match[1]) {
+                nextSeq = parseInt(match[1], 10) + 1;
+            }
+        }
+        for (let attempt = 0; attempt < 10; attempt++) {
+            const seqStr = String(nextSeq + attempt).padStart(4, '0');
+            const candidateId = `${prefix}-${yymmdd}-${seqStr}`;
+            const exists = await this.orderModel.findOne({ orderId: candidateId }).exec();
+            if (!exists) {
+                return candidateId;
+            }
+        }
+        const randomSuffix = Math.floor(1000 + Math.random() * 9000);
+        return `${prefix}-${yymmdd}-${randomSuffix}`;
     }
     async trackOrder(orderId, mobile) {
         if (!orderId?.trim() || !mobile?.trim()) {

@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Param, Body, BadRequestException } from '@nestjs/common';
+import { Controller, Get, Post, Param, Body, BadRequestException, Req } from '@nestjs/common';
 import { QrService } from './qr.service';
 
 @Controller('qr')
@@ -11,14 +11,22 @@ export class QrController {
   }
 
   @Post('orders/resolve')
-  async resolveOrderTracking(@Body() body: { token: string }) {
+  async resolveOrderTracking(
+    @Body() body: { token: string; mobile?: string },
+    @Req() req: any,
+  ) {
     if (!body?.token) {
-      throw new BadRequestException('Tracking token is required');
+      throw new BadRequestException('Tracking token or order ID is required');
     }
-    const result = await this.qrService.verifyScannedQr(body.token);
+    const result = await this.qrService.resolveOrderQrDetails(body.token, body.mobile, req);
     return {
       success: true,
-      order: result.orderSummary,
+      isAuthorized: result.isAuthorized,
+      authorizationType: result.authorizationType,
+      allowedActions: result.allowedActions,
+      order: result.order,
+      orderSummary: result.order,
     };
   }
 }
+

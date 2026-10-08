@@ -229,9 +229,24 @@ export default function AdminProductsPage() {
       size: string;
       price: number;
       costPrice: number;
+      weightedAverageCost?: number;
       stock: number;
     }>
   >([]);
+  const [titleDropdownOpen, setTitleDropdownOpen] = useState(false);
+
+  // Investment Drafts & Matching Products for Smart Add Product Selector
+  const investmentDraftProducts = useMemo(() => {
+    return products.filter((p) => p.status === 'DRAFT' || p.isPublished === false);
+  }, [products]);
+
+  const searchMatchingProducts = useMemo(() => {
+    if (!name.trim()) return products.slice(0, 8);
+    const q = name.trim().toLowerCase();
+    return products
+      .filter((p) => p.name?.toLowerCase().includes(q) || p.slug?.toLowerCase().includes(q))
+      .slice(0, 8);
+  }, [products, name]);
 
   // Unsaved changes protection
   useEffect(() => {
@@ -322,11 +337,13 @@ export default function AdminProductsPage() {
     setSelectedColorCategory('ALL');
     setError('');
     setIsDirty(false);
+    setTitleDropdownOpen(false);
     setIsModalOpen(true);
   };
 
   const openEditModal = (prod: any) => {
     setEditingProduct(prod);
+    setTitleDropdownOpen(false);
     setName(prod.name || '');
     setSubtitle(prod.subtitle || '');
     setSlug(prod.slug || '');
@@ -426,6 +443,7 @@ export default function AdminProductsPage() {
             size: v.size || '',
             price: v.price || prod.salePrice || 0,
             costPrice: v.costPrice || 0,
+            weightedAverageCost: v.weightedAverageCost || v.costPrice || 0,
             stock: v.stockQuantity !== undefined ? v.stockQuantity : (v.stock || 0),
           }))
         : [],
@@ -654,6 +672,7 @@ export default function AdminProductsPage() {
             size: variants[0].size || 'Standard',
             price: salePrice || originalPrice || variants[0].price || 0,
             costPrice: variants[0].costPrice || 0,
+            weightedAverageCost: variants[0].weightedAverageCost || variants[0].costPrice || 0,
             stock: variants[0].stock || 15,
           },
         ]);
@@ -667,6 +686,7 @@ export default function AdminProductsPage() {
             size: 'Standard',
             price: salePrice || originalPrice || 0,
             costPrice: 0,
+            weightedAverageCost: 0,
             stock: 15,
           },
         ]);
@@ -684,7 +704,7 @@ export default function AdminProductsPage() {
     const skuSuffix = Math.floor(100 + Math.random() * 900);
     setVariants((prev) => [
       ...prev,
-      { sku: `AVE-${skuSuffix}`, color: '', colorHex: '#C5A059', size: 'Standard', price: salePrice || originalPrice || 0, costPrice: 0, stock: 10 },
+      { sku: `AVE-${skuSuffix}`, color: '', colorHex: '#C5A059', size: 'Standard', price: salePrice || originalPrice || 0, costPrice: 0, weightedAverageCost: 0, stock: 10 },
     ]);
   };
 
@@ -768,7 +788,8 @@ export default function AdminProductsPage() {
                 colorHex: v.colorHex && v.colorHex.trim() !== '' ? v.colorHex.trim() : mappedHex,
                 size: v.size.trim() || 'Standard',
                 price: Number(v.price) > 0 ? Number(v.price) : Number(salePrice) || Number(originalPrice) || 0,
-                costPrice: Number(v.costPrice) || 0,
+                costPrice: Number(v.weightedAverageCost || v.costPrice) || 0,
+                weightedAverageCost: Number(v.weightedAverageCost || v.costPrice) || 0,
                 stockQuantity: Number(v.stock) >= 0 ? Number(v.stock) : 10,
               };
             })
@@ -780,6 +801,7 @@ export default function AdminProductsPage() {
                 size: 'Standard',
                 price: Number(salePrice) || Number(originalPrice) || 0,
                 costPrice: 0,
+                weightedAverageCost: 0,
                 stockQuantity: 10,
               },
             ],
@@ -1284,19 +1306,49 @@ export default function AdminProductsPage() {
                 </div>
               </div>
 
+              {/* Linked Investment Cockpit Notification Banner */}
+              {editingProduct && (
+                <div className="p-3.5 bg-gradient-to-r from-amber-50 to-emerald-50 rounded-xl border border-amber-300/80 flex flex-wrap items-center justify-between gap-3 text-xs shadow-xs">
+                  <div className="flex items-center gap-2.5">
+                    <span className="p-1.5 bg-[#D4AF37]/20 text-[#8C6D23] rounded-lg font-bold flex items-center gap-1">
+                      <Package className="w-3.5 h-3.5" />
+                      <span>Investment Linked</span>
+                    </span>
+                    <div className="text-gray-700">
+                      <span className="font-bold text-slate-900">{editingProduct.name}</span>
+                      <span className="text-gray-500 ml-2 font-mono text-[11px]">
+                        ID: #{editingProduct._id.slice(-6)} • Stock: {editingProduct.variants?.reduce((s: number, v: any) => s + (v.stockQuantity || 0), 0) || 0} pcs • Current WAC: ৳{editingProduct.variants?.[0]?.weightedAverageCost || editingProduct.variants?.[0]?.costPrice || '—'}
+                      </span>
+                    </div>
+                  </div>
+                  <span className="text-[10px] text-emerald-700 font-bold bg-emerald-100 px-2.5 py-1 rounded-md">
+                    Cost Auto-Linked (No Buying Price Required)
+                  </span>
+                </div>
+              )}
+
               {/* Title, Subtitle, Category & Badges */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div className="sm:col-span-2 space-y-1">
-                  <label className="font-bold uppercase text-gray-900">Product Title *</label>
+                <div className="sm:col-span-2 space-y-1 relative">
+                  <div className="flex items-center justify-between">
+                    <label className="font-bold uppercase text-gray-900">Product Title *</label>
+                    {!editingProduct && (
+                      <span className="text-[10px] text-amber-700 font-semibold">
+                        💡 Select from Investment or enter new name
+                      </span>
+                    )}
+                  </div>
                   <input
                     type="text"
                     required
-                    placeholder="e.g. Ceri Hijab or Reshmi Churi"
+                    placeholder="e.g. Original Dubai Cherry Premium Hijab or Reshmi Churi"
                     value={name}
+                    onFocus={() => setTitleDropdownOpen(true)}
                     onChange={(e) => {
                       const val = e.target.value;
                       setName(val);
                       setIsDirty(true);
+                      setTitleDropdownOpen(true);
                       // Intelligent Category Auto-Detection for Admin convenience
                       if (!editingProduct && (!categoryId || categoryId === '')) {
                         const lower = val.toLowerCase();
@@ -1366,6 +1418,99 @@ export default function AdminProductsPage() {
                     }}
                     className="w-full px-3.5 py-2.5 rounded-lg border border-gray-300 focus:outline-none focus:border-[#C5A059] bg-white text-gray-900 font-medium"
                   />
+
+                  {titleDropdownOpen && !editingProduct && (
+                    <div className="absolute left-0 right-0 top-full mt-1 bg-white rounded-xl shadow-2xl border border-gray-200 z-50 max-h-72 overflow-y-auto divide-y divide-gray-100 text-xs">
+                      {/* Section A: Investment Drafts ready to complete & publish */}
+                      {investmentDraftProducts.length > 0 && (
+                        <div className="p-2 bg-amber-50/60">
+                          <span className="text-[10px] uppercase font-bold text-amber-900 tracking-wider block px-2 py-1">
+                            📦 Available from Investment (Awaiting Product Setup)
+                          </span>
+                          <div className="space-y-1 mt-1">
+                            {investmentDraftProducts.map((p) => {
+                              const totalStock = p.variants?.reduce((s: number, v: any) => s + (v.stockQuantity || 0), 0) || 0;
+                              const wac = p.variants?.[0]?.weightedAverageCost || p.variants?.[0]?.costPrice || 0;
+                              return (
+                                <button
+                                  key={p._id}
+                                  type="button"
+                                  onClick={() => {
+                                    openEditModal(p);
+                                    setTitleDropdownOpen(false);
+                                  }}
+                                  className="w-full text-left p-2 hover:bg-amber-100/70 rounded-lg flex items-center justify-between transition group"
+                                >
+                                  <div>
+                                    <span className="font-bold text-slate-900 block group-hover:text-amber-900">
+                                      {p.name}
+                                    </span>
+                                    <span className="text-[10px] text-gray-500 font-mono">
+                                      ID: #{p._id.slice(-6)} • Stock: {totalStock} pcs • Current WAC: ৳{wac}
+                                    </span>
+                                  </div>
+                                  <span className="px-2 py-0.5 bg-amber-600 text-white rounded text-[10px] font-bold">
+                                    Link & Complete
+                                  </span>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Section B: All Search Matching Products */}
+                      <div className="p-2">
+                        <span className="text-[10px] uppercase font-bold text-gray-500 tracking-wider block px-2 py-1">
+                          Catalog Products
+                        </span>
+                        <div className="space-y-1 mt-1">
+                          {searchMatchingProducts.map((p) => {
+                            const isPub = p.isPublished && p.status === 'ACTIVE';
+                            const totalStock = p.variants?.reduce((s: number, v: any) => s + (v.stockQuantity || 0), 0) || 0;
+                            const wac = p.variants?.[0]?.weightedAverageCost || p.variants?.[0]?.costPrice || 0;
+                            return (
+                              <button
+                                key={p._id}
+                                type="button"
+                                onClick={() => {
+                                  openEditModal(p);
+                                  setTitleDropdownOpen(false);
+                                }}
+                                className="w-full text-left p-2 hover:bg-slate-100 rounded-lg flex items-center justify-between transition group"
+                              >
+                                <div>
+                                  <span className="font-bold text-slate-900 block">
+                                    {p.name}
+                                  </span>
+                                  <span className="text-[10px] text-gray-500 font-mono">
+                                    Stock: {totalStock} • {wac > 0 ? `WAC: ৳${wac}` : 'No Cost'} • {isPub ? 'Published' : p.status}
+                                  </span>
+                                </div>
+                                <span className="text-[10px] font-bold text-gray-600 group-hover:text-slate-900">
+                                  {isPub ? 'Edit Existing' : 'Select'}
+                                </span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      {/* Section C: Create New with typed name */}
+                      {name.trim() && (
+                        <div className="p-2 bg-slate-50">
+                          <button
+                            type="button"
+                            onClick={() => setTitleDropdownOpen(false)}
+                            className="w-full text-left p-2 hover:bg-slate-200/70 rounded-lg font-bold text-[#8C6D23] flex items-center gap-1.5"
+                          >
+                            <Plus className="w-3.5 h-3.5" />
+                            <span>Create Brand New Product Identity: &ldquo;{name}&rdquo;</span>
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 <div className="space-y-1">
@@ -2023,13 +2168,24 @@ export default function AdminProductsPage() {
 
                         {/* SKU */}
                         <div className="space-y-0.5">
-                          <span className="text-[10px] text-gray-500 font-bold uppercase">SKU *</span>
+                          <span className="text-[10px] text-gray-500 font-bold uppercase flex items-center justify-between">
+                            <span>SKU *</span>
+                            {editingProduct && (
+                              <span className="text-[9px] text-[#997B21] flex items-center gap-0.5 font-bold" title="SKU is locked to preserve inventory history">
+                                <Lock className="w-2.5 h-2.5" /> Locked
+                              </span>
+                            )}
+                          </span>
                           <input
                             type="text"
                             required
+                            disabled={Boolean(editingProduct)}
                             value={v.sku}
                             onChange={(e) => updateVariant(idx, 'sku', e.target.value)}
-                            className="w-full px-2 py-1.5 rounded border border-gray-300 bg-white font-mono text-xs"
+                            className={`w-full px-2 py-1.5 rounded border border-gray-300 font-mono text-xs ${
+                              editingProduct ? 'bg-gray-100 text-gray-600 cursor-not-allowed select-none' : 'bg-white'
+                            }`}
+                            title={editingProduct ? 'SKU is locked to protect inventory and investment integrity' : 'Variant SKU'}
                           />
                         </div>
 
@@ -2044,36 +2200,55 @@ export default function AdminProductsPage() {
                           />
                         </div>
 
-                        {/* Cost Price */}
+                        {/* Current WAC (Read-Only Sourced from Investment) */}
                         <div className="space-y-0.5">
-                          <span className="text-[10px] text-gray-500 font-bold uppercase">Cost ৳</span>
-                          <input
-                            type="number"
-                            value={v.costPrice}
-                            onChange={(e) => updateVariant(idx, 'costPrice', Number(e.target.value))}
-                            className="w-full px-2 py-1.5 rounded border border-gray-300 bg-white font-mono text-xs"
-                          />
+                          <span className="text-[10px] text-gray-500 font-bold uppercase" title="Read-only: Calculated strictly from Finance → Capital & Investment">
+                            Current WAC
+                          </span>
+                          <div
+                            className="w-full px-2 py-1.5 rounded border border-gray-200 bg-gray-50 font-mono text-xs text-gray-700 flex items-center justify-between"
+                            title="Buying cost & WAC are managed exclusively via Capital & Investment"
+                          >
+                            {(v.weightedAverageCost && v.weightedAverageCost > 0) || (v.costPrice && v.costPrice > 0) ? (
+                              <span className="font-bold text-slate-900">৳{(v.weightedAverageCost || v.costPrice).toLocaleString()}</span>
+                            ) : (
+                              <span className="text-gray-400 text-[10px] italic">—</span>
+                            )}
+                          </div>
                         </div>
 
                         {/* Stock Quantity & Delete */}
                         <div className="flex items-center gap-2 space-y-0.5">
                           <div className="flex-1">
-                            <span className="text-[10px] text-gray-500 font-bold uppercase">Stock</span>
+                            <span className="text-[10px] text-gray-500 font-bold uppercase flex items-center justify-between">
+                              <span>Stock</span>
+                              {editingProduct && (
+                                <span className="text-[9px] text-emerald-700 font-bold flex items-center gap-0.5" title="Stock is controlled exclusively via Capital & Inventory">
+                                  <Lock className="w-2.5 h-2.5" /> Sourced
+                                </span>
+                              )}
+                            </span>
                             <input
                               type="number"
+                              disabled={Boolean(editingProduct)}
                               value={v.stock}
                               onChange={(e) => updateVariant(idx, 'stock', Number(e.target.value))}
-                              className="w-full px-2 py-1.5 rounded border border-gray-300 bg-white font-mono text-xs font-bold text-emerald-700"
+                              className={`w-full px-2 py-1.5 rounded border border-gray-300 font-mono text-xs font-bold text-emerald-700 ${
+                                editingProduct ? 'bg-gray-100 text-gray-600 cursor-not-allowed select-none' : 'bg-white'
+                              }`}
+                              title={editingProduct ? 'Stock quantity is controlled via Capital & Inventory investments' : 'Initial stock'}
                             />
                           </div>
-                          <button
-                            type="button"
-                            onClick={() => removeVariantRow(idx)}
-                            className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg mt-4 transition"
-                            title="Remove this variant"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
+                          {!editingProduct && (
+                            <button
+                              type="button"
+                              onClick={() => removeVariantRow(idx)}
+                              className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg mt-4 transition"
+                              title="Remove this variant"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          )}
                         </div>
                       </div>
                     ))}

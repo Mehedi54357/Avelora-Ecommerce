@@ -8,11 +8,12 @@ import {
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import * as QRCode from 'qrcode';
+import * as jwt from 'jsonwebtoken';
 import { QrTokenService } from './qr-token.service';
 import { QrScanEvent, QrScanEventDocument } from '../../schemas/qr-scan-event.schema';
 import { IdempotencyKey, IdempotencyKeyDocument } from '../../schemas/idempotency-key.schema';
 import { Product, ProductDocument } from '../../schemas/product.schema';
-import { Order, OrderDocument, OrderStatus } from '../../schemas/order.schema';
+import { Order, OrderDocument, OrderStatus, FulfillmentMethod } from '../../schemas/order.schema';
 import { QrPurpose } from '../../schemas/qr-token.schema';
 import { ConfigService } from '@nestjs/config';
 
@@ -28,6 +29,35 @@ export class QrService {
     @InjectModel(Order.name) private orderModel: Model<OrderDocument>,
     private readonly configService: ConfigService,
   ) {}
+
+  // Privacy Protection Masking Helpers
+  private maskCustomerName(name?: string): string {
+    if (!name) return 'Customer';
+    const parts = name.trim().split(/\s+/);
+    return parts
+      .map((p) => {
+        if (p.length <= 2) return p;
+        return p[0] + '*'.repeat(Math.min(4, p.length - 2)) + p[p.length - 1];
+      })
+      .join(' ');
+  }
+
+  private maskPhoneNumber(phone?: string): string {
+    if (!phone) return '01XXXXXXXXX';
+    const clean = phone.replace(/[\s-]/g, '');
+    if (clean.length < 8) return '01X****XXXX';
+    return `${clean.slice(0, 3)}****${clean.slice(-4)}`;
+  }
+
+  private maskAddress(address?: string, district?: string): string {
+    if (!address) return district ? `${district} (Details protected)` : 'Address protected';
+    const parts = address.split(',').map((p) => p.trim()).filter(Boolean);
+    if (parts.length > 1) {
+      const area = parts[parts.length - 1];
+      return `${area}${district ? `, ${district}` : ''} (Street details protected)`;
+    }
+    return `${district || 'Location'} (Street details protected)`;
+  }
 
   // 1. Generate QR Code Image (Data URL / SVG / PNG)
   async generateQrCodeDataUrl(payload: string, options?: { margin?: number; width?: number }): Promise<string> {
@@ -119,7 +149,9 @@ export class QrService {
     };
     await order.save();
 
-    const qrDataUrl = await this.generateQrCodeDataUrl(payload);
+    const frontendUrl = (this.configService.get<string>('FRONTEND_URL') || 'https://avelora-ecommerce.vercel.app').split(',')[0].trim();
+    const resolveUrl = `${frontendUrl}/q/o/${encodeURIComponent(payload)}`;
+    const qrDataUrl = await this.generateQrCodeDataUrl(resolveUrl);
 
     return {
       tokenId: (token as any)._id.toString(),
@@ -163,15 +195,45 @@ export class QrService {
     productSummary?: any;
     allowedActions: string[];
   }> {
-    const token = await this.qrTokenService.verifyRawToken(rawPayload);
-
-    if (token.entityType === 'ORDER') {
-      const order = await this.orderModel.findById(token.entityId).exec();
-      if (!order) {
-        throw new NotFoundException('Target order record not found');
+    let clean = decodeURIComponent(rawPayload || '').trim();
+    if (clean.startsWith('http://') || clean.startsWith('https://')) {
+      try {
+        const parsed = new URL(clean);
+        const orderIdParam = parsed.searchParams.get('orderId');
+        if (orderIdParam) {
+          clean = orderIdParam;
+        } else {
+          const parts = parsed.pathname.split('/').filter(Boolean);
+          if (parts.length > 0) clean = parts[parts.length - 1];
+        }
+      } catch {
+        // ignore parse error
       }
+    }
+    clean = decodeURIComponent(clean).trim();
 
-      // Determine permitted actions based on current status
+    let order: OrderDocument | null = null;
+    let token: any = null;
+
+    if (clean.startsWith('AV1:')) {
+      try {
+        token = await this.qrTokenService.verifyRawToken(clean);
+        if (token.entityType === 'ORDER') {
+          order = await this.orderModel.findById(token.entityId).exec();
+        }
+      } catch (err) {
+        this.logger.debug(`Token verify failed, falling back: ${err.message}`);
+      }
+    }
+
+    if (!order) {
+      order = await this.orderModel.findOne({ orderId: clean.toUpperCase() }).exec();
+    }
+    if (!order && Types.ObjectId.isValid(clean)) {
+      order = await this.orderModel.findById(clean).exec();
+    }
+
+    if (order) {
       const allowedActions: string[] = [];
       if (order.status === OrderStatus.PROCESSING || order.status === OrderStatus.CONFIRMED) {
         allowedActions.push('MARK_SHIPPED');
@@ -183,54 +245,258 @@ export class QrService {
 
       return {
         valid: true,
-        purpose: token.purpose,
+        purpose: token?.purpose || 'ORDER_TRACK',
         entityType: 'ORDER',
-        entityId: token.entityId.toString(),
+        entityId: (order as any)._id.toString(),
         orderSummary: {
           id: (order as any)._id,
           orderId: order.orderId,
+          createdAt: (order as any).createdAt,
           customerName: order.customerDetails?.name,
           customerDistrict: order.customerDetails?.district,
           status: order.status,
           paymentStatus: order.paymentStatus,
           paymentMethod: order.paymentMethod,
+          subtotal: order.subtotal,
+          discount: order.discount,
+          deliveryCharge: order.deliveryCharge,
           totalAmount: order.totalAmount,
           dueAmount: order.dueAmount,
           itemsCount: order.items?.length || 0,
-          items: order.items.map((i) => ({
+          items: (order.items || []).map((i) => ({
             name: i.productName,
             sku: i.sku,
             variant: i.variant,
+            color: i.color,
+            size: i.size,
             quantity: i.quantity,
+            unitPrice: i.unitPrice,
+            lineTotal: (i.unitPrice || 0) * (i.quantity || 1),
           })),
         },
         allowedActions,
       };
     }
 
-    if (token.entityType === 'PRODUCT') {
-      const product = await this.productModel.findById(token.entityId).exec();
-      return {
-        valid: true,
-        purpose: token.purpose,
-        entityType: 'PRODUCT',
-        entityId: token.entityId.toString(),
-        productSummary: {
-          id: product?._id,
-          name: product?.name,
-          slug: product?.slug,
-          salePrice: product?.salePrice,
-        },
-        allowedActions: ['VIEW_CATALOG'],
-      };
+    if (clean.startsWith('PRD-') || Types.ObjectId.isValid(clean)) {
+      const product = await this.productModel
+        .findOne({ $or: [{ 'qr.publicCode': clean.toUpperCase() }, { _id: Types.ObjectId.isValid(clean) ? clean : null }] })
+        .exec();
+      if (product) {
+        return {
+          valid: true,
+          purpose: 'PRODUCT_VIEW',
+          entityType: 'PRODUCT',
+          entityId: (product as any)._id.toString(),
+          productSummary: {
+            id: product._id,
+            name: product.name,
+            slug: product.slug,
+            salePrice: product.salePrice,
+          },
+          allowedActions: ['VIEW_CATALOG'],
+        };
+      }
     }
 
+    throw new NotFoundException(`No valid entity found for scanned payload "${clean}".`);
+  }
+
+  // 6b. Deep Order Details Resolution for QR Scans (Privacy-aware, mobile-optimized, print-ready)
+  async resolveOrderQrDetails(
+    rawInput: string,
+    mobileQuery?: string,
+    req?: any,
+  ): Promise<{
+    success: boolean;
+    isAuthorized: boolean;
+    authorizationType: 'ADMIN' | 'CUSTOMER' | 'ANONYMOUS';
+    allowedActions: string[];
+    order: any;
+  }> {
+    let clean = decodeURIComponent(rawInput || '').trim();
+    if (clean.startsWith('http://') || clean.startsWith('https://')) {
+      try {
+        const parsed = new URL(clean);
+        const orderIdParam = parsed.searchParams.get('orderId');
+        if (orderIdParam) {
+          clean = orderIdParam;
+        } else {
+          const parts = parsed.pathname.split('/').filter(Boolean);
+          if (parts.length > 0) clean = parts[parts.length - 1];
+        }
+      } catch {
+        // ignore parse error
+      }
+    }
+    clean = decodeURIComponent(clean).trim();
+
+    let order: OrderDocument | null = null;
+    let tokenRecord: any = null;
+
+    if (clean.startsWith('AV1:')) {
+      try {
+        tokenRecord = await this.qrTokenService.verifyRawToken(clean);
+        if (tokenRecord?.entityType === 'ORDER') {
+          order = await this.orderModel.findById(tokenRecord.entityId).exec();
+        }
+      } catch (err) {
+        this.logger.debug(`Could not resolve token: ${err.message}`);
+      }
+    }
+
+    if (!order) {
+      order = await this.orderModel.findOne({ orderId: clean.toUpperCase() }).exec();
+    }
+
+    if (!order && Types.ObjectId.isValid(clean)) {
+      order = await this.orderModel.findById(clean).exec();
+    }
+
+    if (!order) {
+      throw new NotFoundException(`No order record could be found matching "${clean}".`);
+    }
+
+    // Authorization verification
+    let isAuthorized = false;
+    let authorizationType: 'ADMIN' | 'CUSTOMER' | 'ANONYMOUS' = 'ANONYMOUS';
+
+    // 1. Check for valid Admin/Staff JWT token in Authorization header or cookie
+    let authToken = req?.cookies?.token;
+    if (!authToken && req?.headers?.authorization) {
+      const header = req.headers.authorization;
+      if (typeof header === 'string' && header.startsWith('Bearer ')) {
+        authToken = header.substring(7).trim();
+      }
+    }
+
+    if (authToken) {
+      try {
+        const secret = this.configService.get<string>('JWT_SECRET') || 'default_avelora_jwt_secret_key';
+        const decoded: any = jwt.verify(authToken, secret);
+        const privilegedRoles = ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'STAFF'];
+        if (decoded && privilegedRoles.includes(decoded.role)) {
+          isAuthorized = true;
+          authorizationType = 'ADMIN';
+        }
+      } catch {
+        // Invalid or expired token; proceed to mobile verification
+      }
+    }
+
+    // 2. Check for customer mobile verification
+    if (!isAuthorized && mobileQuery && mobileQuery.trim()) {
+      const normalize = (num: string) => num.replace(/[\s\-\+]/g, '').replace(/^880/, '0');
+      const inputNorm = normalize(mobileQuery);
+      const customerNorm = normalize(order.customerDetails?.mobile || '');
+      const altNorm = normalize(order.customerDetails?.altMobile || '');
+
+      if (
+        inputNorm.length >= 8 &&
+        (inputNorm === customerNorm ||
+          inputNorm === altNorm ||
+          customerNorm.endsWith(inputNorm) ||
+          inputNorm.endsWith(customerNorm))
+      ) {
+        isAuthorized = true;
+        authorizationType = 'CUSTOMER';
+      }
+    }
+
+    // Determine allowed actions
+    const allowedActions: string[] = [];
+    if (isAuthorized && authorizationType === 'ADMIN') {
+      if (order.status === OrderStatus.PROCESSING || order.status === OrderStatus.CONFIRMED) {
+        allowedActions.push('MARK_SHIPPED');
+      } else if (order.status === OrderStatus.SHIPPED) {
+        allowedActions.push('MARK_DELIVERED');
+      } else if (order.status === OrderStatus.PENDING) {
+        allowedActions.push('CONFIRM_ORDER');
+      }
+    }
+
+    const frontendUrl = (this.configService.get<string>('FRONTEND_URL') || 'https://avelora-ecommerce.vercel.app').split(',')[0].trim();
+    const qrVerifyUrl = `${frontendUrl}/q/o/${encodeURIComponent(order.orderId)}`;
+    const qrCodeDataUrl = await this.generateQrCodeDataUrl(qrVerifyUrl, { width: 400 });
+
+    const formattedOrder = {
+      id: (order as any)._id,
+      orderId: order.orderId,
+      createdAt: (order as any).createdAt || new Date(),
+      status: order.status,
+      fulfillmentStatus: order.fulfillmentStatus || 'UNFULFILLED',
+      fulfillmentMethod: order.fulfillmentMethod,
+      deliveryMethodLabel:
+        order.fulfillmentMethod === FulfillmentMethod.SHOWROOM_PICKUP
+          ? 'Showroom Pickup'
+          : order.fulfillmentMethod === FulfillmentMethod.CUSTOMER_PICKUP
+          ? 'Customer Pickup Point'
+          : 'Home Delivery',
+      paymentMethod: order.paymentMethod,
+      paymentStatus: order.paymentStatus,
+      paymentProvider: order.paymentProvider || order.paymentMethod,
+      senderMobile: isAuthorized ? order.senderMobile : this.maskPhoneNumber(order.senderMobile),
+      transactionId: order.transactionId || '',
+      courier: order.courier || null,
+      timeline: order.timeline || [],
+
+      // Customer Details (protected if unauthorized)
+      customer: {
+        name: isAuthorized ? order.customerDetails?.name : this.maskCustomerName(order.customerDetails?.name),
+        mobile: isAuthorized ? order.customerDetails?.mobile : this.maskPhoneNumber(order.customerDetails?.mobile),
+        altMobile: isAuthorized ? (order.customerDetails?.altMobile || '') : '',
+        email: isAuthorized ? (order.customerDetails?.email || '') : '',
+        address: isAuthorized
+          ? order.customerDetails?.address
+          : this.maskAddress(order.customerDetails?.address, order.customerDetails?.district),
+        district: order.customerDetails?.district || 'Dhaka',
+        division: order.customerDetails?.division || 'Dhaka',
+        upazila: isAuthorized ? (order.customerDetails?.upazila || '') : '',
+        union: isAuthorized ? (order.customerDetails?.union || '') : '',
+        notes: isAuthorized ? (order.notes || '') : (order.notes ? 'Customer notes recorded' : ''),
+      },
+
+      // Product Breakdown
+      items: (order.items || []).map((item) => {
+        const unitPrice = Number(item.unitPrice) || 0;
+        const qty = Number(item.quantity) || 1;
+        return {
+          productId: item.productId,
+          productName: item.productName,
+          productImage: item.productImage || '',
+          sku: item.sku,
+          variant: item.variant || '',
+          color: item.color || '',
+          size: item.size || '',
+          quantity: qty,
+          unitPrice: unitPrice,
+          lineTotal: unitPrice * qty,
+        };
+      }),
+
+      // Payment Summary
+      financials: {
+        subtotal: Number(order.subtotal) || 0,
+        discount: Number(order.discount) || 0,
+        couponDiscount: Number(order.couponDiscount) || 0,
+        couponCode: order.couponCode || '',
+        deliveryCharge: Number(order.deliveryCharge) || 0,
+        totalAmount: Number(order.totalAmount) || 0,
+        paidAmount: Number(order.paidAmount) || 0,
+        dueAmount: Number(order.dueAmount) || 0,
+      },
+
+      // Verification QR metadata
+      qrCodeDataUrl,
+      qrVerifyUrl,
+    };
+
     return {
-      valid: true,
-      purpose: token.purpose,
-      entityType: token.entityType,
-      entityId: token.entityId.toString(),
-      allowedActions: [],
+      success: true,
+      isAuthorized,
+      authorizationType,
+      allowedActions,
+      order: formattedOrder,
     };
   }
 

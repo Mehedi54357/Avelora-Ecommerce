@@ -39,6 +39,24 @@ export declare class CapitalController {
     deleteTransaction(id: string, req: any): Promise<{
         success: boolean;
     }>;
+    getInvestmentProductsSummary(): Promise<{
+        _id: any;
+        name: string;
+        slug: string;
+        status: string;
+        isPublished: boolean;
+        hasInvestment: boolean;
+        investmentCount: number;
+        totalInvestedUnits: number;
+        totalInvestedCost: number;
+        totalStock: number;
+        currentWac: number;
+        variants: import("../../schemas/product.schema").ProductVariant[];
+        images: string[];
+        salePrice: number;
+        originalPrice: number;
+        createdAt: any;
+    }[]>;
     getProductInvestments(query: any): Promise<{
         productImage: string;
         liveStock: number;

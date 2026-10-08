@@ -1030,17 +1030,21 @@ export class ProductsService implements OnModuleInit {
 
     // Sanitize variants without overwriting variant-specific pricing
     if (Array.isArray(payload.variants) && payload.variants.length > 0) {
-      payload.variants = payload.variants.map((v: any, index: number) => ({
-        sku: v.sku?.trim() || `AVE-${Date.now().toString().slice(-4)}-${index + 1}`,
-        color: v.color?.trim() || '',
-        colorHex: v.colorHex?.trim() || '',
-        image: v.image?.trim() || '',
-        size: v.size?.trim() || '',
-        price: Number(v.price) > 0 ? Number(v.price) : Number(payload.salePrice) || Number(payload.originalPrice) || 0,
-        costPrice: Number(v.costPrice) || 0,
-        stockQuantity: Number(v.stockQuantity !== undefined ? v.stockQuantity : (v.stock || 10)),
-        reservedQuantity: Number(v.reservedQuantity || 0),
-      }));
+      payload.variants = payload.variants.map((v: any, index: number) => {
+        const wac = Number(v.weightedAverageCost) || Number(v.costPrice) || 0;
+        return {
+          sku: v.sku?.trim() || `AVE-${Date.now().toString().slice(-4)}-${index + 1}`,
+          color: v.color?.trim() || '',
+          colorHex: v.colorHex?.trim() || '',
+          image: v.image?.trim() || '',
+          size: v.size?.trim() || '',
+          price: Number(v.price) > 0 ? Number(v.price) : Number(payload.salePrice) || Number(payload.originalPrice) || 0,
+          costPrice: wac,
+          weightedAverageCost: wac,
+          stockQuantity: Number(v.stockQuantity !== undefined ? v.stockQuantity : (v.stock || 10)),
+          reservedQuantity: Number(v.reservedQuantity || 0),
+        };
+      });
     } else {
       payload.variants = [
         {
@@ -1051,6 +1055,7 @@ export class ProductsService implements OnModuleInit {
           size: 'Standard',
           price: Number(payload.salePrice) || Number(payload.originalPrice) || 0,
           costPrice: 0,
+          weightedAverageCost: 0,
           stockQuantity: 10,
           reservedQuantity: 0,
         },
@@ -1080,6 +1085,11 @@ export class ProductsService implements OnModuleInit {
   }
 
   async update(id: string, data: Partial<Product>): Promise<Product> {
+    const existingProduct = await this.productModel.findById(id).exec();
+    if (!existingProduct) {
+      throw new NotFoundException('Product not found');
+    }
+
     const payload: any = { ...data };
 
     if (payload.slug && payload.slug.trim() !== '') {
@@ -1109,17 +1119,41 @@ export class ProductsService implements OnModuleInit {
     this.validatePricingAndDates(payload);
 
     if (Array.isArray(payload.variants) && payload.variants.length > 0) {
-      payload.variants = payload.variants.map((v: any, index: number) => ({
-        sku: v.sku?.trim() || `AVE-${Date.now().toString().slice(-4)}-${index + 1}`,
-        color: v.color?.trim() || '',
-        colorHex: v.colorHex?.trim() || '',
-        image: v.image?.trim() || '',
-        size: v.size?.trim() || '',
-        price: Number(v.price) > 0 ? Number(v.price) : Number(payload.salePrice) || Number(payload.originalPrice) || 0,
-        costPrice: Number(v.costPrice) || 0,
-        stockQuantity: Number(v.stockQuantity !== undefined ? v.stockQuantity : (v.stock || 0)),
-        reservedQuantity: Number(v.reservedQuantity || 0),
-      }));
+      payload.variants = payload.variants.map((v: any, index: number) => {
+        // Match existing variant by SKU or by single-variant index fallback
+        const existingVariant =
+          existingProduct.variants?.find((ev) => ev.sku === v.sku?.trim()) ||
+          (existingProduct.variants?.length === 1 && payload.variants.length === 1 ? existingProduct.variants[0] : null);
+
+        // Strict protection: If variant has established investment WAC or Stock, preserve them intact
+        const cost = existingVariant
+          ? (existingVariant.costPrice !== undefined ? existingVariant.costPrice : (existingVariant.weightedAverageCost || 0))
+          : (Number(v.costPrice) || Number(v.weightedAverageCost) || 0);
+        const wac = existingVariant
+          ? (existingVariant.weightedAverageCost !== undefined ? existingVariant.weightedAverageCost : (existingVariant.costPrice || 0))
+          : (Number(v.weightedAverageCost) || Number(v.costPrice) || 0);
+
+        // Stock quantity: Preserve existingVariant stock quantity from Investment / Inventory
+        const stock = existingVariant && existingVariant.stockQuantity !== undefined
+          ? existingVariant.stockQuantity
+          : (v.stockQuantity !== undefined ? Number(v.stockQuantity) : (v.stock !== undefined ? Number(v.stock) : 0));
+
+        // Preserve established SKU from Investment
+        const sku = existingVariant?.sku || v.sku?.trim() || `AVE-${Date.now().toString().slice(-4)}-${index + 1}`;
+
+        return {
+          sku,
+          color: v.color?.trim() || (existingVariant?.color || ''),
+          colorHex: v.colorHex?.trim() || (existingVariant?.colorHex || ''),
+          image: v.image?.trim() || (existingVariant?.image || ''),
+          size: v.size?.trim() || (existingVariant?.size || ''),
+          price: Number(v.price) > 0 ? Number(v.price) : Number(payload.salePrice) || Number(payload.originalPrice) || 0,
+          costPrice: cost,
+          weightedAverageCost: wac,
+          stockQuantity: stock,
+          reservedQuantity: Number(existingVariant?.reservedQuantity || v.reservedQuantity || 0),
+        };
+      });
     }
 
     try {

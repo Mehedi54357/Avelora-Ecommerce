@@ -51,6 +51,7 @@ const common_1 = require("@nestjs/common");
 const mongoose_1 = require("@nestjs/mongoose");
 const mongoose_2 = require("mongoose");
 const QRCode = __importStar(require("qrcode"));
+const jwt = __importStar(require("jsonwebtoken"));
 const qr_token_service_1 = require("./qr-token.service");
 const qr_scan_event_schema_1 = require("../../schemas/qr-scan-event.schema");
 const idempotency_key_schema_1 = require("../../schemas/idempotency-key.schema");
@@ -67,6 +68,36 @@ let QrService = QrService_1 = class QrService {
         this.orderModel = orderModel;
         this.configService = configService;
         this.logger = new common_1.Logger(QrService_1.name);
+    }
+    maskCustomerName(name) {
+        if (!name)
+            return 'Customer';
+        const parts = name.trim().split(/\s+/);
+        return parts
+            .map((p) => {
+            if (p.length <= 2)
+                return p;
+            return p[0] + '*'.repeat(Math.min(4, p.length - 2)) + p[p.length - 1];
+        })
+            .join(' ');
+    }
+    maskPhoneNumber(phone) {
+        if (!phone)
+            return '01XXXXXXXXX';
+        const clean = phone.replace(/[\s-]/g, '');
+        if (clean.length < 8)
+            return '01X****XXXX';
+        return `${clean.slice(0, 3)}****${clean.slice(-4)}`;
+    }
+    maskAddress(address, district) {
+        if (!address)
+            return district ? `${district} (Details protected)` : 'Address protected';
+        const parts = address.split(',').map((p) => p.trim()).filter(Boolean);
+        if (parts.length > 1) {
+            const area = parts[parts.length - 1];
+            return `${area}${district ? `, ${district}` : ''} (Street details protected)`;
+        }
+        return `${district || 'Location'} (Street details protected)`;
     }
     async generateQrCodeDataUrl(payload, options) {
         return QRCode.toDataURL(payload, {
@@ -142,7 +173,9 @@ let QrService = QrService_1 = class QrService {
             lastIssuedAt: new Date(),
         };
         await order.save();
-        const qrDataUrl = await this.generateQrCodeDataUrl(payload);
+        const frontendUrl = (this.configService.get('FRONTEND_URL') || 'https://avelora-ecommerce.vercel.app').split(',')[0].trim();
+        const resolveUrl = `${frontendUrl}/q/o/${encodeURIComponent(payload)}`;
+        const qrDataUrl = await this.generateQrCodeDataUrl(resolveUrl);
         return {
             tokenId: token._id.toString(),
             payload,
@@ -170,12 +203,44 @@ let QrService = QrService_1 = class QrService {
         return { payload, qrDataUrl, trackUrl };
     }
     async verifyScannedQr(rawPayload) {
-        const token = await this.qrTokenService.verifyRawToken(rawPayload);
-        if (token.entityType === 'ORDER') {
-            const order = await this.orderModel.findById(token.entityId).exec();
-            if (!order) {
-                throw new common_1.NotFoundException('Target order record not found');
+        let clean = decodeURIComponent(rawPayload || '').trim();
+        if (clean.startsWith('http://') || clean.startsWith('https://')) {
+            try {
+                const parsed = new URL(clean);
+                const orderIdParam = parsed.searchParams.get('orderId');
+                if (orderIdParam) {
+                    clean = orderIdParam;
+                }
+                else {
+                    const parts = parsed.pathname.split('/').filter(Boolean);
+                    if (parts.length > 0)
+                        clean = parts[parts.length - 1];
+                }
             }
+            catch {
+            }
+        }
+        clean = decodeURIComponent(clean).trim();
+        let order = null;
+        let token = null;
+        if (clean.startsWith('AV1:')) {
+            try {
+                token = await this.qrTokenService.verifyRawToken(clean);
+                if (token.entityType === 'ORDER') {
+                    order = await this.orderModel.findById(token.entityId).exec();
+                }
+            }
+            catch (err) {
+                this.logger.debug(`Token verify failed, falling back: ${err.message}`);
+            }
+        }
+        if (!order) {
+            order = await this.orderModel.findOne({ orderId: clean.toUpperCase() }).exec();
+        }
+        if (!order && mongoose_2.Types.ObjectId.isValid(clean)) {
+            order = await this.orderModel.findById(clean).exec();
+        }
+        if (order) {
             const allowedActions = [];
             if (order.status === order_schema_1.OrderStatus.PROCESSING || order.status === order_schema_1.OrderStatus.CONFIRMED) {
                 allowedActions.push('MARK_SHIPPED');
@@ -188,52 +253,220 @@ let QrService = QrService_1 = class QrService {
             }
             return {
                 valid: true,
-                purpose: token.purpose,
+                purpose: token?.purpose || 'ORDER_TRACK',
                 entityType: 'ORDER',
-                entityId: token.entityId.toString(),
+                entityId: order._id.toString(),
                 orderSummary: {
                     id: order._id,
                     orderId: order.orderId,
+                    createdAt: order.createdAt,
                     customerName: order.customerDetails?.name,
                     customerDistrict: order.customerDetails?.district,
                     status: order.status,
                     paymentStatus: order.paymentStatus,
                     paymentMethod: order.paymentMethod,
+                    subtotal: order.subtotal,
+                    discount: order.discount,
+                    deliveryCharge: order.deliveryCharge,
                     totalAmount: order.totalAmount,
                     dueAmount: order.dueAmount,
                     itemsCount: order.items?.length || 0,
-                    items: order.items.map((i) => ({
+                    items: (order.items || []).map((i) => ({
                         name: i.productName,
                         sku: i.sku,
                         variant: i.variant,
+                        color: i.color,
+                        size: i.size,
                         quantity: i.quantity,
+                        unitPrice: i.unitPrice,
+                        lineTotal: (i.unitPrice || 0) * (i.quantity || 1),
                     })),
                 },
                 allowedActions,
             };
         }
-        if (token.entityType === 'PRODUCT') {
-            const product = await this.productModel.findById(token.entityId).exec();
-            return {
-                valid: true,
-                purpose: token.purpose,
-                entityType: 'PRODUCT',
-                entityId: token.entityId.toString(),
-                productSummary: {
-                    id: product?._id,
-                    name: product?.name,
-                    slug: product?.slug,
-                    salePrice: product?.salePrice,
-                },
-                allowedActions: ['VIEW_CATALOG'],
-            };
+        if (clean.startsWith('PRD-') || mongoose_2.Types.ObjectId.isValid(clean)) {
+            const product = await this.productModel
+                .findOne({ $or: [{ 'qr.publicCode': clean.toUpperCase() }, { _id: mongoose_2.Types.ObjectId.isValid(clean) ? clean : null }] })
+                .exec();
+            if (product) {
+                return {
+                    valid: true,
+                    purpose: 'PRODUCT_VIEW',
+                    entityType: 'PRODUCT',
+                    entityId: product._id.toString(),
+                    productSummary: {
+                        id: product._id,
+                        name: product.name,
+                        slug: product.slug,
+                        salePrice: product.salePrice,
+                    },
+                    allowedActions: ['VIEW_CATALOG'],
+                };
+            }
         }
+        throw new common_1.NotFoundException(`No valid entity found for scanned payload "${clean}".`);
+    }
+    async resolveOrderQrDetails(rawInput, mobileQuery, req) {
+        let clean = decodeURIComponent(rawInput || '').trim();
+        if (clean.startsWith('http://') || clean.startsWith('https://')) {
+            try {
+                const parsed = new URL(clean);
+                const orderIdParam = parsed.searchParams.get('orderId');
+                if (orderIdParam) {
+                    clean = orderIdParam;
+                }
+                else {
+                    const parts = parsed.pathname.split('/').filter(Boolean);
+                    if (parts.length > 0)
+                        clean = parts[parts.length - 1];
+                }
+            }
+            catch {
+            }
+        }
+        clean = decodeURIComponent(clean).trim();
+        let order = null;
+        let tokenRecord = null;
+        if (clean.startsWith('AV1:')) {
+            try {
+                tokenRecord = await this.qrTokenService.verifyRawToken(clean);
+                if (tokenRecord?.entityType === 'ORDER') {
+                    order = await this.orderModel.findById(tokenRecord.entityId).exec();
+                }
+            }
+            catch (err) {
+                this.logger.debug(`Could not resolve token: ${err.message}`);
+            }
+        }
+        if (!order) {
+            order = await this.orderModel.findOne({ orderId: clean.toUpperCase() }).exec();
+        }
+        if (!order && mongoose_2.Types.ObjectId.isValid(clean)) {
+            order = await this.orderModel.findById(clean).exec();
+        }
+        if (!order) {
+            throw new common_1.NotFoundException(`No order record could be found matching "${clean}".`);
+        }
+        let isAuthorized = false;
+        let authorizationType = 'ANONYMOUS';
+        let authToken = req?.cookies?.token;
+        if (!authToken && req?.headers?.authorization) {
+            const header = req.headers.authorization;
+            if (typeof header === 'string' && header.startsWith('Bearer ')) {
+                authToken = header.substring(7).trim();
+            }
+        }
+        if (authToken) {
+            try {
+                const secret = this.configService.get('JWT_SECRET') || 'default_avelora_jwt_secret_key';
+                const decoded = jwt.verify(authToken, secret);
+                const privilegedRoles = ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'STAFF'];
+                if (decoded && privilegedRoles.includes(decoded.role)) {
+                    isAuthorized = true;
+                    authorizationType = 'ADMIN';
+                }
+            }
+            catch {
+            }
+        }
+        if (!isAuthorized && mobileQuery && mobileQuery.trim()) {
+            const normalize = (num) => num.replace(/[\s\-\+]/g, '').replace(/^880/, '0');
+            const inputNorm = normalize(mobileQuery);
+            const customerNorm = normalize(order.customerDetails?.mobile || '');
+            const altNorm = normalize(order.customerDetails?.altMobile || '');
+            if (inputNorm.length >= 8 &&
+                (inputNorm === customerNorm ||
+                    inputNorm === altNorm ||
+                    customerNorm.endsWith(inputNorm) ||
+                    inputNorm.endsWith(customerNorm))) {
+                isAuthorized = true;
+                authorizationType = 'CUSTOMER';
+            }
+        }
+        const allowedActions = [];
+        if (isAuthorized && authorizationType === 'ADMIN') {
+            if (order.status === order_schema_1.OrderStatus.PROCESSING || order.status === order_schema_1.OrderStatus.CONFIRMED) {
+                allowedActions.push('MARK_SHIPPED');
+            }
+            else if (order.status === order_schema_1.OrderStatus.SHIPPED) {
+                allowedActions.push('MARK_DELIVERED');
+            }
+            else if (order.status === order_schema_1.OrderStatus.PENDING) {
+                allowedActions.push('CONFIRM_ORDER');
+            }
+        }
+        const frontendUrl = (this.configService.get('FRONTEND_URL') || 'https://avelora-ecommerce.vercel.app').split(',')[0].trim();
+        const qrVerifyUrl = `${frontendUrl}/q/o/${encodeURIComponent(order.orderId)}`;
+        const qrCodeDataUrl = await this.generateQrCodeDataUrl(qrVerifyUrl, { width: 400 });
+        const formattedOrder = {
+            id: order._id,
+            orderId: order.orderId,
+            createdAt: order.createdAt || new Date(),
+            status: order.status,
+            fulfillmentStatus: order.fulfillmentStatus || 'UNFULFILLED',
+            fulfillmentMethod: order.fulfillmentMethod,
+            deliveryMethodLabel: order.fulfillmentMethod === order_schema_1.FulfillmentMethod.SHOWROOM_PICKUP
+                ? 'Showroom Pickup'
+                : order.fulfillmentMethod === order_schema_1.FulfillmentMethod.CUSTOMER_PICKUP
+                    ? 'Customer Pickup Point'
+                    : 'Home Delivery',
+            paymentMethod: order.paymentMethod,
+            paymentStatus: order.paymentStatus,
+            paymentProvider: order.paymentProvider || order.paymentMethod,
+            senderMobile: isAuthorized ? order.senderMobile : this.maskPhoneNumber(order.senderMobile),
+            transactionId: order.transactionId || '',
+            courier: order.courier || null,
+            timeline: order.timeline || [],
+            customer: {
+                name: isAuthorized ? order.customerDetails?.name : this.maskCustomerName(order.customerDetails?.name),
+                mobile: isAuthorized ? order.customerDetails?.mobile : this.maskPhoneNumber(order.customerDetails?.mobile),
+                altMobile: isAuthorized ? (order.customerDetails?.altMobile || '') : '',
+                email: isAuthorized ? (order.customerDetails?.email || '') : '',
+                address: isAuthorized
+                    ? order.customerDetails?.address
+                    : this.maskAddress(order.customerDetails?.address, order.customerDetails?.district),
+                district: order.customerDetails?.district || 'Dhaka',
+                division: order.customerDetails?.division || 'Dhaka',
+                upazila: isAuthorized ? (order.customerDetails?.upazila || '') : '',
+                union: isAuthorized ? (order.customerDetails?.union || '') : '',
+                notes: isAuthorized ? (order.notes || '') : (order.notes ? 'Customer notes recorded' : ''),
+            },
+            items: (order.items || []).map((item) => {
+                const unitPrice = Number(item.unitPrice) || 0;
+                const qty = Number(item.quantity) || 1;
+                return {
+                    productId: item.productId,
+                    productName: item.productName,
+                    productImage: item.productImage || '',
+                    sku: item.sku,
+                    variant: item.variant || '',
+                    color: item.color || '',
+                    size: item.size || '',
+                    quantity: qty,
+                    unitPrice: unitPrice,
+                    lineTotal: unitPrice * qty,
+                };
+            }),
+            financials: {
+                subtotal: Number(order.subtotal) || 0,
+                discount: Number(order.discount) || 0,
+                couponDiscount: Number(order.couponDiscount) || 0,
+                couponCode: order.couponCode || '',
+                deliveryCharge: Number(order.deliveryCharge) || 0,
+                totalAmount: Number(order.totalAmount) || 0,
+                paidAmount: Number(order.paidAmount) || 0,
+                dueAmount: Number(order.dueAmount) || 0,
+            },
+            qrCodeDataUrl,
+            qrVerifyUrl,
+        };
         return {
-            valid: true,
-            purpose: token.purpose,
-            entityType: token.entityType,
-            entityId: token.entityId.toString(),
-            allowedActions: [],
+            success: true,
+            isAuthorized,
+            authorizationType,
+            allowedActions,
+            order: formattedOrder,
         };
     }
     async fulfillOrderQr(rawPayload, action, actorId, actorRole = 'STAFF', idempotencyKey, ordersServiceTransitionFn) {

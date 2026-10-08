@@ -5,6 +5,7 @@ import { CapitalController } from './capital.controller';
 import { CapitalTransaction, CapitalTransactionSchema } from '../../schemas/capital.schema';
 import { ProductInvestment, ProductInvestmentSchema } from '../../schemas/product-investment.schema';
 import { Product, ProductSchema } from '../../schemas/product.schema';
+import { Category, CategorySchema } from '../../schemas/category.schema';
 import { InventoryTransaction, InventoryTransactionSchema } from '../../schemas/inventory-transaction.schema';
 import { AuditLogModule } from '../audit-log/audit-log.module';
 
@@ -15,6 +16,7 @@ import { AuditLogModule } from '../audit-log/audit-log.module';
       { name: ProductInvestment.name, schema: ProductInvestmentSchema },
       { name: Product.name, schema: ProductSchema },
       { name: InventoryTransaction.name, schema: InventoryTransactionSchema },
+      { name: Category.name, schema: CategorySchema },
     ]),
     AuditLogModule,
   ],

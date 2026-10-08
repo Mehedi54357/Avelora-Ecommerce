@@ -14,6 +14,7 @@ const capital_controller_1 = require("./capital.controller");
 const capital_schema_1 = require("../../schemas/capital.schema");
 const product_investment_schema_1 = require("../../schemas/product-investment.schema");
 const product_schema_1 = require("../../schemas/product.schema");
+const category_schema_1 = require("../../schemas/category.schema");
 const inventory_transaction_schema_1 = require("../../schemas/inventory-transaction.schema");
 const audit_log_module_1 = require("../audit-log/audit-log.module");
 let CapitalModule = class CapitalModule {
@@ -27,6 +28,7 @@ exports.CapitalModule = CapitalModule = __decorate([
                 { name: product_investment_schema_1.ProductInvestment.name, schema: product_investment_schema_1.ProductInvestmentSchema },
                 { name: product_schema_1.Product.name, schema: product_schema_1.ProductSchema },
                 { name: inventory_transaction_schema_1.InventoryTransaction.name, schema: inventory_transaction_schema_1.InventoryTransactionSchema },
+                { name: category_schema_1.Category.name, schema: category_schema_1.CategorySchema },
             ]),
             audit_log_module_1.AuditLogModule,
         ],

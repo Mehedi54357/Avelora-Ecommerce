@@ -5,6 +5,7 @@ import PrintManagerModal, { PrintMode } from '../../../components/print-manager-
 import PathaoBookingModal from '../../../components/pathao-booking-modal';
 import QrModal from '../../../components/qr-modal';
 import { API_BASE_URL, authFetch } from '../../../utils/api-config';
+import { buildOrderTrackingQrUrl } from '../../../utils/qr-generator';
 import {
   Package,
   Search,
@@ -516,7 +517,8 @@ export default function AdminOrdersPage() {
   const handleGenerateQr = async (order: any) => {
     setActiveOrder(order);
     setQrOrder(order);
-    setQrPayload(`AV1:F:${order._id}`);
+    const initialUrl = buildOrderTrackingQrUrl(order.orderId || order._id);
+    setQrPayload(initialUrl);
     setShowQrModal(true);
 
     try {
@@ -526,7 +528,7 @@ export default function AdminOrdersPage() {
       if (res.ok) {
         const data = await res.json();
         if (data.payload) {
-          setQrPayload(data.payload);
+          setQrPayload(buildOrderTrackingQrUrl(data.payload));
         }
       }
     } catch (e) {

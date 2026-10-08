@@ -20,13 +20,15 @@ const capital_schema_1 = require("../../schemas/capital.schema");
 const product_investment_schema_1 = require("../../schemas/product-investment.schema");
 const product_schema_1 = require("../../schemas/product.schema");
 const inventory_transaction_schema_1 = require("../../schemas/inventory-transaction.schema");
+const category_schema_1 = require("../../schemas/category.schema");
 const audit_log_service_1 = require("../audit-log/audit-log.service");
 let CapitalService = class CapitalService {
-    constructor(capitalModel, productInvestmentModel, productModel, transactionModel, auditLogService) {
+    constructor(capitalModel, productInvestmentModel, productModel, transactionModel, categoryModel, auditLogService) {
         this.capitalModel = capitalModel;
         this.productInvestmentModel = productInvestmentModel;
         this.productModel = productModel;
         this.transactionModel = transactionModel;
+        this.categoryModel = categoryModel;
         this.auditLogService = auditLogService;
     }
     async getTransactions(query) {
@@ -174,6 +176,127 @@ let CapitalService = class CapitalService {
         }));
         return enriched;
     }
+    async getInvestmentProductsSummary() {
+        const [products, investments] = await Promise.all([
+            this.productModel.find({}).sort({ createdAt: -1 }).exec(),
+            this.productInvestmentModel.find({}).exec(),
+        ]);
+        const investmentMap = new Map();
+        for (const inv of investments) {
+            const key = inv.productId?.toString();
+            if (!key)
+                continue;
+            const existing = investmentMap.get(key) || { count: 0, totalUnits: 0, totalCost: 0, lastDate: inv.date };
+            existing.count += 1;
+            existing.totalUnits += inv.quantity || 0;
+            existing.totalCost += inv.totalInvestment || 0;
+            if (inv.date > existing.lastDate)
+                existing.lastDate = inv.date;
+            investmentMap.set(key, existing);
+        }
+        return products.map((p) => {
+            const invInfo = investmentMap.get(p._id.toString());
+            const totalStock = p.variants?.reduce((sum, v) => sum + (v.stockQuantity || 0), 0) || 0;
+            const primaryVariant = p.variants?.[0];
+            const wac = primaryVariant?.weightedAverageCost || primaryVariant?.costPrice || 0;
+            return {
+                _id: p._id,
+                name: p.name,
+                slug: p.slug,
+                status: p.status,
+                isPublished: p.isPublished,
+                hasInvestment: Boolean(invInfo && invInfo.count > 0),
+                investmentCount: invInfo?.count || 0,
+                totalInvestedUnits: invInfo?.totalUnits || 0,
+                totalInvestedCost: invInfo?.totalCost || 0,
+                totalStock,
+                currentWac: wac,
+                variants: p.variants || [],
+                images: p.images || [],
+                salePrice: p.salePrice || 0,
+                originalPrice: p.originalPrice || 0,
+                createdAt: p.createdAt,
+            };
+        });
+    }
+    async autoDetectCategoryId(nameOrText) {
+        const text = (nameOrText || '').toLowerCase();
+        if (!text || !this.categoryModel)
+            return null;
+        if (text.includes('hair') ||
+            text.includes('clip') ||
+            text.includes('pin') ||
+            text.includes('headband') ||
+            text.includes('হেয়ার') ||
+            text.includes('হেয়ার') ||
+            text.includes('ক্লিপ') ||
+            text.includes('কাটা') ||
+            text.includes('scrunchie')) {
+            const cat = await this.categoryModel.findOne({ slug: 'women-hair-accessories' }).exec();
+            return cat?._id || null;
+        }
+        if (text.includes('চুড়ি') ||
+            text.includes('চুড়ি') ||
+            text.includes('churi') ||
+            text.includes('curi') ||
+            text.includes('bangle') ||
+            text.includes('reshmi') ||
+            text.includes('resmi') ||
+            text.includes('kasmeri') ||
+            text.includes('kashmiri') ||
+            text.includes('kacer') ||
+            text.includes('kacher') ||
+            text.includes('কাঁচের') ||
+            text.includes('bala') ||
+            text.includes('বালা') ||
+            text.includes('কঙ্কন')) {
+            const cat = await this.categoryModel.findOne({ slug: 'women-churi-bangles' }).exec();
+            return cat?._id || null;
+        }
+        if (text.includes('hijab') ||
+            text.includes('হিজাব') ||
+            text.includes('abaya') ||
+            text.includes('scarf') ||
+            text.includes('জাপান') ||
+            text.includes('জাপ্রান') ||
+            text.includes('popcorn') ||
+            text.includes('cherry') ||
+            text.includes('ceri')) {
+            const cat = await this.categoryModel.findOne({ slug: 'women-hijab' }).exec();
+            return cat?._id || null;
+        }
+        if (text.includes('jhumka') ||
+            text.includes('ঝুমকা') ||
+            text.includes('kundan') ||
+            text.includes('jewel') ||
+            text.includes('গহনা') ||
+            text.includes('necklace') ||
+            text.includes('earring') ||
+            text.includes('choker') ||
+            text.includes('payel') ||
+            text.includes('পায়েল') ||
+            text.includes('নূপুর')) {
+            const cat = await this.categoryModel.findOne({ slug: 'women-accessories' }).exec();
+            return cat?._id || null;
+        }
+        if (text.includes('panjabi') || text.includes('পাঞ্জাবি') || text.includes('punjabi')) {
+            const cat = await this.categoryModel.findOne({ slug: 'men-clothing' }).exec();
+            return cat?._id || null;
+        }
+        if (text.includes('loafer') || text.includes('লোফার') || text.includes('men')) {
+            const cat = await this.categoryModel.findOne({ slug: 'men-shoes' }).exec();
+            return cat?._id || null;
+        }
+        if (text.includes('nagra') || text.includes('নাগরা') || text.includes('জুতা') || text.includes('heel')) {
+            const cat = await this.categoryModel.findOne({ slug: 'women-shoes' }).exec();
+            return cat?._id || null;
+        }
+        if (text.includes('dress') || text.includes('gown') || text.includes('kurti') || text.includes('গাউন') || text.includes('ড্রেস')) {
+            const cat = await this.categoryModel.findOne({ slug: 'women-dresses' }).exec();
+            return cat?._id || null;
+        }
+        return null;
+    }
     async createProductInvestment(data, actor = 'ADMIN') {
         const quantity = Number(data.quantity);
         const purchasePrice = Number(data.purchasePrice);
@@ -183,21 +306,6 @@ let CapitalService = class CapitalService {
         if (isNaN(purchasePrice) || purchasePrice < 0) {
             throw new common_1.BadRequestException('Purchase price must be zero or greater');
         }
-        if (!data.productId) {
-            throw new common_1.BadRequestException('Product must be selected');
-        }
-        if (!data.variantSku) {
-            throw new common_1.BadRequestException('Variant SKU must be specified');
-        }
-        const product = await this.productModel.findById(data.productId).exec();
-        if (!product) {
-            throw new common_1.NotFoundException('Selected product not found');
-        }
-        const variantIndex = product.variants.findIndex((v) => v.sku === data.variantSku);
-        if (variantIndex === -1) {
-            throw new common_1.NotFoundException(`Variant with SKU "${data.variantSku}" not found in product`);
-        }
-        const variant = product.variants[variantIndex];
         const boxCost = Math.max(0, Number(data.boxCost) || 0);
         const transportCost = Math.max(0, Number(data.transportCost) || 0);
         const polyCost = Math.max(0, Number(data.polyCost) || 0);
@@ -209,17 +317,97 @@ let CapitalService = class CapitalService {
         const totalInvestment = actualCostPerUnit * quantity;
         const investmentId = data.investmentId ||
             `INV-${Date.now().toString().slice(-6)}-${Math.floor(Math.random() * 1000)}`;
-        const oldQty = variant.stockQuantity || 0;
-        const oldCost = variant.weightedAverageCost || variant.costPrice || actualCostPerUnit;
-        const newQty = oldQty + quantity;
-        const newWAC = newQty > 0
-            ? Math.round((oldQty * oldCost + quantity * actualCostPerUnit) / newQty)
-            : actualCostPerUnit;
-        variant.stockQuantity = newQty;
-        variant.weightedAverageCost = newWAC;
-        variant.costPrice = actualCostPerUnit;
+        let product = null;
+        let variantSku = (data.variantSku || '').trim();
+        if (data.productId && mongoose_2.Types.ObjectId.isValid(data.productId) && !data.isNewProduct) {
+            product = await this.productModel.findById(data.productId).exec();
+            if (!product) {
+                throw new common_1.NotFoundException('Selected product not found');
+            }
+        }
+        else if (data.productName && data.productName.trim()) {
+            const cleanName = data.productName.trim();
+            if (!data.forceNewProduct) {
+                product = await this.productModel.findOne({
+                    name: { $regex: new RegExp(`^${cleanName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') },
+                }).exec();
+            }
+            if (!product) {
+                const cleanSlug = cleanName
+                    .toLowerCase()
+                    .replace(/[^a-z0-9\u0980-\u09FF]+/g, '-')
+                    .replace(/(^-|-$)+/g, '');
+                const autoSlug = cleanSlug ? `${cleanSlug}-${Date.now().toString().slice(-4)}` : `prod-${Date.now().toString().slice(-6)}`;
+                const detectedCatId = await this.autoDetectCategoryId(cleanName);
+                if (!variantSku) {
+                    variantSku = `AVE-${Date.now().toString().slice(-5)}`;
+                }
+                const initialVariant = {
+                    sku: variantSku,
+                    color: data.variantColor || data.variantDetails || 'Standard',
+                    colorHex: data.variantColorHex || '#C5A059',
+                    size: data.variantSize || 'Standard',
+                    price: 0,
+                    costPrice: actualCostPerUnit,
+                    weightedAverageCost: actualCostPerUnit,
+                    stockQuantity: 0,
+                    reservedQuantity: 0,
+                };
+                product = await this.productModel.create({
+                    name: cleanName,
+                    slug: autoSlug,
+                    categoryId: detectedCatId || undefined,
+                    description: data.description || '',
+                    images: data.image ? [data.image] : [],
+                    originalPrice: 0,
+                    salePrice: 0,
+                    isPublished: false,
+                    status: 'DRAFT',
+                    dataMode: data.dataMode || 'PRODUCTION',
+                    variants: [initialVariant],
+                });
+            }
+        }
+        else {
+            throw new common_1.BadRequestException('Product must be selected or a Product Name provided');
+        }
+        if (!variantSku) {
+            variantSku = product.variants?.[0]?.sku || `AVE-${Date.now().toString().slice(-5)}`;
+        }
+        let variantIndex = product.variants.findIndex((v) => v.sku === variantSku);
+        let oldQty = 0;
+        let oldCost = actualCostPerUnit;
+        if (variantIndex === -1) {
+            const newVariant = {
+                sku: variantSku,
+                color: data.variantColor || data.variantDetails || 'Standard',
+                colorHex: data.variantColorHex || '#C5A059',
+                size: data.variantSize || 'Standard',
+                price: product.salePrice || 0,
+                costPrice: actualCostPerUnit,
+                weightedAverageCost: actualCostPerUnit,
+                stockQuantity: quantity,
+                reservedQuantity: 0,
+            };
+            product.variants.push(newVariant);
+            variantIndex = product.variants.length - 1;
+        }
+        else {
+            const variant = product.variants[variantIndex];
+            oldQty = variant.stockQuantity || 0;
+            oldCost = variant.weightedAverageCost || variant.costPrice || actualCostPerUnit;
+            const newQty = oldQty + quantity;
+            const newWAC = newQty > 0
+                ? Math.round((oldQty * oldCost + quantity * actualCostPerUnit) / newQty)
+                : actualCostPerUnit;
+            variant.stockQuantity = newQty;
+            variant.weightedAverageCost = newWAC;
+            variant.costPrice = actualCostPerUnit;
+        }
         product.markModified('variants');
         await product.save();
+        const variant = product.variants[variantIndex];
+        const newQty = variant.stockQuantity;
         await this.transactionModel.create({
             productId: product._id,
             variantSku: variant.sku,
@@ -539,7 +727,9 @@ exports.CapitalService = CapitalService = __decorate([
     __param(1, (0, mongoose_1.InjectModel)(product_investment_schema_1.ProductInvestment.name)),
     __param(2, (0, mongoose_1.InjectModel)(product_schema_1.Product.name)),
     __param(3, (0, mongoose_1.InjectModel)(inventory_transaction_schema_1.InventoryTransaction.name)),
+    __param(4, (0, mongoose_1.InjectModel)(category_schema_1.Category.name)),
     __metadata("design:paramtypes", [mongoose_2.Model,
+        mongoose_2.Model,
         mongoose_2.Model,
         mongoose_2.Model,
         mongoose_2.Model,

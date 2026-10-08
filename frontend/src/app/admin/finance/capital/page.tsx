@@ -61,8 +61,13 @@ export default function CapitalAndAssetsPage() {
 
   // Add Product Investment Modal State
   const [showInvestModal, setShowInvestModal] = useState(false);
+  const [investMode, setInvestMode] = useState<'existing' | 'new'>('existing');
+  const [productSearch, setProductSearch] = useState('');
   const [selectedProductId, setSelectedProductId] = useState('');
   const [selectedSku, setSelectedSku] = useState('');
+  const [newProductName, setNewProductName] = useState('');
+  const [newVariantDetails, setNewVariantDetails] = useState('');
+  const [newSku, setNewSku] = useState('');
   const [invDate, setInvDate] = useState(new Date().toISOString().slice(0, 10));
   const [invQty, setInvQty] = useState<number>(40);
   const [invPurchasePrice, setInvPurchasePrice] = useState<number>(182);
@@ -165,6 +170,24 @@ export default function CapitalAndAssetsPage() {
     return currentSelectedProduct.variants?.find((v: any) => v.sku === selectedSku) || currentSelectedProduct.variants?.[0] || null;
   }, [currentSelectedProduct, selectedSku]);
 
+  // Fast Product Search in Modal
+  const filteredExistingProducts = useMemo(() => {
+    if (!productSearch.trim()) return products;
+    const q = productSearch.trim().toLowerCase();
+    return products.filter(
+      (p) =>
+        p.name?.toLowerCase().includes(q) ||
+        p.variants?.some((v: any) => v.sku?.toLowerCase().includes(q)),
+    );
+  }, [products, productSearch]);
+
+  // Duplicate Protection: check similar products when creating new
+  const potentialMatches = useMemo(() => {
+    if (!newProductName.trim()) return [];
+    const q = newProductName.trim().toLowerCase();
+    return products.filter((p) => p.name?.toLowerCase().includes(q)).slice(0, 3);
+  }, [products, newProductName]);
+
   // Dynamic Live Cost Calculations
   const additionalDirectCostPerUnit = useMemo(() => {
     return (
@@ -244,10 +267,18 @@ export default function CapitalAndAssetsPage() {
   // Handle Save Product Investment
   const handleSaveProductInvestment = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedProductId || !selectedSku) {
-      alert('Please select both a Product and a Variant SKU.');
-      return;
+    if (investMode === 'existing') {
+      if (!selectedProductId || !selectedSku) {
+        alert('Please select both a Product and a Variant SKU.');
+        return;
+      }
+    } else {
+      if (!newProductName.trim()) {
+        alert('Please enter a Product Name for this investment.');
+        return;
+      }
     }
+
     if (invQty <= 0) {
       alert('Quantity must be greater than zero.');
       return;
@@ -259,9 +290,7 @@ export default function CapitalAndAssetsPage() {
 
     setSubmittingInvest(true);
     try {
-      const payload = {
-        productId: selectedProductId,
-        variantSku: selectedSku,
+      const payload: any = {
         date: invDate,
         quantity: Number(invQty),
         purchasePrice: Number(invPurchasePrice),
@@ -274,6 +303,16 @@ export default function CapitalAndAssetsPage() {
         paymentAccount,
         notes: invNotes,
       };
+
+      if (investMode === 'existing') {
+        payload.productId = selectedProductId;
+        payload.variantSku = selectedSku;
+      } else {
+        payload.isNewProduct = true;
+        payload.productName = newProductName.trim();
+        payload.variantSku = newSku.trim() || `AVE-${Math.floor(1000 + Math.random() * 9000)}`;
+        payload.variantDetails = newVariantDetails.trim();
+      }
 
       const res = await authFetch(`${API_BASE_URL}/api/admin/capital/product-investments`, {
         method: 'POST',
@@ -291,6 +330,10 @@ export default function CapitalAndAssetsPage() {
         setTagCost(0);
         setOtherCost(0);
         setInvNotes('');
+        setNewProductName('');
+        setNewVariantDetails('');
+        setNewSku('');
+        setProductSearch('');
         fetchData();
       } else {
         const err = await res.json();
@@ -1033,45 +1076,165 @@ export default function CapitalAndAssetsPage() {
             </div>
 
             <form onSubmit={handleSaveProductInvestment} className="space-y-4 text-xs">
-              {/* Product & Variant Selector */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                <div>
-                  <label className="block font-bold text-gray-700 mb-1">Select Product *</label>
-                  <select
-                    value={selectedProductId}
-                    onChange={(e) => {
-                      const pId = e.target.value;
-                      setSelectedProductId(pId);
-                      const prod = products.find((p) => p._id === pId);
-                      setSelectedSku(prod?.variants?.[0]?.sku || '');
-                    }}
-                    className="w-full p-2.5 bg-white border border-gray-300 rounded-xl outline-none text-slate-900 font-medium"
-                    required
-                  >
-                    {products.map((p) => (
-                      <option key={p._id} value={p._id}>
-                        {p.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block font-bold text-gray-700 mb-1">Select Variant / SKU *</label>
-                  <select
-                    value={selectedSku}
-                    onChange={(e) => setSelectedSku(e.target.value)}
-                    className="w-full p-2.5 bg-white border border-gray-300 rounded-xl outline-none text-slate-900 font-mono"
-                    required
-                  >
-                    {currentSelectedProduct?.variants?.map((v: any) => (
-                      <option key={v.sku} value={v.sku}>
-                        {v.sku} — {v.color || ''} {v.size || ''} (Stock: {v.stockQuantity || 0})
-                      </option>
-                    ))}
-                  </select>
-                </div>
+              {/* Mode Toggle: Existing Product vs New Manual Product */}
+              <div className="bg-gray-100 p-1 rounded-xl flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => setInvestMode('existing')}
+                  className={`flex-1 py-1.5 px-3 rounded-lg font-bold text-xs transition ${
+                    investMode === 'existing'
+                      ? 'bg-slate-900 text-white shadow-xs'
+                      : 'text-gray-600 hover:text-slate-900'
+                  }`}
+                >
+                  Search Existing Product
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setInvestMode('new')}
+                  className={`flex-1 py-1.5 px-3 rounded-lg font-bold text-xs transition flex items-center justify-center gap-1.5 ${
+                    investMode === 'new'
+                      ? 'bg-slate-900 text-white shadow-xs'
+                      : 'text-gray-600 hover:text-slate-900'
+                  }`}
+                >
+                  <Plus className="w-3.5 h-3.5 text-[#D4AF37]" />
+                  <span>+ Add New Product / Manual Name</span>
+                </button>
               </div>
+
+              {/* Mode A: Select Existing Product */}
+              {investMode === 'existing' && (
+                <div className="space-y-3 p-3.5 bg-gray-50 rounded-2xl border border-gray-200">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block font-bold text-gray-700 mb-1">Search & Select Product *</label>
+                      <input
+                        type="text"
+                        placeholder="Type to filter products..."
+                        value={productSearch}
+                        onChange={(e) => setProductSearch(e.target.value)}
+                        className="w-full mb-1.5 p-2 bg-white border border-gray-300 rounded-lg outline-none text-xs"
+                      />
+                      <select
+                        value={selectedProductId}
+                        onChange={(e) => {
+                          const pId = e.target.value;
+                          setSelectedProductId(pId);
+                          const prod = products.find((p) => p._id === pId);
+                          setSelectedSku(prod?.variants?.[0]?.sku || '');
+                        }}
+                        className="w-full p-2.5 bg-white border border-gray-300 rounded-xl outline-none text-slate-900 font-medium text-xs"
+                        required
+                      >
+                        {filteredExistingProducts.length === 0 ? (
+                          <option value="">No matching products found</option>
+                        ) : (
+                          filteredExistingProducts.map((p) => (
+                            <option key={p._id} value={p._id}>
+                              {p.name} {p.status === 'DRAFT' ? '(Draft - Investment Ready)' : ''}
+                            </option>
+                          ))
+                        )}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block font-bold text-gray-700 mb-1">Select Variant / SKU *</label>
+                      <select
+                        value={selectedSku}
+                        onChange={(e) => setSelectedSku(e.target.value)}
+                        className="w-full p-2.5 bg-white border border-gray-300 rounded-xl outline-none text-slate-900 font-mono text-xs mt-6 sm:mt-8"
+                        required
+                      >
+                        {currentSelectedProduct?.variants?.map((v: any) => (
+                          <option key={v.sku} value={v.sku}>
+                            {v.sku} — {v.color || ''} {v.size || ''} (Stock: {v.stockQuantity || 0}, WAC: ৳{v.weightedAverageCost || v.costPrice || 0})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Mode B: Add New Product / Manual Name */}
+              {investMode === 'new' && (
+                <div className="space-y-3 p-3.5 bg-amber-50/50 rounded-2xl border border-amber-200/80">
+                  <div className="space-y-1.5">
+                    <label className="block font-bold text-slate-900">
+                      Product Name (নতুন প্রোডাক্টের নাম) *
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Original Dubai Cherry Premium Hijab or Reshmi Velvet Churi"
+                      value={newProductName}
+                      onChange={(e) => setNewProductName(e.target.value)}
+                      className="w-full p-2.5 bg-white border border-gray-300 rounded-xl outline-none text-slate-900 font-semibold"
+                      required
+                    />
+                    <span className="text-[10px] text-gray-500 block">
+                      This product identity will immediately be created and available for customer details in Product Add/Edit.
+                    </span>
+                  </div>
+
+                  {/* Duplicate Protection Warning */}
+                  {potentialMatches.length > 0 && (
+                    <div className="p-2.5 bg-amber-100/90 rounded-xl border border-amber-300 text-[11px] text-amber-900 space-y-1.5">
+                      <div className="flex items-center gap-1.5 font-bold">
+                        <AlertTriangle className="w-3.5 h-3.5 text-amber-700" />
+                        <span>Matching Product Already Found in Catalog:</span>
+                      </div>
+                      <div className="space-y-1">
+                        {potentialMatches.map((m) => (
+                          <div key={m._id} className="flex items-center justify-between bg-white/80 p-1.5 rounded-lg border border-amber-200">
+                            <div>
+                              <span className="font-bold text-slate-900">{m.name}</span>
+                              <span className="text-gray-500 ml-2 font-mono">
+                                (Stock: {m.variants?.reduce((s: number, v: any) => s + (v.stockQuantity || 0), 0) || 0} pcs)
+                              </span>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSelectedProductId(m._id);
+                                setSelectedSku(m.variants?.[0]?.sku || '');
+                                setInvestMode('existing');
+                              }}
+                              className="px-2 py-0.5 bg-amber-600 hover:bg-amber-700 text-white rounded text-[10px] font-bold transition"
+                            >
+                              Select Existing
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                    <div>
+                      <label className="block font-bold text-gray-700 mb-1">Color / Variant Tag (Optional)</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. Olive, Standard, or Maroon"
+                        value={newVariantDetails}
+                        onChange={(e) => setNewVariantDetails(e.target.value)}
+                        className="w-full p-2 bg-white border border-gray-300 rounded-lg outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block font-bold text-gray-700 mb-1">Initial SKU (Optional)</label>
+                      <input
+                        type="text"
+                        placeholder="Auto-generated if blank (e.g. AVE-5421)"
+                        value={newSku}
+                        onChange={(e) => setNewSku(e.target.value)}
+                        className="w-full p-2 bg-white border border-gray-300 rounded-lg outline-none font-mono"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Date, Quantity, Unit Purchase Price */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">

@@ -1,7 +1,8 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, Printer, ShieldCheck } from 'lucide-react';
+import { generateQrDataUrl, buildOrderTrackingQrUrl } from '../utils/qr-generator';
 
 interface InvoiceModalProps {
   order: any;
@@ -10,6 +11,17 @@ interface InvoiceModalProps {
 }
 
 export default function InvoiceModal({ order, isOpen, onClose }: InvoiceModalProps) {
+  const [qrDataUrl, setQrDataUrl] = useState<string>('');
+
+  useEffect(() => {
+    if (order?.orderId || order?._id) {
+      const url = buildOrderTrackingQrUrl(order.orderId || order._id);
+      generateQrDataUrl(url, { width: 300, margin: 1 })
+        .then(setQrDataUrl)
+        .catch((err) => console.error('Failed to generate invoice QR:', err));
+    }
+  }, [order]);
+
   if (!isOpen || !order) return null;
 
   const handlePrint = () => {
@@ -60,17 +72,30 @@ export default function InvoiceModal({ order, isOpen, onClose }: InvoiceModalPro
               <p className="text-xs text-gray-500">Dhaka Mohakhali Royal Filling Station, Jam Jam Tower, 5th Building, 6th Floor</p>
             </div>
 
-            <div className="sm:text-right">
-              <span className="inline-block px-3 py-1 bg-gray-100 rounded text-xs font-bold uppercase tracking-wider text-gray-800 mb-1">
-                INVOICE
-              </span>
-              <p className="text-base font-bold font-mono text-gray-900">{order.orderId}</p>
-              <p className="text-xs text-gray-500">
-                Date: {new Date(order.createdAt || Date.now()).toLocaleDateString('en-US', { dateStyle: 'medium' })}
-              </p>
-              <p className="text-xs font-semibold text-emerald-700 uppercase tracking-wider mt-1">
-                Status: {order.status} • Payment: {order.paymentStatus}
-              </p>
+            <div className="flex items-center gap-4 sm:text-right">
+              {qrDataUrl && (
+                <div className="p-1 bg-white border border-gray-300 rounded-lg text-center shadow-xs">
+                  <img
+                    src={qrDataUrl}
+                    alt="Order Verification QR"
+                    className="w-16 h-16 sm:w-20 sm:h-20 mx-auto"
+                    style={{ imageRendering: 'pixelated' }}
+                  />
+                  <span className="text-[7px] font-mono text-gray-500 block uppercase mt-0.5">Scan to Verify</span>
+                </div>
+              )}
+              <div className="space-y-0.5">
+                <span className="inline-block px-3 py-1 bg-gray-100 rounded text-xs font-bold uppercase tracking-wider text-gray-800 mb-1">
+                  INVOICE
+                </span>
+                <p className="text-base font-bold font-mono text-gray-900">{order.orderId}</p>
+                <p className="text-xs text-gray-500">
+                  Date: {new Date(order.createdAt || Date.now()).toLocaleDateString('en-US', { dateStyle: 'medium' })}
+                </p>
+                <p className="text-xs font-semibold text-emerald-700 uppercase tracking-wider mt-1">
+                  Status: {order.status} • Payment: {order.paymentStatus}
+                </p>
+              </div>
             </div>
           </div>
 

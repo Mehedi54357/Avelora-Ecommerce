@@ -22,14 +22,18 @@ let QrController = class QrController {
     async resolveProduct(publicCode) {
         return this.qrService.resolveProductByPublicCode(publicCode);
     }
-    async resolveOrderTracking(body) {
+    async resolveOrderTracking(body, req) {
         if (!body?.token) {
-            throw new common_1.BadRequestException('Tracking token is required');
+            throw new common_1.BadRequestException('Tracking token or order ID is required');
         }
-        const result = await this.qrService.verifyScannedQr(body.token);
+        const result = await this.qrService.resolveOrderQrDetails(body.token, body.mobile, req);
         return {
             success: true,
-            order: result.orderSummary,
+            isAuthorized: result.isAuthorized,
+            authorizationType: result.authorizationType,
+            allowedActions: result.allowedActions,
+            order: result.order,
+            orderSummary: result.order,
         };
     }
 };
@@ -44,8 +48,9 @@ __decorate([
 __decorate([
     (0, common_1.Post)('orders/resolve'),
     __param(0, (0, common_1.Body)()),
+    __param(1, (0, common_1.Req)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object]),
+    __metadata("design:paramtypes", [Object, Object]),
     __metadata("design:returntype", Promise)
 ], QrController.prototype, "resolveOrderTracking", null);
 exports.QrController = QrController = __decorate([

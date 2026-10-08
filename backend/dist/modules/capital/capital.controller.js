@@ -37,6 +37,9 @@ let CapitalController = class CapitalController {
         const actor = req.user?.email || 'ADMIN';
         return this.capitalService.deleteTransaction(id, actor);
     }
+    async getInvestmentProductsSummary() {
+        return this.capitalService.getInvestmentProductsSummary();
+    }
     async getProductInvestments(query) {
         return this.capitalService.getProductInvestments(query);
     }
@@ -97,6 +100,13 @@ __decorate([
     __metadata("design:paramtypes", [String, Object]),
     __metadata("design:returntype", Promise)
 ], CapitalController.prototype, "deleteTransaction", null);
+__decorate([
+    (0, common_1.Get)('investment-products'),
+    (0, roles_decorator_1.Roles)(user_schema_1.UserRole.SUPER_ADMIN, user_schema_1.UserRole.ADMIN, user_schema_1.UserRole.MANAGER),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", []),
+    __metadata("design:returntype", Promise)
+], CapitalController.prototype, "getInvestmentProductsSummary", null);
 __decorate([
     (0, common_1.Get)('product-investments'),
     (0, roles_decorator_1.Roles)(user_schema_1.UserRole.SUPER_ADMIN, user_schema_1.UserRole.ADMIN, user_schema_1.UserRole.MANAGER),

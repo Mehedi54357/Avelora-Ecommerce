@@ -899,17 +899,21 @@ let ProductsService = ProductsService_1 = class ProductsService {
         this.normalizeProductImages(payload);
         this.validatePricingAndDates(payload);
         if (Array.isArray(payload.variants) && payload.variants.length > 0) {
-            payload.variants = payload.variants.map((v, index) => ({
-                sku: v.sku?.trim() || `AVE-${Date.now().toString().slice(-4)}-${index + 1}`,
-                color: v.color?.trim() || '',
-                colorHex: v.colorHex?.trim() || '',
-                image: v.image?.trim() || '',
-                size: v.size?.trim() || '',
-                price: Number(v.price) > 0 ? Number(v.price) : Number(payload.salePrice) || Number(payload.originalPrice) || 0,
-                costPrice: Number(v.costPrice) || 0,
-                stockQuantity: Number(v.stockQuantity !== undefined ? v.stockQuantity : (v.stock || 10)),
-                reservedQuantity: Number(v.reservedQuantity || 0),
-            }));
+            payload.variants = payload.variants.map((v, index) => {
+                const wac = Number(v.weightedAverageCost) || Number(v.costPrice) || 0;
+                return {
+                    sku: v.sku?.trim() || `AVE-${Date.now().toString().slice(-4)}-${index + 1}`,
+                    color: v.color?.trim() || '',
+                    colorHex: v.colorHex?.trim() || '',
+                    image: v.image?.trim() || '',
+                    size: v.size?.trim() || '',
+                    price: Number(v.price) > 0 ? Number(v.price) : Number(payload.salePrice) || Number(payload.originalPrice) || 0,
+                    costPrice: wac,
+                    weightedAverageCost: wac,
+                    stockQuantity: Number(v.stockQuantity !== undefined ? v.stockQuantity : (v.stock || 10)),
+                    reservedQuantity: Number(v.reservedQuantity || 0),
+                };
+            });
         }
         else {
             payload.variants = [
@@ -921,6 +925,7 @@ let ProductsService = ProductsService_1 = class ProductsService {
                     size: 'Standard',
                     price: Number(payload.salePrice) || Number(payload.originalPrice) || 0,
                     costPrice: 0,
+                    weightedAverageCost: 0,
                     stockQuantity: 10,
                     reservedQuantity: 0,
                 },
@@ -947,6 +952,10 @@ let ProductsService = ProductsService_1 = class ProductsService {
         }
     }
     async update(id, data) {
+        const existingProduct = await this.productModel.findById(id).exec();
+        if (!existingProduct) {
+            throw new common_1.NotFoundException('Product not found');
+        }
         const payload = { ...data };
         if (payload.slug && payload.slug.trim() !== '') {
             payload.slug = payload.slug
@@ -973,17 +982,32 @@ let ProductsService = ProductsService_1 = class ProductsService {
         this.normalizeProductImages(payload);
         this.validatePricingAndDates(payload);
         if (Array.isArray(payload.variants) && payload.variants.length > 0) {
-            payload.variants = payload.variants.map((v, index) => ({
-                sku: v.sku?.trim() || `AVE-${Date.now().toString().slice(-4)}-${index + 1}`,
-                color: v.color?.trim() || '',
-                colorHex: v.colorHex?.trim() || '',
-                image: v.image?.trim() || '',
-                size: v.size?.trim() || '',
-                price: Number(v.price) > 0 ? Number(v.price) : Number(payload.salePrice) || Number(payload.originalPrice) || 0,
-                costPrice: Number(v.costPrice) || 0,
-                stockQuantity: Number(v.stockQuantity !== undefined ? v.stockQuantity : (v.stock || 0)),
-                reservedQuantity: Number(v.reservedQuantity || 0),
-            }));
+            payload.variants = payload.variants.map((v, index) => {
+                const existingVariant = existingProduct.variants?.find((ev) => ev.sku === v.sku?.trim()) ||
+                    (existingProduct.variants?.length === 1 && payload.variants.length === 1 ? existingProduct.variants[0] : null);
+                const cost = existingVariant
+                    ? (existingVariant.costPrice !== undefined ? existingVariant.costPrice : (existingVariant.weightedAverageCost || 0))
+                    : (Number(v.costPrice) || Number(v.weightedAverageCost) || 0);
+                const wac = existingVariant
+                    ? (existingVariant.weightedAverageCost !== undefined ? existingVariant.weightedAverageCost : (existingVariant.costPrice || 0))
+                    : (Number(v.weightedAverageCost) || Number(v.costPrice) || 0);
+                const stock = existingVariant && existingVariant.stockQuantity !== undefined
+                    ? existingVariant.stockQuantity
+                    : (v.stockQuantity !== undefined ? Number(v.stockQuantity) : (v.stock !== undefined ? Number(v.stock) : 0));
+                const sku = existingVariant?.sku || v.sku?.trim() || `AVE-${Date.now().toString().slice(-4)}-${index + 1}`;
+                return {
+                    sku,
+                    color: v.color?.trim() || (existingVariant?.color || ''),
+                    colorHex: v.colorHex?.trim() || (existingVariant?.colorHex || ''),
+                    image: v.image?.trim() || (existingVariant?.image || ''),
+                    size: v.size?.trim() || (existingVariant?.size || ''),
+                    price: Number(v.price) > 0 ? Number(v.price) : Number(payload.salePrice) || Number(payload.originalPrice) || 0,
+                    costPrice: cost,
+                    weightedAverageCost: wac,
+                    stockQuantity: stock,
+                    reservedQuantity: Number(existingVariant?.reservedQuantity || v.reservedQuantity || 0),
+                };
+            });
         }
         try {
             const updated = await this.productModel

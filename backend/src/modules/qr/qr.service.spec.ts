@@ -211,4 +211,74 @@ describe('QrService - Rendering, Generation & One-Time Token Security', () => {
       ).rejects.toThrow(ConflictException);
     });
   });
+
+  describe('4. Privacy-Aware Order QR Resolution & Printing Details', () => {
+    const sampleOrder = {
+      _id: 'ord_999',
+      orderId: 'AVE-20261008-00123',
+      status: OrderStatus.CONFIRMED,
+      fulfillmentStatus: 'PROCESSING',
+      fulfillmentMethod: 'COURIER',
+      paymentMethod: 'COD',
+      paymentStatus: 'PENDING',
+      subtotal: 4500,
+      discount: 200,
+      deliveryCharge: 80,
+      totalAmount: 4380,
+      paidAmount: 0,
+      dueAmount: 4380,
+      customerDetails: {
+        name: 'Mehedi Hasan',
+        mobile: '01712345678',
+        address: 'House 12, Road 5, Banani',
+        district: 'Dhaka',
+        division: 'Dhaka',
+      },
+      items: [
+        {
+          productId: 'prod_1',
+          productName: 'Royal Panjabi',
+          sku: 'RPJ-01',
+          variant: 'Black / L',
+          quantity: 1,
+          unitPrice: 4500,
+        },
+      ],
+      notes: 'Please call before delivery',
+    };
+
+    it('should resolve order anonymously and mask sensitive customer data', async () => {
+      mockOrderModel.findOne = jest.fn().mockReturnValue({
+        exec: jest.fn().mockResolvedValue(sampleOrder),
+      });
+
+      const result = await service.resolveOrderQrDetails('AVE-20261008-00123');
+
+      expect(result.success).toBe(true);
+      expect(result.isAuthorized).toBe(false);
+      expect(result.authorizationType).toBe('ANONYMOUS');
+      expect(result.order.customer.mobile).toContain('****');
+      expect(result.order.customer.name).toContain('*');
+      expect(result.order.financials.totalAmount).toBe(4380);
+      expect(result.order.items.length).toBe(1);
+      expect(result.order.qrCodeDataUrl).toBeDefined();
+    });
+
+    it('should unlock complete customer details when recipient mobile number is provided', async () => {
+      mockOrderModel.findOne = jest.fn().mockReturnValue({
+        exec: jest.fn().mockResolvedValue(sampleOrder),
+      });
+
+      const result = await service.resolveOrderQrDetails('AVE-20261008-00123', '01712345678');
+
+      expect(result.success).toBe(true);
+      expect(result.isAuthorized).toBe(true);
+      expect(result.authorizationType).toBe('CUSTOMER');
+      expect(result.order.customer.name).toBe('Mehedi Hasan');
+      expect(result.order.customer.mobile).toBe('01712345678');
+      expect(result.order.customer.address).toBe('House 12, Road 5, Banani');
+      expect(result.order.customer.notes).toBe('Please call before delivery');
+    });
+  });
 });
+

@@ -14,6 +14,9 @@ export declare class QrService {
     private readonly configService;
     private readonly logger;
     constructor(qrTokenService: QrTokenService, qrScanEventModel: Model<QrScanEventDocument>, idempotencyKeyModel: Model<IdempotencyKeyDocument>, productModel: Model<ProductDocument>, orderModel: Model<OrderDocument>, configService: ConfigService);
+    private maskCustomerName;
+    private maskPhoneNumber;
+    private maskAddress;
     generateQrCodeDataUrl(payload: string, options?: {
         margin?: number;
         width?: number;
@@ -48,6 +51,13 @@ export declare class QrService {
         orderSummary?: any;
         productSummary?: any;
         allowedActions: string[];
+    }>;
+    resolveOrderQrDetails(rawInput: string, mobileQuery?: string, req?: any): Promise<{
+        success: boolean;
+        isAuthorized: boolean;
+        authorizationType: 'ADMIN' | 'CUSTOMER' | 'ANONYMOUS';
+        allowedActions: string[];
+        order: any;
     }>;
     fulfillOrderQr(rawPayload: string, action: string, actorId?: string, actorRole?: string, idempotencyKey?: string, ordersServiceTransitionFn?: (orderId: string, nextStatus: OrderStatus, actor?: string, note?: string) => Promise<any>): Promise<Record<string, any> | {
         success: boolean;

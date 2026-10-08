@@ -50,6 +50,7 @@ export declare class OrdersService {
     } & {
         id: string;
     }>;
+    generateUniqueOrderId(isTestData?: boolean): Promise<string>;
     trackOrder(orderId: string, mobile: string): Promise<{
         orderId: string;
         status: OrderStatus;

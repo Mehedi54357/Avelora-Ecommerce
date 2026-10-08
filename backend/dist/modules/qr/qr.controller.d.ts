@@ -9,8 +9,13 @@ export declare class QrController {
     }>;
     resolveOrderTracking(body: {
         token: string;
-    }): Promise<{
+        mobile?: string;
+    }, req: any): Promise<{
         success: boolean;
+        isAuthorized: boolean;
+        authorizationType: "ADMIN" | "CUSTOMER" | "ANONYMOUS";
+        allowedActions: string[];
         order: any;
+        orderSummary: any;
     }>;
 }

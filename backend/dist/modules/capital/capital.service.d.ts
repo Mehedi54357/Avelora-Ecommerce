@@ -3,14 +3,16 @@ import { CapitalTransaction, CapitalTransactionDocument } from '../../schemas/ca
 import { ProductInvestment, ProductInvestmentDocument } from '../../schemas/product-investment.schema';
 import { ProductDocument } from '../../schemas/product.schema';
 import { InventoryTransactionDocument } from '../../schemas/inventory-transaction.schema';
+import { CategoryDocument } from '../../schemas/category.schema';
 import { AuditLogService } from '../audit-log/audit-log.service';
 export declare class CapitalService {
     private capitalModel;
     private productInvestmentModel;
     private productModel;
     private transactionModel;
+    private categoryModel;
     private auditLogService;
-    constructor(capitalModel: Model<CapitalTransactionDocument>, productInvestmentModel: Model<ProductInvestmentDocument>, productModel: Model<ProductDocument>, transactionModel: Model<InventoryTransactionDocument>, auditLogService: AuditLogService);
+    constructor(capitalModel: Model<CapitalTransactionDocument>, productInvestmentModel: Model<ProductInvestmentDocument>, productModel: Model<ProductDocument>, transactionModel: Model<InventoryTransactionDocument>, categoryModel: Model<CategoryDocument>, auditLogService: AuditLogService);
     getTransactions(query: {
         type?: string;
         limit?: number;
@@ -94,6 +96,25 @@ export declare class CapitalService {
         schema: import("mongoose").Schema;
         __v: number;
     }[]>;
+    getInvestmentProductsSummary(): Promise<{
+        _id: any;
+        name: string;
+        slug: string;
+        status: string;
+        isPublished: boolean;
+        hasInvestment: boolean;
+        investmentCount: number;
+        totalInvestedUnits: number;
+        totalInvestedCost: number;
+        totalStock: number;
+        currentWac: number;
+        variants: import("../../schemas/product.schema").ProductVariant[];
+        images: string[];
+        salePrice: number;
+        originalPrice: number;
+        createdAt: any;
+    }[]>;
+    private autoDetectCategoryId;
     createProductInvestment(data: any, actor?: string): Promise<import("mongoose").Document<unknown, {}, ProductInvestmentDocument, {}, import("mongoose").DefaultSchemaOptions> & ProductInvestment & import("mongoose").Document<Types.ObjectId, any, any, Record<string, any>, {}> & Required<{
         _id: Types.ObjectId;
     }> & {

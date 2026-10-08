@@ -143,11 +143,11 @@ export class OrdersService {
     }
 
     // 3. Authoritative Delivery Zone Charge Calculation
-    const districtLower = (data.customerDetails.district || '').trim().toLowerCase();
-    const isDhaka =
-      districtLower.includes('dhaka') ||
+    const districtLower = (data.customerDetails?.district || '').trim().toLowerCase();
+    const isDhakaCity =
       districtLower === 'dhaka' ||
-      (data.customerDetails.division || '').trim().toLowerCase().includes('dhaka');
+      districtLower === 'dhaka city' ||
+      (districtLower.includes('dhaka') && !districtLower.includes('outside'));
 
     const storeSettings = await this.settingsService.getSettings();
     const isFreeFulfillment =
@@ -155,7 +155,7 @@ export class OrdersService {
       chosenFulfillment === FulfillmentMethod.CUSTOMER_PICKUP;
     const deliveryCharge = isFreeFulfillment
       ? 0
-      : isDhaka
+      : isDhakaCity
         ? (storeSettings.defaultDhakaDeliveryCharge || 70)
         : (storeSettings.defaultOutsideDhakaDeliveryCharge || 130);
 
@@ -172,13 +172,8 @@ export class OrdersService {
     const isAdvancePaid = paidAmount > 0;
     const dueAmount = Math.max(0, totalAmount - paidAmount);
 
-    // 6. Generate Unique Order ID
-    const today = new Date();
-    const yyyymmdd = today.toISOString().slice(0, 10).replace(/-/g, '');
-    const randomSuffix = Math.floor(10000 + Math.random() * 90000);
-    const orderId = isTestData
-      ? `TST-${yyyymmdd}-${randomSuffix}`
-      : `AVE-${yyyymmdd}-${randomSuffix}`;
+    // 6. Generate Unique Order ID (AVL-YYMMDD-NNNN in Bangladesh timezone)
+    const orderId = await this.generateUniqueOrderId(isTestData);
 
     // 7. Atomically Reserve Stock on Shelf
     for (const item of orderItems) {
@@ -307,6 +302,50 @@ export class OrdersService {
     }
 
     return order;
+  }
+
+  /**
+   * Generates a unique sequential Order ID in Bangladesh Timezone (AVL-YYMMDD-NNNN).
+   * Example: AVL-261008-0001
+   */
+  async generateUniqueOrderId(isTestData: boolean = false): Promise<string> {
+    const now = new Date();
+    // Bangladesh Standard Time is UTC+6
+    const bdTime = new Date(now.getTime() + 6 * 60 * 60 * 1000);
+    const yy = String(bdTime.getUTCFullYear()).slice(-2);
+    const mm = String(bdTime.getUTCMonth() + 1).padStart(2, '0');
+    const dd = String(bdTime.getUTCDate()).padStart(2, '0');
+    const yymmdd = `${yy}${mm}${dd}`;
+    const prefix = isTestData ? 'TST' : 'AVL';
+
+    // Find the latest order for today matching this prefix
+    const regex = new RegExp(`^${prefix}-${yymmdd}-(\\d+)`);
+    const latestOrder = await this.orderModel
+      .findOne({ orderId: regex })
+      .sort({ orderId: -1 })
+      .exec();
+
+    let nextSeq = 1;
+    if (latestOrder && latestOrder.orderId) {
+      const match = latestOrder.orderId.match(regex);
+      if (match && match[1]) {
+        nextSeq = parseInt(match[1], 10) + 1;
+      }
+    }
+
+    // Sequentially assign nextSeq with duplicate collision retry
+    for (let attempt = 0; attempt < 10; attempt++) {
+      const seqStr = String(nextSeq + attempt).padStart(4, '0');
+      const candidateId = `${prefix}-${yymmdd}-${seqStr}`;
+      const exists = await this.orderModel.findOne({ orderId: candidateId }).exec();
+      if (!exists) {
+        return candidateId;
+      }
+    }
+
+    // High-concurrency fallback
+    const randomSuffix = Math.floor(1000 + Math.random() * 9000);
+    return `${prefix}-${yymmdd}-${randomSuffix}`;
   }
 
   // 2. Secure Public Order Tracking

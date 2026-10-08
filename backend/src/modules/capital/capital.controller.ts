@@ -51,6 +51,12 @@ export class CapitalController {
 
   // ================= PRODUCT-BASED INVESTMENT & COSTING =================
 
+  @Get('investment-products')
+  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.MANAGER)
+  async getInvestmentProductsSummary() {
+    return this.capitalService.getInvestmentProductsSummary();
+  }
+
   @Get('product-investments')
   @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.MANAGER)
   async getProductInvestments(@Query() query: any) {

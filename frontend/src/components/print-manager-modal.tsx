@@ -11,7 +11,7 @@ import {
   Loader2,
   CheckCircle2,
 } from 'lucide-react';
-import { generateQrDataUrl, getStorefrontBaseUrl } from '../utils/qr-generator';
+import { generateQrDataUrl, getStorefrontBaseUrl, buildOrderTrackingQrUrl } from '../utils/qr-generator';
 
 export type PrintMode = 'INVOICE' | 'PACKING_SLIP' | 'SHIPPING_LABEL';
 
@@ -43,15 +43,14 @@ export default function PrintManagerModal({
     setGeneratingQrs(true);
 
     const generateAllQrs = async () => {
-      const base = getStorefrontBaseUrl();
       const trackMap: Record<string, string> = {};
       const fulfillMap: Record<string, string> = {};
 
       for (const order of orders) {
         const orderKey = order._id || order.orderId;
 
-        // 1. Customer Tracking QR (For Invoice and Outward Shipping Label)
-        const trackingPayload = `${base}/track-order?orderId=${encodeURIComponent(order.orderId || '')}`;
+        // 1. Customer Tracking QR (For Invoice and Outward Shipping Label - always valid HTTPS URL)
+        const trackingPayload = buildOrderTrackingQrUrl(order.orderId || order._id);
         try {
           trackMap[orderKey] = await generateQrDataUrl(trackingPayload, {
             width: 600,
@@ -61,8 +60,8 @@ export default function PrintManagerModal({
           console.error('Failed to generate tracking QR for order:', order.orderId, e);
         }
 
-        // 2. Staff Fulfillment QR (For Internal Warehouse Packing Slip Only)
-        const fulfillmentPayload = `AV1:F:${order._id}`;
+        // 2. Staff Fulfillment QR (For Internal Warehouse Packing Slip - wrapped in HTTPS resolver URL)
+        const fulfillmentPayload = buildOrderTrackingQrUrl(`AV1:F:${order._id}`);
         try {
           fulfillMap[orderKey] = await generateQrDataUrl(fulfillmentPayload, {
             width: 600,
