@@ -102,6 +102,26 @@ __decorate([
     (0, mongoose_1.Prop)({ required: false, default: null }),
     __metadata("design:type", Date)
 ], Settings.prototype, "pathaoLastSyncAt", void 0);
+__decorate([
+    (0, mongoose_1.Prop)({ required: false, default: true }),
+    __metadata("design:type", Boolean)
+], Settings.prototype, "steadfastEnabled", void 0);
+__decorate([
+    (0, mongoose_1.Prop)({ required: false, default: 'https://portal.packzy.com/api/v1' }),
+    __metadata("design:type", String)
+], Settings.prototype, "steadfastBaseUrl", void 0);
+__decorate([
+    (0, mongoose_1.Prop)({ required: false, default: '' }),
+    __metadata("design:type", String)
+], Settings.prototype, "steadfastApiKey", void 0);
+__decorate([
+    (0, mongoose_1.Prop)({ required: false, default: '' }),
+    __metadata("design:type", String)
+], Settings.prototype, "steadfastSecretKey", void 0);
+__decorate([
+    (0, mongoose_1.Prop)({ required: false, default: null }),
+    __metadata("design:type", Date)
+], Settings.prototype, "steadfastLastSyncAt", void 0);
 exports.Settings = Settings = __decorate([
     (0, mongoose_1.Schema)({ timestamps: true })
 ], Settings);

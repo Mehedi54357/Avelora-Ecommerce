@@ -10,6 +10,7 @@ exports.CourierModule = void 0;
 const common_1 = require("@nestjs/common");
 const mongoose_1 = require("@nestjs/mongoose");
 const pathao_service_1 = require("./pathao.service");
+const steadfast_service_1 = require("./steadfast.service");
 const courier_controller_1 = require("./courier.controller");
 const pathao_token_schema_1 = require("../../schemas/pathao-token.schema");
 const order_schema_1 = require("../../schemas/order.schema");
@@ -29,8 +30,8 @@ exports.CourierModule = CourierModule = __decorate([
             audit_log_module_1.AuditLogModule,
         ],
         controllers: [courier_controller_1.CourierController],
-        providers: [pathao_service_1.PathaoService],
-        exports: [pathao_service_1.PathaoService],
+        providers: [pathao_service_1.PathaoService, steadfast_service_1.SteadfastService],
+        exports: [pathao_service_1.PathaoService, steadfast_service_1.SteadfastService],
     })
 ], CourierModule);
 //# sourceMappingURL=courier.module.js.map

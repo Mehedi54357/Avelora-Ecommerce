@@ -8,6 +8,7 @@ import {
   Request,
 } from '@nestjs/common';
 import { PathaoService } from './pathao.service';
+import { SteadfastService } from './steadfast.service';
 import { AuthGuard } from '../auth/auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
@@ -16,7 +17,10 @@ import { UserRole } from '../../schemas/user.schema';
 @Controller('admin/courier')
 @UseGuards(AuthGuard, RolesGuard)
 export class CourierController {
-  constructor(private readonly pathaoService: PathaoService) {}
+  constructor(
+    private readonly pathaoService: PathaoService,
+    private readonly steadfastService: SteadfastService,
+  ) {}
 
   @Get('pathao/config')
   @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.MANAGER, UserRole.STAFF)
@@ -110,5 +114,60 @@ export class CourierController {
   ) {
     const actorEmail = req.user?.email || 'ADMIN';
     return this.pathaoService.syncConsignmentStatus(orderId, actorEmail);
+  }
+
+  // --- STEADFAST COURIER ENDPOINTS ---
+
+  @Get('steadfast/config')
+  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.MANAGER, UserRole.STAFF)
+  async getSteadfastConfig() {
+    return this.steadfastService.getConfig();
+  }
+
+  @Post('steadfast/config')
+  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN)
+  async updateSteadfastConfig(@Body() body: any, @Request() req: any) {
+    const actorEmail = req.user?.email || 'ADMIN';
+    return this.steadfastService.updateConfig(body, actorEmail);
+  }
+
+  @Post('steadfast/toggle')
+  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN)
+  async toggleSteadfast(@Body() body: { enabled: boolean }, @Request() req: any) {
+    const actorEmail = req.user?.email || 'ADMIN';
+    return this.steadfastService.toggleIntegration(body.enabled, actorEmail);
+  }
+
+  @Post('steadfast/test')
+  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.MANAGER, UserRole.STAFF)
+  async testSteadfastConnection() {
+    return this.steadfastService.testConnection();
+  }
+
+  @Get('steadfast/balance')
+  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.MANAGER, UserRole.STAFF)
+  async getSteadfastBalance() {
+    return this.steadfastService.getBalance();
+  }
+
+  @Post('steadfast/orders/:orderId/book')
+  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.MANAGER, UserRole.STAFF)
+  async bookSteadfastOrder(
+    @Param('orderId') orderId: string,
+    @Body() body: any,
+    @Request() req: any,
+  ) {
+    const actorEmail = req.user?.email || 'ADMIN';
+    return this.steadfastService.createOrder(orderId, body, actorEmail);
+  }
+
+  @Post('steadfast/orders/:orderId/sync')
+  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.MANAGER, UserRole.STAFF)
+  async syncSteadfastOrderStatus(
+    @Param('orderId') orderId: string,
+    @Request() req: any,
+  ) {
+    const actorEmail = req.user?.email || 'ADMIN';
+    return this.steadfastService.syncConsignmentStatus(orderId, actorEmail);
   }
 }

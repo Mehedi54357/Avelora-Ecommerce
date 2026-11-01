@@ -70,6 +70,21 @@ export class Settings {
 
   @Prop({ required: false, default: null })
   pathaoLastSyncAt: Date;
+
+  @Prop({ required: false, default: true })
+  steadfastEnabled: boolean;
+
+  @Prop({ required: false, default: 'https://portal.packzy.com/api/v1' })
+  steadfastBaseUrl: string;
+
+  @Prop({ required: false, default: '' })
+  steadfastApiKey: string;
+
+  @Prop({ required: false, default: '' })
+  steadfastSecretKey: string;
+
+  @Prop({ required: false, default: null })
+  steadfastLastSyncAt: Date;
 }
 
 export const SettingsSchema = SchemaFactory.createForClass(Settings);

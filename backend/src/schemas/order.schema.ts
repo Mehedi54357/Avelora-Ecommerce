@@ -253,6 +253,7 @@ export class Order {
     type: {
       provider: { type: String, default: '' },
       consignmentId: { type: String, default: '' },
+      trackingCode: { type: String, default: '' },
       trackingUrl: { type: String, default: '' },
       charge: { type: Number, default: 0 },
       deliveryFee: { type: Number, default: 0 },
@@ -260,6 +261,7 @@ export class Order {
       amountToCollect: { type: Number, default: 0 },
       storeId: { type: Number },
       pathaoStatus: { type: String, default: '' },
+      steadfastStatus: { type: String, default: '' },
       bookedAt: { type: Date },
       pickedUpAt: { type: Date },
       deliveredAt: { type: Date },
@@ -283,6 +285,7 @@ export class Order {
   courier?: {
     provider: string;
     consignmentId: string;
+    trackingCode?: string;
     trackingUrl: string;
     charge: number;
     deliveryFee?: number;
@@ -290,6 +293,7 @@ export class Order {
     amountToCollect?: number;
     storeId?: number;
     pathaoStatus?: string;
+    steadfastStatus?: string;
     bookedAt?: Date;
     pickedUpAt?: Date;
     deliveredAt?: Date;

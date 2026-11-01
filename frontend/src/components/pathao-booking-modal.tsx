@@ -17,7 +17,11 @@ export default function PathaoBookingModal({
   onClose,
   onSuccess,
 }: PathaoBookingModalProps) {
-  const [activeTab, setActiveTab] = useState<'PATHAO' | 'MANUAL'>('PATHAO');
+  const [activeTab, setActiveTab] = useState<'PATHAO' | 'STEADFAST' | 'MANUAL'>('PATHAO');
+
+  // Steadfast State
+  const [steadfastCodAmount, setSteadfastCodAmount] = useState<number | string>('');
+  const [steadfastNote, setSteadfastNote] = useState<string>('Handle with care - Luxury Apparel');
 
   // Pathao State
   const [stores, setStores] = useState<any[]>([]);
@@ -49,7 +53,13 @@ export default function PathaoBookingModal({
 
   // Fetch initial stores and cities when modal opens
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen || !order) return;
+
+    const initialCod = order.paymentMethod === 'COD'
+      ? (order.dueAmount !== undefined ? order.dueAmount : order.subtotal)
+      : (order.paymentStatus === 'PAID' ? 0 : order.totalAmount);
+    setSteadfastCodAmount(initialCod);
+    setSteadfastNote(order.notes || 'Handle with care - Luxury Apparel');
 
     setErrorMessage('');
     const loadInitialData = async () => {
@@ -210,6 +220,36 @@ export default function PathaoBookingModal({
     }
   };
 
+  // Submit Steadfast Booking
+  const handleBookSteadfast = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSubmitting(true);
+    setErrorMessage('');
+
+    try {
+      const res = await authFetch(`${API_BASE_URL}/api/admin/courier/steadfast/orders/${order._id}/book`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          codAmount: Number(steadfastCodAmount !== '' ? steadfastCodAmount : amountToCollect),
+          note: steadfastNote.trim(),
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.message || 'Failed to book order with Steadfast Courier');
+      }
+
+      onSuccess();
+      onClose();
+    } catch (err: any) {
+      setErrorMessage(err.message || 'Error occurred while booking with Steadfast Courier');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   // Submit Manual Booking Fallback
   const handleSaveManualCourier = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -274,28 +314,40 @@ export default function PathaoBookingModal({
         </div>
 
         {/* Dispatch Provider Tabs */}
-        <div className="flex border-b border-gray-200 bg-gray-50 px-5 pt-3">
+        <div className="flex border-b border-gray-200 bg-gray-50 px-5 pt-3 overflow-x-auto">
           <button
             onClick={() => { setActiveTab('PATHAO'); setErrorMessage(''); }}
-            className={`pb-3 px-4 text-xs font-bold uppercase tracking-wider border-b-2 transition flex items-center gap-2 ${
+            className={`pb-3 px-4 text-xs font-bold uppercase tracking-wider border-b-2 transition flex items-center gap-2 flex-shrink-0 ${
               activeTab === 'PATHAO'
-                ? 'border-[#D4AF37] text-slate-950 bg-white rounded-t-lg'
+                ? 'border-red-600 text-slate-950 bg-white rounded-t-lg'
                 : 'border-transparent text-gray-500 hover:text-slate-800'
             }`}
           >
             <span className="w-2 h-2 rounded-full bg-red-600"></span>
-            Pathao Courier API (Live)
+            Pathao Courier
+          </button>
+
+          <button
+            onClick={() => { setActiveTab('STEADFAST'); setErrorMessage(''); }}
+            className={`pb-3 px-4 text-xs font-bold uppercase tracking-wider border-b-2 transition flex items-center gap-2 flex-shrink-0 ${
+              activeTab === 'STEADFAST'
+                ? 'border-emerald-600 text-slate-950 bg-white rounded-t-lg'
+                : 'border-transparent text-gray-500 hover:text-slate-800'
+            }`}
+          >
+            <span className="w-2 h-2 rounded-full bg-emerald-600"></span>
+            Steadfast Courier API
           </button>
 
           <button
             onClick={() => { setActiveTab('MANUAL'); setErrorMessage(''); }}
-            className={`pb-3 px-4 text-xs font-bold uppercase tracking-wider border-b-2 transition flex items-center gap-2 ${
+            className={`pb-3 px-4 text-xs font-bold uppercase tracking-wider border-b-2 transition flex items-center gap-2 flex-shrink-0 ${
               activeTab === 'MANUAL'
                 ? 'border-[#D4AF37] text-slate-950 bg-white rounded-t-lg'
                 : 'border-transparent text-gray-500 hover:text-slate-800'
             }`}
           >
-            Manual Courier Fallback
+            Manual Courier
           </button>
         </div>
 
@@ -478,6 +530,99 @@ export default function PathaoBookingModal({
                   <>
                     <Truck className="w-4 h-4" />
                     <span>Confirm & Book with Pathao</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </form>
+        )}
+
+        {/* STEADFAST COURIER TAB */}
+        {activeTab === 'STEADFAST' && (
+          <form onSubmit={handleBookSteadfast} className="p-6 space-y-4 text-xs">
+            {/* Recipient Snapshot */}
+            <div className="p-3.5 bg-emerald-50/70 rounded-xl border border-emerald-200 space-y-1">
+              <div className="flex items-center justify-between">
+                <p className="font-bold text-slate-900 text-xs">Recipient: {order.customerDetails?.name}</p>
+                <span className="font-mono text-emerald-800 font-bold">{order.customerDetails?.mobile}</span>
+              </div>
+              <p className="text-gray-600 leading-relaxed">
+                {order.customerDetails?.address}, {order.customerDetails?.district}
+              </p>
+            </div>
+
+            {/* COD Amount Input */}
+            <div>
+              <label className="block font-bold text-gray-700 mb-1">
+                Cash On Delivery (COD) Amount to Collect (৳) <span className="text-red-500">*</span>
+              </label>
+              <div className="relative">
+                <span className="absolute left-3 top-2.5 font-bold font-mono text-gray-400">৳</span>
+                <input
+                  type="number"
+                  min="0"
+                  required
+                  value={steadfastCodAmount}
+                  onChange={(e) => setSteadfastCodAmount(e.target.value)}
+                  className="w-full pl-8 pr-3 py-2.5 bg-white border border-gray-300 rounded-xl font-bold font-mono text-slate-900 text-sm outline-none focus:border-emerald-600"
+                />
+              </div>
+              <p className="text-[11px] text-gray-400 mt-1">
+                Enter 0 if the customer has already paid in advance. For COD orders, this is the amount Steadfast rider collects.
+              </p>
+            </div>
+
+            {/* Special Instructions / Note */}
+            <div>
+              <label className="block font-bold text-gray-700 mb-1">
+                Delivery Note / Special Instructions
+              </label>
+              <textarea
+                rows={2}
+                maxLength={480}
+                value={steadfastNote}
+                onChange={(e) => setSteadfastNote(e.target.value)}
+                placeholder="e.g. Handle with care - Luxury Apparel"
+                className="w-full p-2.5 bg-white border border-gray-300 rounded-xl text-slate-900 outline-none focus:border-emerald-600 resize-none"
+              />
+              <span className="text-[10px] text-gray-400">Max 480 characters (characters &lt;&gt;;$ will be sanitized)</span>
+            </div>
+
+            {/* Financial Summary Preview */}
+            <div className="p-3.5 bg-gray-50 rounded-xl border border-gray-200 flex items-center justify-between">
+              <div>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500">COD Collection</span>
+                <p className="text-lg font-black font-mono text-emerald-950">৳{Number(steadfastCodAmount || 0).toLocaleString()}</p>
+              </div>
+              <div className="text-right">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500">Est. Freight Charge</span>
+                <p className="text-lg font-bold font-mono text-slate-700">৳{order.deliveryCharge || 70}</p>
+              </div>
+            </div>
+
+            {/* Submit Button */}
+            <div className="pt-3 flex gap-3">
+              <button
+                type="button"
+                onClick={onClose}
+                className="flex-1 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-800 font-bold rounded-xl transition cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={submitting}
+                className="flex-1 py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white font-bold rounded-xl transition shadow-md flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+              >
+                {submitting ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Booking with Steadfast...</span>
+                  </>
+                ) : (
+                  <>
+                    <Package className="w-4 h-4" />
+                    <span>Confirm &amp; Book with Steadfast</span>
                   </>
                 )}
               </button>

@@ -23,6 +23,11 @@ export declare class Settings {
     pathaoDefaultStoreId: number;
     pathaoDefaultStoreName: string;
     pathaoLastSyncAt: Date;
+    steadfastEnabled: boolean;
+    steadfastBaseUrl: string;
+    steadfastApiKey: string;
+    steadfastSecretKey: string;
+    steadfastLastSyncAt: Date;
 }
 export declare const SettingsSchema: import("mongoose").Schema<Settings, import("mongoose").Model<Settings, any, any, any, any, any, Settings>, {}, {}, {}, {}, import("mongoose").DefaultSchemaOptions, Settings, Document<unknown, {}, Settings, {
     id: string;
@@ -223,6 +228,51 @@ export declare const SettingsSchema: import("mongoose").Schema<Settings, import(
         id: string;
     }>>;
     pathaoLastSyncAt?: import("mongoose").SchemaDefinitionProperty<Date, Settings, Document<unknown, {}, Settings, {
+        id: string;
+    }, import("mongoose").DefaultSchemaOptions> & Omit<Settings & {
+        _id: import("mongoose").Types.ObjectId;
+    } & {
+        __v: number;
+    }, "id"> & import("mongoose").HydratedDocumentOverrides<{
+        id: string;
+    }>>;
+    steadfastEnabled?: import("mongoose").SchemaDefinitionProperty<boolean, Settings, Document<unknown, {}, Settings, {
+        id: string;
+    }, import("mongoose").DefaultSchemaOptions> & Omit<Settings & {
+        _id: import("mongoose").Types.ObjectId;
+    } & {
+        __v: number;
+    }, "id"> & import("mongoose").HydratedDocumentOverrides<{
+        id: string;
+    }>>;
+    steadfastBaseUrl?: import("mongoose").SchemaDefinitionProperty<string, Settings, Document<unknown, {}, Settings, {
+        id: string;
+    }, import("mongoose").DefaultSchemaOptions> & Omit<Settings & {
+        _id: import("mongoose").Types.ObjectId;
+    } & {
+        __v: number;
+    }, "id"> & import("mongoose").HydratedDocumentOverrides<{
+        id: string;
+    }>>;
+    steadfastApiKey?: import("mongoose").SchemaDefinitionProperty<string, Settings, Document<unknown, {}, Settings, {
+        id: string;
+    }, import("mongoose").DefaultSchemaOptions> & Omit<Settings & {
+        _id: import("mongoose").Types.ObjectId;
+    } & {
+        __v: number;
+    }, "id"> & import("mongoose").HydratedDocumentOverrides<{
+        id: string;
+    }>>;
+    steadfastSecretKey?: import("mongoose").SchemaDefinitionProperty<string, Settings, Document<unknown, {}, Settings, {
+        id: string;
+    }, import("mongoose").DefaultSchemaOptions> & Omit<Settings & {
+        _id: import("mongoose").Types.ObjectId;
+    } & {
+        __v: number;
+    }, "id"> & import("mongoose").HydratedDocumentOverrides<{
+        id: string;
+    }>>;
+    steadfastLastSyncAt?: import("mongoose").SchemaDefinitionProperty<Date, Settings, Document<unknown, {}, Settings, {
         id: string;
     }, import("mongoose").DefaultSchemaOptions> & Omit<Settings & {
         _id: import("mongoose").Types.ObjectId;

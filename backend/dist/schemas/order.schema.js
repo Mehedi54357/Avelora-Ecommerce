@@ -329,6 +329,7 @@ __decorate([
         type: {
             provider: { type: String, default: '' },
             consignmentId: { type: String, default: '' },
+            trackingCode: { type: String, default: '' },
             trackingUrl: { type: String, default: '' },
             charge: { type: Number, default: 0 },
             deliveryFee: { type: Number, default: 0 },
@@ -336,6 +337,7 @@ __decorate([
             amountToCollect: { type: Number, default: 0 },
             storeId: { type: Number },
             pathaoStatus: { type: String, default: '' },
+            steadfastStatus: { type: String, default: '' },
             bookedAt: { type: Date },
             pickedUpAt: { type: Date },
             deliveredAt: { type: Date },

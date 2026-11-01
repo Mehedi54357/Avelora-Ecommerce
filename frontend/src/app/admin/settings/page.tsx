@@ -32,7 +32,7 @@ import {
 import { API_BASE_URL, authFetch } from '../../../utils/api-config';
 
 export default function AdminSettingsPage() {
-  const [activeTab, setActiveTab] = useState<'IDENTITY' | 'PATHAO' | 'DELIVERY' | 'DATA_MANAGEMENT'>('PATHAO');
+  const [activeTab, setActiveTab] = useState<'IDENTITY' | 'PATHAO' | 'STEADFAST' | 'DELIVERY' | 'DATA_MANAGEMENT'>('PATHAO');
 
   // Business Identity
   const [businessName, setBusinessName] = useState('AVELORA');
@@ -73,13 +73,35 @@ export default function AdminSettingsPage() {
   const [modalError, setModalError] = useState<string | null>(null);
   const [savingCreds, setSavingCreds] = useState(false);
 
-  // Credential Edit Form Inputs
+  // Pathao Credential Form
   const [credForm, setCredForm] = useState({
     username: '',
     password: '',
     clientId: '',
     clientSecret: '',
     sandbox: false,
+  });
+
+  // STEADFAST COURIER STATE
+  const [steadfastConfig, setSteadfastConfig] = useState<any>({
+    connectionStatus: 'Checking...',
+    apiKeyMasked: '••••••••',
+    secretKeyMasked: '••••••••••••',
+    baseUrl: 'https://portal.packzy.com/api/v1',
+    hasCredentials: false,
+    enabled: true,
+    lastSyncAt: null,
+  });
+  const [loadingSteadfast, setLoadingSteadfast] = useState(false);
+  const [testingSteadfast, setTestingSteadfast] = useState(false);
+  const [checkingBalance, setCheckingBalance] = useState(false);
+  const [steadfastStatus, setSteadfastStatus] = useState<any>(null);
+  const [showSteadfastModal, setShowSteadfastModal] = useState(false);
+  const [savingSteadfastCreds, setSavingSteadfastCreds] = useState(false);
+  const [steadfastForm, setSteadfastForm] = useState({
+    apiKey: '',
+    secretKey: '',
+    baseUrl: 'https://portal.packzy.com/api/v1',
   });
 
   // TEST DATA MANAGEMENT STATE
@@ -108,6 +130,120 @@ export default function AdminSettingsPage() {
     }
   };
 
+  const fetchSteadfastConfig = async () => {
+    setLoadingSteadfast(true);
+    try {
+      const res = await authFetch(`${API_BASE_URL}/api/admin/courier/steadfast/config`);
+      if (res.ok) {
+        const data = await res.json();
+        setSteadfastConfig(data);
+      }
+    } catch (e: any) {
+      console.error('Failed to fetch Steadfast config:', e);
+    } finally {
+      setLoadingSteadfast(false);
+    }
+  };
+
+  const handleTestSteadfastConnection = async () => {
+    setTestingSteadfast(true);
+    setSteadfastStatus(null);
+    try {
+      const res = await authFetch(`${API_BASE_URL}/api/admin/courier/steadfast/test`, {
+        method: 'POST',
+      });
+      const data = await res.json();
+      setSteadfastStatus({
+        success: data.success,
+        message: data.message,
+      });
+      fetchSteadfastConfig();
+    } catch (e: any) {
+      setSteadfastStatus({
+        success: false,
+        message: 'Connection failed: ' + (e.message || 'Network error'),
+      });
+    } finally {
+      setTestingSteadfast(false);
+    }
+  };
+
+  const handleCheckSteadfastBalance = async () => {
+    setCheckingBalance(true);
+    try {
+      const res = await authFetch(`${API_BASE_URL}/api/admin/courier/steadfast/balance`);
+      const data = await res.json();
+      if (res.ok) {
+        const bal = data.current_balance ?? data.balance ?? 0;
+        setSteadfastStatus({
+          success: true,
+          message: `Steadfast Current Balance: ৳${bal}`,
+        });
+      } else {
+        setSteadfastStatus({
+          success: false,
+          message: data.message || 'Failed to retrieve balance',
+        });
+      }
+    } catch (e: any) {
+      setSteadfastStatus({
+        success: false,
+        message: 'Balance check failed: ' + e.message,
+      });
+    } finally {
+      setCheckingBalance(false);
+    }
+  };
+
+  const handleToggleSteadfast = async (nextState: boolean) => {
+    try {
+      const res = await authFetch(`${API_BASE_URL}/api/admin/courier/steadfast/toggle`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled: nextState }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setSteadfastConfig((prev: any) => ({ ...prev, enabled: nextState }));
+        setSteadfastStatus({
+          success: true,
+          message: `Steadfast Integration ${nextState ? 'enabled' : 'disabled'}.`,
+        });
+      }
+    } catch (e: any) {
+      alert('Failed to toggle Steadfast: ' + e.message);
+    }
+  };
+
+  const handleSaveSteadfastCredentials = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSavingSteadfastCreds(true);
+    setModalError(null);
+    setSteadfastStatus(null);
+    try {
+      const res = await authFetch(`${API_BASE_URL}/api/admin/courier/steadfast/config`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(steadfastForm),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setShowSteadfastModal(false);
+        setSteadfastStatus({
+          success: true,
+          message: 'Steadfast API credentials securely saved and updated!',
+        });
+        fetchSteadfastConfig();
+      } else {
+        setModalError(data.message || 'Failed to save Steadfast credentials');
+      }
+    } catch (e: any) {
+      setModalError('Server communication failed: ' + e.message);
+    } finally {
+      setSavingSteadfastCreds(false);
+    }
+  };
+
   const fetchTestSummary = async () => {
     setLoadingTestSummary(true);
     try {
@@ -125,6 +261,7 @@ export default function AdminSettingsPage() {
 
   useEffect(() => {
     fetchPathaoConfig();
+    fetchSteadfastConfig();
   }, []);
 
   useEffect(() => {
@@ -362,7 +499,19 @@ export default function AdminSettingsPage() {
           }`}
         >
           <Truck className="w-4 h-4 text-red-600" />
-          <span>Pathao Courier Integration</span>
+          <span>Pathao Courier</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('STEADFAST')}
+          className={`pb-3 px-4 text-xs font-bold uppercase tracking-wider border-b-2 transition flex items-center gap-2 flex-shrink-0 cursor-pointer ${
+            activeTab === 'STEADFAST'
+              ? 'border-emerald-600 text-emerald-600'
+              : 'border-transparent text-gray-500 hover:text-slate-800'
+          }`}
+        >
+          <Package className="w-4 h-4 text-emerald-600" />
+          <span>Steadfast Courier</span>
         </button>
 
         <button
@@ -524,6 +673,152 @@ export default function AdminSettingsPage() {
               {syncingStores ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5 text-emerald-600" />}
               <span>Sync Pickup Stores</span>
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* TAB: STEADFAST COURIER INTEGRATION */}
+      {activeTab === 'STEADFAST' && (
+        <div className="bg-white rounded-b-2xl border border-gray-200 shadow-sm p-6 space-y-6 -mt-6">
+          <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 pb-6 border-b border-gray-100">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 rounded-2xl bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-600 font-bold">
+                <Package className="w-6 h-6" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-lg font-bold text-slate-950 font-serif-luxury">Steadfast Courier API</h3>
+                  <span
+                    className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                      steadfastConfig.enabled
+                        ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                        : 'bg-gray-100 text-gray-600 border border-gray-200'
+                    }`}
+                  >
+                    {steadfastConfig.enabled ? 'Active Integration' : 'Disabled'}
+                  </span>
+                </div>
+                <p className="text-xs text-gray-500">Official integration via portal.packzy.com for automated 1-click parcel booking &amp; tracking</p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => handleToggleSteadfast(!steadfastConfig.enabled)}
+                className={`px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                  steadfastConfig.enabled
+                    ? 'bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100'
+                    : 'bg-slate-900 text-white hover:bg-slate-800'
+                }`}
+              >
+                <Power className="w-3.5 h-3.5" />
+                <span>{steadfastConfig.enabled ? 'Disable' : 'Enable'}</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  setSteadfastForm({
+                    apiKey: '',
+                    secretKey: '',
+                    baseUrl: steadfastConfig.baseUrl || 'https://portal.packzy.com/api/v1',
+                  });
+                  setModalError(null);
+                  setShowSteadfastModal(true);
+                }}
+                className="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs rounded-xl transition flex items-center gap-1.5 shadow-sm cursor-pointer"
+              >
+                <Key className="w-3.5 h-3.5 text-white" />
+                <span>Configure API Keys</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Account Verification & KYC Notice Banner */}
+          <div className="p-4 bg-amber-50/70 border border-amber-200 rounded-2xl text-xs text-amber-900 flex items-start gap-3">
+            <AlertCircle className="w-4 h-4 flex-shrink-0 text-amber-700 mt-0.5" />
+            <div className="space-y-1">
+              <p className="font-bold">Steadfast Merchant Account KYC &amp; Verification Note</p>
+              <p className="text-[11px] text-amber-800 leading-relaxed">
+                If your Steadfast account shows <span className="font-semibold">&ldquo;Your account is not verified yet (Submit NID)&rdquo;</span>, make sure to complete email and NID verification on the official portal. Once approved, copy your <span className="font-mono font-semibold">Api-Key</span> and <span className="font-mono font-semibold">Secret-Key</span> from <a href="https://steadfast.com.bd/user/api" target="_blank" rel="noreferrer" className="underline font-bold text-amber-950 hover:text-black">steadfast.com.bd/user/api</a> and paste them here.
+              </p>
+            </div>
+          </div>
+
+          {steadfastStatus && (
+            <div
+              className={`p-4 rounded-2xl border text-xs flex items-start gap-3 animate-fadeIn ${
+                steadfastStatus.success
+                  ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+                  : 'bg-rose-50 border-rose-200 text-rose-800'
+              }`}
+            >
+              {steadfastStatus.success ? (
+                <CheckCircle2 className="w-4 h-4 flex-shrink-0 text-emerald-600 mt-0.5" />
+              ) : (
+                <AlertCircle className="w-4 h-4 flex-shrink-0 text-rose-600 mt-0.5" />
+              )}
+              <div className="flex-1">
+                <p className="font-bold">{steadfastStatus.success ? 'Steadfast Verified' : 'Gateway Status Notice'}</p>
+                <p className="text-[11px] mt-0.5 opacity-90">{steadfastStatus.message}</p>
+              </div>
+            </div>
+          )}
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="p-4 bg-gray-50 rounded-2xl border border-gray-200 space-y-1">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500">Connection State</span>
+              <p className="text-sm font-bold text-slate-900">{steadfastConfig.connectionStatus || 'Standby'}</p>
+              <span className="text-[10px] text-gray-400 font-mono">
+                {steadfastConfig.hasCredentials ? 'Keys Configured' : 'Credentials Needed'}
+              </span>
+            </div>
+
+            <div className="p-4 bg-gray-50 rounded-2xl border border-gray-200 space-y-1">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500">Steadfast API Key</span>
+              <p className="text-sm font-bold text-slate-900 font-mono">{steadfastConfig.apiKeyMasked || 'Not Configured'}</p>
+              <span className="text-[10px] text-gray-400">Header: Api-Key</span>
+            </div>
+
+            <div className="p-4 bg-gray-50 rounded-2xl border border-gray-200 space-y-1">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500">Steadfast Secret Key</span>
+              <p className="text-sm font-bold text-slate-900 font-mono">{steadfastConfig.secretKeyMasked || 'Not Configured'}</p>
+              <span className="text-[10px] text-gray-400">Header: Secret-Key</span>
+            </div>
+
+            <div className="p-4 bg-gray-50 rounded-2xl border border-gray-200 space-y-1">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500">Gateway Health</span>
+              <p className="text-sm font-bold text-emerald-700">portal.packzy.com</p>
+              <span className="text-[10px] text-gray-400 font-mono">Version: API v1</span>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            <button
+              onClick={handleTestSteadfastConnection}
+              disabled={testingSteadfast}
+              className="px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-slate-900 font-bold text-xs rounded-xl transition flex items-center gap-2 cursor-pointer"
+            >
+              {testingSteadfast ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Activity className="w-3.5 h-3.5 text-blue-600" />}
+              <span>Test API Connection (Ping)</span>
+            </button>
+
+            <button
+              onClick={handleCheckSteadfastBalance}
+              disabled={checkingBalance || !steadfastConfig.hasCredentials}
+              className="px-4 py-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 font-bold text-xs rounded-xl transition flex items-center gap-2 cursor-pointer disabled:opacity-40"
+            >
+              {checkingBalance ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />}
+              <span>Check Current Balance</span>
+            </button>
+
+            <a
+              href="https://steadfast.com.bd/user/api/guide"
+              target="_blank"
+              rel="noreferrer"
+              className="px-4 py-2.5 bg-gray-50 hover:bg-gray-100 text-gray-600 border border-gray-200 font-bold text-xs rounded-xl transition flex items-center gap-2"
+            >
+              <span>API Guide &amp; Reference &rarr;</span>
+            </a>
           </div>
         </div>
       )}
@@ -944,6 +1239,118 @@ export default function AdminSettingsPage() {
                 >
                   {savingCreds ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4 text-[#D4AF37]" />}
                   <span>Save &amp; Verify Credentials</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* UPDATE STEADFAST CREDENTIALS MODAL */}
+      {showSteadfastModal && (
+        <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4 animate-fadeIn">
+          <div className="bg-white w-full max-w-lg rounded-3xl shadow-2xl border border-gray-200 overflow-hidden">
+            {/* Modal Header */}
+            <div className="bg-emerald-950 p-6 text-white flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-emerald-800 flex items-center justify-center">
+                  <Key className="w-5 h-5 text-emerald-300" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-base font-serif-luxury">Configure Steadfast API Keys</h3>
+                  <p className="text-[11px] text-emerald-300/80">portal.packzy.com Official Merchant Gateway</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowSteadfastModal(false)}
+                className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-gray-300 hover:text-white transition cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Modal Body Form */}
+            <form onSubmit={handleSaveSteadfastCredentials} className="p-6 space-y-4 text-xs">
+              <div className="p-3 bg-emerald-50 rounded-xl border border-emerald-100 text-emerald-900 text-[11px] leading-relaxed">
+                <p className="font-bold mb-0.5">Where do I find my keys?</p>
+                Log in to your Steadfast Merchant panel at <a href="https://steadfast.com.bd/user/api" target="_blank" rel="noreferrer" className="underline font-bold text-emerald-950">steadfast.com.bd/user/api</a>, create an API key for your website, and paste your <span className="font-mono font-semibold">Api-Key</span> and <span className="font-mono font-semibold">Secret-Key</span> below.
+              </div>
+
+              <div>
+                <label className="block font-bold text-gray-700 mb-1">
+                  Steadfast Api-Key <span className="text-red-500">*</span>
+                </label>
+                <div className="relative">
+                  <Key className="w-4 h-4 text-gray-400 absolute left-3 top-3" />
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. stdf_api_..."
+                    value={steadfastForm.apiKey}
+                    onChange={(e) => setSteadfastForm({ ...steadfastForm, apiKey: e.target.value })}
+                    className="w-full pl-9 pr-3 py-2.5 bg-gray-50 border border-gray-300 rounded-xl outline-none font-mono focus:bg-white focus:border-emerald-600"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-bold text-gray-700 mb-1">
+                  Steadfast Secret-Key <span className="text-red-500">*</span>
+                </label>
+                <div className="relative">
+                  <Lock className="w-4 h-4 text-gray-400 absolute left-3 top-3" />
+                  <input
+                    type="password"
+                    required
+                    placeholder="Enter your Secret-Key"
+                    value={steadfastForm.secretKey}
+                    onChange={(e) => setSteadfastForm({ ...steadfastForm, secretKey: e.target.value })}
+                    className="w-full pl-9 pr-3 py-2.5 bg-gray-50 border border-gray-300 rounded-xl outline-none font-mono focus:bg-white focus:border-emerald-600"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-bold text-gray-700 mb-1">
+                  Base API Endpoint URL
+                </label>
+                <input
+                  type="url"
+                  required
+                  placeholder="https://portal.packzy.com/api/v1"
+                  value={steadfastForm.baseUrl}
+                  onChange={(e) => setSteadfastForm({ ...steadfastForm, baseUrl: e.target.value })}
+                  className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-xl outline-none font-mono focus:bg-white focus:border-emerald-600"
+                />
+                <span className="text-[10px] text-gray-400 mt-1 block">Default: https://portal.packzy.com/api/v1</span>
+              </div>
+
+              {modalError && (
+                <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-800 flex items-start gap-2 animate-fadeIn">
+                  <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5 text-rose-600" />
+                  <div>
+                    <p className="font-bold">Error</p>
+                    <p className="text-[11px] mt-0.5">{modalError}</p>
+                  </div>
+                </div>
+              )}
+
+              {/* Modal Actions */}
+              <div className="flex items-center justify-end gap-3 pt-3 border-t border-gray-100">
+                <button
+                  type="button"
+                  onClick={() => setShowSteadfastModal(false)}
+                  className="px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold rounded-xl transition cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingSteadfastCreds}
+                  className="px-6 py-2.5 bg-emerald-700 hover:bg-emerald-800 disabled:opacity-50 text-white font-bold rounded-xl transition flex items-center gap-2 shadow-sm cursor-pointer"
+                >
+                  {savingSteadfastCreds ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                  <span>Save Steadfast Keys</span>
                 </button>
               </div>
             </form>

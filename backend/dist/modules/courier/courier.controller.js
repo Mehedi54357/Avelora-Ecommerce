@@ -15,13 +15,15 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.CourierController = void 0;
 const common_1 = require("@nestjs/common");
 const pathao_service_1 = require("./pathao.service");
+const steadfast_service_1 = require("./steadfast.service");
 const auth_guard_1 = require("../auth/auth.guard");
 const roles_guard_1 = require("../auth/roles.guard");
 const roles_decorator_1 = require("../auth/roles.decorator");
 const user_schema_1 = require("../../schemas/user.schema");
 let CourierController = class CourierController {
-    constructor(pathaoService) {
+    constructor(pathaoService, steadfastService) {
         this.pathaoService = pathaoService;
+        this.steadfastService = steadfastService;
     }
     async getConfig() {
         return this.pathaoService.getConfig();
@@ -67,6 +69,31 @@ let CourierController = class CourierController {
     async syncOrderStatus(orderId, req) {
         const actorEmail = req.user?.email || 'ADMIN';
         return this.pathaoService.syncConsignmentStatus(orderId, actorEmail);
+    }
+    async getSteadfastConfig() {
+        return this.steadfastService.getConfig();
+    }
+    async updateSteadfastConfig(body, req) {
+        const actorEmail = req.user?.email || 'ADMIN';
+        return this.steadfastService.updateConfig(body, actorEmail);
+    }
+    async toggleSteadfast(body, req) {
+        const actorEmail = req.user?.email || 'ADMIN';
+        return this.steadfastService.toggleIntegration(body.enabled, actorEmail);
+    }
+    async testSteadfastConnection() {
+        return this.steadfastService.testConnection();
+    }
+    async getSteadfastBalance() {
+        return this.steadfastService.getBalance();
+    }
+    async bookSteadfastOrder(orderId, body, req) {
+        const actorEmail = req.user?.email || 'ADMIN';
+        return this.steadfastService.createOrder(orderId, body, actorEmail);
+    }
+    async syncSteadfastOrderStatus(orderId, req) {
+        const actorEmail = req.user?.email || 'ADMIN';
+        return this.steadfastService.syncConsignmentStatus(orderId, actorEmail);
     }
 };
 exports.CourierController = CourierController;
@@ -176,9 +203,68 @@ __decorate([
     __metadata("design:paramtypes", [String, Object]),
     __metadata("design:returntype", Promise)
 ], CourierController.prototype, "syncOrderStatus", null);
+__decorate([
+    (0, common_1.Get)('steadfast/config'),
+    (0, roles_decorator_1.Roles)(user_schema_1.UserRole.SUPER_ADMIN, user_schema_1.UserRole.ADMIN, user_schema_1.UserRole.MANAGER, user_schema_1.UserRole.STAFF),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", []),
+    __metadata("design:returntype", Promise)
+], CourierController.prototype, "getSteadfastConfig", null);
+__decorate([
+    (0, common_1.Post)('steadfast/config'),
+    (0, roles_decorator_1.Roles)(user_schema_1.UserRole.SUPER_ADMIN, user_schema_1.UserRole.ADMIN),
+    __param(0, (0, common_1.Body)()),
+    __param(1, (0, common_1.Request)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, Object]),
+    __metadata("design:returntype", Promise)
+], CourierController.prototype, "updateSteadfastConfig", null);
+__decorate([
+    (0, common_1.Post)('steadfast/toggle'),
+    (0, roles_decorator_1.Roles)(user_schema_1.UserRole.SUPER_ADMIN, user_schema_1.UserRole.ADMIN),
+    __param(0, (0, common_1.Body)()),
+    __param(1, (0, common_1.Request)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, Object]),
+    __metadata("design:returntype", Promise)
+], CourierController.prototype, "toggleSteadfast", null);
+__decorate([
+    (0, common_1.Post)('steadfast/test'),
+    (0, roles_decorator_1.Roles)(user_schema_1.UserRole.SUPER_ADMIN, user_schema_1.UserRole.ADMIN, user_schema_1.UserRole.MANAGER, user_schema_1.UserRole.STAFF),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", []),
+    __metadata("design:returntype", Promise)
+], CourierController.prototype, "testSteadfastConnection", null);
+__decorate([
+    (0, common_1.Get)('steadfast/balance'),
+    (0, roles_decorator_1.Roles)(user_schema_1.UserRole.SUPER_ADMIN, user_schema_1.UserRole.ADMIN, user_schema_1.UserRole.MANAGER, user_schema_1.UserRole.STAFF),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", []),
+    __metadata("design:returntype", Promise)
+], CourierController.prototype, "getSteadfastBalance", null);
+__decorate([
+    (0, common_1.Post)('steadfast/orders/:orderId/book'),
+    (0, roles_decorator_1.Roles)(user_schema_1.UserRole.SUPER_ADMIN, user_schema_1.UserRole.ADMIN, user_schema_1.UserRole.MANAGER, user_schema_1.UserRole.STAFF),
+    __param(0, (0, common_1.Param)('orderId')),
+    __param(1, (0, common_1.Body)()),
+    __param(2, (0, common_1.Request)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object, Object]),
+    __metadata("design:returntype", Promise)
+], CourierController.prototype, "bookSteadfastOrder", null);
+__decorate([
+    (0, common_1.Post)('steadfast/orders/:orderId/sync'),
+    (0, roles_decorator_1.Roles)(user_schema_1.UserRole.SUPER_ADMIN, user_schema_1.UserRole.ADMIN, user_schema_1.UserRole.MANAGER, user_schema_1.UserRole.STAFF),
+    __param(0, (0, common_1.Param)('orderId')),
+    __param(1, (0, common_1.Request)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:returntype", Promise)
+], CourierController.prototype, "syncSteadfastOrderStatus", null);
 exports.CourierController = CourierController = __decorate([
     (0, common_1.Controller)('admin/courier'),
     (0, common_1.UseGuards)(auth_guard_1.AuthGuard, roles_guard_1.RolesGuard),
-    __metadata("design:paramtypes", [pathao_service_1.PathaoService])
+    __metadata("design:paramtypes", [pathao_service_1.PathaoService,
+        steadfast_service_1.SteadfastService])
 ], CourierController);
 //# sourceMappingURL=courier.controller.js.map

@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { PathaoService } from './pathao.service';
+import { SteadfastService } from './steadfast.service';
 import { CourierController } from './courier.controller';
 import { PathaoToken, PathaoTokenSchema } from '../../schemas/pathao-token.schema';
 import { Order, OrderSchema } from '../../schemas/order.schema';
@@ -17,7 +18,7 @@ import { AuditLogModule } from '../audit-log/audit-log.module';
     AuditLogModule,
   ],
   controllers: [CourierController],
-  providers: [PathaoService],
-  exports: [PathaoService],
+  providers: [PathaoService, SteadfastService],
+  exports: [PathaoService, SteadfastService],
 })
 export class CourierModule {}

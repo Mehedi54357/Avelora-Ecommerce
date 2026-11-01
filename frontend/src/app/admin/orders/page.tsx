@@ -350,22 +350,30 @@ export default function AdminOrdersPage() {
     }
   };
 
-  const handleSyncPathaoStatus = async (orderId: string) => {
+  const handleSyncCourierStatus = async (order: any) => {
+    const orderId = order._id;
     setUpdatingId(orderId);
+    const isSteadfast = order.courier?.provider?.toLowerCase() === 'steadfast';
+    const endpoint = isSteadfast
+      ? `${API_BASE_URL}/api/admin/courier/steadfast/orders/${orderId}/sync`
+      : `${API_BASE_URL}/api/admin/courier/pathao/orders/${orderId}/sync`;
+
     try {
-      const res = await authFetch(`${API_BASE_URL}/api/admin/courier/pathao/orders/${orderId}/sync`, {
+      const res = await authFetch(endpoint, {
         method: 'POST',
       });
       if (res.ok) {
         const data = await res.json();
-        alert(`Pathao Status Synced: ${data.pathaoStatus} (Order Status: ${data.orderStatus})`);
+        const courierStatus = data.steadfastStatus || data.pathaoStatus || 'Updated';
+        alert(`${isSteadfast ? 'Steadfast' : 'Pathao'} Status Synced: ${courierStatus} (Order Status: ${data.orderStatus})`);
         fetchOrders();
       } else {
         const err = await res.json();
-        alert(`Pathao Sync: ${err.message || 'Could not sync status'}`);
+        alert(`Courier Sync: ${err.message || 'Could not sync status'}`);
       }
-    } catch (e) {
-      console.error('Pathao sync error:', e);
+    } catch (e: any) {
+      console.error('Courier sync error:', e);
+      alert('Sync failed: ' + (e.message || 'Network error'));
     } finally {
       setUpdatingId(null);
     }
@@ -1083,17 +1091,28 @@ export default function AdminOrdersPage() {
                         <div className="space-y-1">
                           {method === 'COURIER' && (
                             <>
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-800 border border-blue-200">
-                                <Truck className="w-3 h-3 text-blue-600" />
-                                Courier (Pathao)
+                              <span
+                                className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border ${
+                                  order.courier?.provider?.toLowerCase() === 'steadfast'
+                                    ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                                    : 'bg-blue-50 text-blue-800 border-blue-200'
+                                }`}
+                              >
+                                <Truck className="w-3 h-3" />
+                                {order.courier?.provider ? `${order.courier.provider}` : 'Courier'}
                               </span>
                               {order.courier?.consignmentId ? (
                                 <div className="space-y-0.5">
                                   <span className="font-mono text-[10px] font-bold text-gray-700 block">
                                     #<HighlightedText text={order.courier.consignmentId} query={debouncedSearch} />
                                   </span>
+                                  {order.courier?.trackingCode && (
+                                    <span className="font-mono text-[9px] text-emerald-700 font-semibold block">
+                                      {order.courier.trackingCode}
+                                    </span>
+                                  )}
                                   <button
-                                    onClick={() => handleSyncPathaoStatus(order._id)}
+                                    onClick={() => handleSyncCourierStatus(order)}
                                     disabled={isUpdating}
                                     className="text-[9px] text-blue-600 hover:text-blue-800 font-semibold cursor-pointer block mx-auto"
                                   >

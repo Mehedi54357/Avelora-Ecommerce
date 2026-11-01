@@ -436,6 +436,7 @@ export declare class Order {
     courier?: {
         provider: string;
         consignmentId: string;
+        trackingCode?: string;
         trackingUrl: string;
         charge: number;
         deliveryFee?: number;
@@ -443,6 +444,7 @@ export declare class Order {
         amountToCollect?: number;
         storeId?: number;
         pathaoStatus?: string;
+        steadfastStatus?: string;
         bookedAt?: Date;
         pickedUpAt?: Date;
         deliveredAt?: Date;
@@ -714,6 +716,7 @@ export declare const OrderSchema: MongooseSchema<Order, import("mongoose").Model
     courier?: import("mongoose").SchemaDefinitionProperty<{
         provider: string;
         consignmentId: string;
+        trackingCode?: string;
         trackingUrl: string;
         charge: number;
         deliveryFee?: number;
@@ -721,6 +724,7 @@ export declare const OrderSchema: MongooseSchema<Order, import("mongoose").Model
         amountToCollect?: number;
         storeId?: number;
         pathaoStatus?: string;
+        steadfastStatus?: string;
         bookedAt?: Date;
         pickedUpAt?: Date;
         deliveredAt?: Date;
