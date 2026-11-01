@@ -63,6 +63,7 @@ let ProductsController = class ProductsController {
 exports.ProductsController = ProductsController;
 __decorate([
     (0, common_1.Get)('products'),
+    (0, common_1.Header)('Cache-Control', 'public, max-age=30, stale-while-revalidate=120'),
     __param(0, (0, common_1.Query)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [Object]),
@@ -70,6 +71,7 @@ __decorate([
 ], ProductsController.prototype, "getPublicProducts", null);
 __decorate([
     (0, common_1.Get)('products/:slug'),
+    (0, common_1.Header)('Cache-Control', 'public, max-age=60, stale-while-revalidate=300'),
     __param(0, (0, common_1.Param)('slug')),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String]),

@@ -229,4 +229,7 @@ exports.Product = Product = __decorate([
 ], Product);
 exports.ProductSchema = mongoose_1.SchemaFactory.createForClass(Product);
 exports.ProductSchema.index({ name: 'text', description: 'text' });
+exports.ProductSchema.index({ isPublished: 1, status: 1, dataMode: 1, createdAt: -1 });
+exports.ProductSchema.index({ categoryId: 1, isPublished: 1, status: 1 });
+exports.ProductSchema.index({ 'variants.sku': 1 });
 //# sourceMappingURL=product.schema.js.map

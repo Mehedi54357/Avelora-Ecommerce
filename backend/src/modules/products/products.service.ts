@@ -116,6 +116,11 @@ export function evaluateProductPricing(
 @Injectable()
 export class ProductsService implements OnModuleInit {
   private readonly logger = new Logger(ProductsService.name);
+  private publicCache = new Map<string, { data: any; expiry: number }>();
+
+  clearProductCache() {
+    this.publicCache.clear();
+  }
 
   constructor(
     @InjectModel(Product.name) private productModel: Model<ProductDocument>,
@@ -758,6 +763,12 @@ export class ProductsService implements OnModuleInit {
     page?: number;
     limit?: number;
   }) {
+    const cacheKey = JSON.stringify(query);
+    const cached = this.publicCache.get(cacheKey);
+    if (cached && cached.expiry > Date.now()) {
+      return cached.data;
+    }
+
     // Authoritative Server-Side Rule: Public Storefront = ACTIVE + PUBLISHED + PRODUCTION ONLY
     const andFilters: any[] = [
       {
@@ -858,11 +869,12 @@ export class ProductsService implements OnModuleInit {
         .sort(sortOption)
         .skip(skip)
         .limit(limit)
+        .lean()
         .exec(),
       this.productModel.countDocuments(filter).exec(),
     ]);
 
-    return {
+    const result = {
       products,
       pagination: {
         total,
@@ -871,6 +883,9 @@ export class ProductsService implements OnModuleInit {
         totalPages: Math.ceil(total / limit),
       },
     };
+
+    this.publicCache.set(cacheKey, { data: result, expiry: Date.now() + 60000 });
+    return result;
   }
 
   async findBySlug(slug: string): Promise<Product> {
@@ -936,6 +951,7 @@ export class ProductsService implements OnModuleInit {
       .find(filter)
       .populate('categoryId', 'name slug')
       .sort({ createdAt: -1 })
+      .lean()
       .exec();
   }
 
@@ -1077,6 +1093,7 @@ export class ProductsService implements OnModuleInit {
         }
       }
 
+      this.clearProductCache();
       return createdProduct;
     } catch (err: any) {
       console.error('Error in productModel.create:', err);
@@ -1165,6 +1182,7 @@ export class ProductsService implements OnModuleInit {
       if (!updated) {
         throw new NotFoundException('Product not found');
       }
+      this.clearProductCache();
       return updated;
     } catch (err: any) {
       console.error('Error in productModel.update:', err);
@@ -1186,6 +1204,7 @@ export class ProductsService implements OnModuleInit {
       newData: { name: product.name, slug: product.slug },
     });
 
+    this.clearProductCache();
     return product;
   }
 
@@ -1203,6 +1222,7 @@ export class ProductsService implements OnModuleInit {
       newData: { name: product.name, slug: product.slug },
     });
 
+    this.clearProductCache();
     return product;
   }
 
@@ -1242,11 +1262,13 @@ export class ProductsService implements OnModuleInit {
       oldData: { name: product.name, slug: product.slug, dataMode: product.dataMode },
     });
 
+    this.clearProductCache();
     return { success: true, message: 'Product permanently deleted.' };
   }
 
   async clearAll(): Promise<{ success: boolean; deletedCount: number }> {
     const res = await this.productModel.deleteMany({ dataMode: 'TEST' }).exec();
+    this.clearProductCache();
     return { success: true, deletedCount: res.deletedCount || 0 };
   }
 }

@@ -51,12 +51,14 @@ let CategoriesController = class CategoriesController {
 exports.CategoriesController = CategoriesController;
 __decorate([
     (0, common_1.Get)('categories'),
+    (0, common_1.Header)('Cache-Control', 'public, max-age=300, stale-while-revalidate=600'),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", []),
     __metadata("design:returntype", Promise)
 ], CategoriesController.prototype, "getPublicCategories", null);
 __decorate([
     (0, common_1.Get)('categories/:slug'),
+    (0, common_1.Header)('Cache-Control', 'public, max-age=300, stale-while-revalidate=600'),
     __param(0, (0, common_1.Param)('slug')),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String]),

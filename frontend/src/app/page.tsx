@@ -5,15 +5,14 @@ import HomeFeaturedProducts from '../components/home-featured-products';
 import { ArrowRight, Sparkles, Shield, Gift, ChevronRight, Star } from 'lucide-react';
 import { API_BASE_URL } from '../utils/api-config';
 
-export const dynamic = 'force-dynamic';
-export const revalidate = 0;
+export const revalidate = 60;
 
 async function getFeaturedProducts() {
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 1000);
+    const timeoutId = setTimeout(() => controller.abort(), 6000);
     const res = await fetch(`${API_BASE_URL}/api/products?limit=100`, {
-      cache: 'no-store',
+      next: { revalidate: 60 },
       signal: controller.signal,
     });
     clearTimeout(timeoutId);

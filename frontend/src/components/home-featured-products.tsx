@@ -15,7 +15,13 @@ export default function HomeFeaturedProducts({ initialProducts = [] }: HomeFeatu
   const [loading, setLoading] = useState(initialProducts.length === 0);
 
   useEffect(() => {
-    // If initialProducts was empty from SSR, fetch from client immediately
+    // If initialProducts was already provided from SSR, do not fetch again
+    if (initialProducts && initialProducts.length > 0) {
+      setProducts(initialProducts);
+      setLoading(false);
+      return;
+    }
+
     let isMounted = true;
     fetch(`${API_BASE_URL}/api/products?limit=100`)
       .then((res) => (res.ok ? res.json() : { products: [] }))
@@ -34,7 +40,7 @@ export default function HomeFeaturedProducts({ initialProducts = [] }: HomeFeatu
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [initialProducts]);
 
   return (
     <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">

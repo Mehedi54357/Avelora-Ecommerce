@@ -91,6 +91,9 @@ function evaluateProductPricing(product, now = new Date()) {
     };
 }
 let ProductsService = ProductsService_1 = class ProductsService {
+    clearProductCache() {
+        this.publicCache.clear();
+    }
     constructor(productModel, categoryModel, orderModel, purchaseOrderModel, transactionModel, returnRequestModel, auditLogService) {
         this.productModel = productModel;
         this.categoryModel = categoryModel;
@@ -100,6 +103,7 @@ let ProductsService = ProductsService_1 = class ProductsService {
         this.returnRequestModel = returnRequestModel;
         this.auditLogService = auditLogService;
         this.logger = new common_1.Logger(ProductsService_1.name);
+        this.publicCache = new Map();
     }
     async onModuleInit() {
         await this.normalizeLegacyProducts();
@@ -657,6 +661,11 @@ let ProductsService = ProductsService_1 = class ProductsService {
         }
     }
     async findPublic(query) {
+        const cacheKey = JSON.stringify(query);
+        const cached = this.publicCache.get(cacheKey);
+        if (cached && cached.expiry > Date.now()) {
+            return cached.data;
+        }
         const andFilters = [
             {
                 isPublished: { $ne: false },
@@ -759,10 +768,11 @@ let ProductsService = ProductsService_1 = class ProductsService {
                 .sort(sortOption)
                 .skip(skip)
                 .limit(limit)
+                .lean()
                 .exec(),
             this.productModel.countDocuments(filter).exec(),
         ]);
-        return {
+        const result = {
             products,
             pagination: {
                 total,
@@ -771,6 +781,8 @@ let ProductsService = ProductsService_1 = class ProductsService {
                 totalPages: Math.ceil(total / limit),
             },
         };
+        this.publicCache.set(cacheKey, { data: result, expiry: Date.now() + 60000 });
+        return result;
     }
     async findBySlug(slug) {
         const product = await this.productModel
@@ -820,6 +832,7 @@ let ProductsService = ProductsService_1 = class ProductsService {
             .find(filter)
             .populate('categoryId', 'name slug')
             .sort({ createdAt: -1 })
+            .lean()
             .exec();
     }
     async ensureCategory(catInput) {
@@ -944,6 +957,7 @@ let ProductsService = ProductsService_1 = class ProductsService {
                     console.error('Error auto-syncing category image:', e);
                 }
             }
+            this.clearProductCache();
             return createdProduct;
         }
         catch (err) {
@@ -1017,6 +1031,7 @@ let ProductsService = ProductsService_1 = class ProductsService {
             if (!updated) {
                 throw new common_1.NotFoundException('Product not found');
             }
+            this.clearProductCache();
             return updated;
         }
         catch (err) {
@@ -1037,6 +1052,7 @@ let ProductsService = ProductsService_1 = class ProductsService {
             entityId: id,
             newData: { name: product.name, slug: product.slug },
         });
+        this.clearProductCache();
         return product;
     }
     async restoreProduct(id, actorId) {
@@ -1052,6 +1068,7 @@ let ProductsService = ProductsService_1 = class ProductsService {
             entityId: id,
             newData: { name: product.name, slug: product.slug },
         });
+        this.clearProductCache();
         return product;
     }
     async delete(id, actorId) {
@@ -1080,10 +1097,12 @@ let ProductsService = ProductsService_1 = class ProductsService {
             entityId: id,
             oldData: { name: product.name, slug: product.slug, dataMode: product.dataMode },
         });
+        this.clearProductCache();
         return { success: true, message: 'Product permanently deleted.' };
     }
     async clearAll() {
         const res = await this.productModel.deleteMany({ dataMode: 'TEST' }).exec();
+        this.clearProductCache();
         return { success: true, deletedCount: res.deletedCount || 0 };
     }
 };

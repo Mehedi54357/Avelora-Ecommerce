@@ -107,6 +107,18 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       return;
     }
 
+    // Fast check: If token is completely missing in browser, redirect immediately
+    if (typeof window !== 'undefined' && !localStorage.getItem('admin_token')) {
+      router.replace('/admin/login');
+      return;
+    }
+
+    // If currentUser is already verified in this session, do not block or refetch on every route navigation
+    if (currentUser) {
+      setVerifyingSession(false);
+      return;
+    }
+
     let isMounted = true;
     const checkAuthSession = async () => {
       try {
@@ -135,7 +147,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     return () => {
       isMounted = false;
     };
-  }, [pathname, router]);
+  }, [pathname, router, currentUser]);
 
   // If on login page, render children directly
   if (pathname === '/admin/login') {

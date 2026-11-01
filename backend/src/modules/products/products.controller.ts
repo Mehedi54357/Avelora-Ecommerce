@@ -10,6 +10,7 @@ import {
   Query,
   UseGuards,
   Req,
+  Header,
 } from '@nestjs/common';
 import { ProductsService } from './products.service';
 import { AuthGuard } from '../auth/auth.guard';
@@ -24,11 +25,13 @@ export class ProductsController {
 
   // Public Endpoints
   @Get('products')
+  @Header('Cache-Control', 'public, max-age=30, stale-while-revalidate=120')
   async getPublicProducts(@Query() query: any) {
     return this.productsService.findPublic(query);
   }
 
   @Get('products/:slug')
+  @Header('Cache-Control', 'public, max-age=60, stale-while-revalidate=300')
   async getProductBySlug(@Param('slug') slug: string) {
     return this.productsService.findBySlug(slug);
   }

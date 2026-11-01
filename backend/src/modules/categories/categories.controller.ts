@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Body, Param, UseGuards, Header } from '@nestjs/common';
 import { CategoriesService } from './categories.service';
 import { AuthGuard } from '../auth/auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
@@ -12,11 +12,13 @@ export class CategoriesController {
 
   // Public endpoint for customer storefront
   @Get('categories')
+  @Header('Cache-Control', 'public, max-age=300, stale-while-revalidate=600')
   async getPublicCategories() {
     return this.categoriesService.findAll(true);
   }
 
   @Get('categories/:slug')
+  @Header('Cache-Control', 'public, max-age=300, stale-while-revalidate=600')
   async getCategoryBySlug(@Param('slug') slug: string) {
     return this.categoriesService.findBySlug(slug);
   }

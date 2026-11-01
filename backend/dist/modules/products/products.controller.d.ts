@@ -3,28 +3,12 @@ import { Product } from '../../schemas/product.schema';
 export declare class ProductsController {
     private readonly productsService;
     constructor(productsService: ProductsService);
-    getPublicProducts(query: any): Promise<{
-        products: (import("mongoose").Document<unknown, {}, import("../../schemas/product.schema").ProductDocument, {}, import("mongoose").DefaultSchemaOptions> & Product & import("mongoose").Document<import("mongoose").Types.ObjectId, any, any, Record<string, any>, {}> & Required<{
-            _id: import("mongoose").Types.ObjectId;
-        }> & {
-            __v: number;
-        } & {
-            id: string;
-        })[];
-        pagination: {
-            total: number;
-            page: number;
-            limit: number;
-            totalPages: number;
-        };
-    }>;
+    getPublicProducts(query: any): Promise<any>;
     getProductBySlug(slug: string): Promise<Product>;
-    getAdminProducts(query: any): Promise<(import("mongoose").Document<unknown, {}, import("../../schemas/product.schema").ProductDocument, {}, import("mongoose").DefaultSchemaOptions> & Product & import("mongoose").Document<import("mongoose").Types.ObjectId, any, any, Record<string, any>, {}> & Required<{
+    getAdminProducts(query: any): Promise<(Product & import("mongoose").Document<import("mongoose").Types.ObjectId, any, any, Record<string, any>, {}> & Required<{
         _id: import("mongoose").Types.ObjectId;
     }> & {
         __v: number;
-    } & {
-        id: string;
     })[]>;
     seedDefaultProducts(): Promise<{
         message: string;

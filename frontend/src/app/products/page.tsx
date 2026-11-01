@@ -44,6 +44,9 @@ const DEPARTMENTS = [
   { id: 'kids', name: 'Kids' },
 ];
 
+let cachedCategories: Category[] | null = null;
+const catalogQueryCache = new Map<string, Product[]>();
+
 function ProductsCatalogContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -55,7 +58,7 @@ function ProductsCatalogContent() {
   const sortParam = searchParams.get('sort') || 'popular';
 
   const [products, setProducts] = useState<Product[]>([]);
-  const [categories, setCategories] = useState<Category[]>([]);
+  const [categories, setCategories] = useState<Category[]>(cachedCategories || []);
   const [loading, setLoading] = useState(true);
 
   // Filter States
@@ -72,36 +75,62 @@ function ProductsCatalogContent() {
     setSort(sortParam);
   }, [departmentParam, categoryParam, searchParam, sortParam]);
 
-  // Fetch Categories
+  // Fetch Categories with instant in-memory cache
   useEffect(() => {
+    if (cachedCategories) {
+      setCategories(cachedCategories);
+    }
     fetch(`${API_BASE_URL}/api/categories`)
       .then((res) => (res.ok ? res.json() : []))
-      .then((data) => setCategories(data))
+      .then((data) => {
+        cachedCategories = data;
+        setCategories(data);
+      })
       .catch((err) => console.error('Error loading categories', err));
   }, []);
 
-  // Fetch Products based on URL query
+  // Fetch Products based on URL query with SWR instant cache
   useEffect(() => {
-    setLoading(true);
     const query = new URLSearchParams();
     if (selectedDepartment) query.set('department', selectedDepartment);
     if (selectedCategory) query.set('category', selectedCategory);
     if (search) query.set('search', search);
     if (sort && sort !== 'popular') query.set('sort', sort);
 
-    fetch(`${API_BASE_URL}/api/products?${query.toString()}`)
+    const queryKey = query.toString();
+    if (catalogQueryCache.has(queryKey)) {
+      setProducts(catalogQueryCache.get(queryKey)!);
+      setLoading(false);
+    } else {
+      setLoading(true);
+    }
+
+    let isMounted = true;
+    fetch(`${API_BASE_URL}/api/products?${queryKey}`)
       .then((res) => {
         if (!res.ok) throw new Error('Failed to fetch products');
         return res.json();
       })
       .then((data) => {
-        setProducts(data.products || []);
+        if (isMounted) {
+          const prods = data.products || [];
+          catalogQueryCache.set(queryKey, prods);
+          setProducts(prods);
+        }
       })
       .catch((err) => {
         console.error(err);
-        setProducts([]);
+        if (isMounted && !catalogQueryCache.has(queryKey)) {
+          setProducts([]);
+        }
       })
-      .finally(() => setLoading(false));
+      .finally(() => {
+        if (isMounted) setLoading(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
   }, [selectedDepartment, selectedCategory, search, sort]);
 
   // Handler: Change Department

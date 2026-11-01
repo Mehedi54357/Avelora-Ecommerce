@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import Link from 'next/link';
 import {
   Plus,
@@ -29,6 +29,8 @@ import {
   RotateCcw,
   ShieldAlert,
   Palette,
+  Lock,
+  Package,
 } from 'lucide-react';
 import { processImageForUpload } from '../../../utils/image-compressor';
 import { API_BASE_URL, authFetch } from '../../../utils/api-config';
@@ -1428,7 +1430,7 @@ export default function AdminProductsPage() {
                             📦 Available from Investment (Awaiting Product Setup)
                           </span>
                           <div className="space-y-1 mt-1">
-                            {investmentDraftProducts.map((p) => {
+                            {investmentDraftProducts.map((p: any) => {
                               const totalStock = p.variants?.reduce((s: number, v: any) => s + (v.stockQuantity || 0), 0) || 0;
                               const wac = p.variants?.[0]?.weightedAverageCost || p.variants?.[0]?.costPrice || 0;
                               return (
@@ -1465,7 +1467,7 @@ export default function AdminProductsPage() {
                           Catalog Products
                         </span>
                         <div className="space-y-1 mt-1">
-                          {searchMatchingProducts.map((p) => {
+                          {searchMatchingProducts.map((p: any) => {
                             const isPub = p.isPublished && p.status === 'ACTIVE';
                             const totalStock = p.variants?.reduce((s: number, v: any) => s + (v.stockQuantity || 0), 0) || 0;
                             const wac = p.variants?.[0]?.weightedAverageCost || p.variants?.[0]?.costPrice || 0;

@@ -1056,398 +1056,408 @@ export default function CapitalAndAssetsPage() {
       {/* MODAL 1: ADD PRODUCT PURCHASE INVESTMENT                                  */}
       {/* ========================================================================= */}
       {showInvestModal && (
-        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white w-full max-w-2xl rounded-3xl shadow-2xl p-6 sm:p-8 space-y-5 my-8">
-            <div className="flex justify-between items-center pb-3 border-b border-gray-200">
-              <div>
-                <span className="text-[10px] font-bold uppercase tracking-widest text-[#8C6D23]">
-                  Direct Product Costing & Inventory Restock
-                </span>
-                <h3 className="text-xl font-bold font-serif-luxury text-slate-950 mt-0.5">
-                  Record Product Purchase Investment
-                </h3>
+        <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-md flex items-center justify-center p-3 sm:p-6 overflow-hidden">
+          <div className="bg-white w-full max-w-3xl max-h-[92vh] rounded-2xl sm:rounded-3xl shadow-2xl flex flex-col border border-amber-300/40 overflow-hidden">
+            {/* Executive Luxury Header (Pinned) */}
+            <div className="p-4 sm:p-6 pb-4 bg-gradient-to-r from-[#0B0F19] via-[#111827] to-[#1A2234] text-white flex justify-between items-center border-b border-gray-800 shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-[#8C6D23] via-[#D4AF37] to-[#F3E5AB] flex items-center justify-center text-slate-950 shadow-lg shadow-[#D4AF37]/20 shrink-0">
+                  <Landmark className="w-5 h-5" />
+                </div>
+                <div>
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-[#D4AF37] block">
+                    Direct Product Costing & Inventory Restock
+                  </span>
+                  <h3 className="text-base sm:text-lg font-bold font-serif-luxury text-white mt-0.5">
+                    Record Product Purchase Investment
+                  </h3>
+                </div>
               </div>
               <button
+                type="button"
                 onClick={() => setShowInvestModal(false)}
-                className="p-1.5 text-gray-400 hover:text-gray-700 rounded-lg"
+                className="p-2 text-gray-400 hover:text-white hover:bg-white/10 rounded-xl transition"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <form onSubmit={handleSaveProductInvestment} className="space-y-4 text-xs">
-              {/* Mode Toggle: Existing Product vs New Manual Product */}
-              <div className="bg-gray-100 p-1 rounded-xl flex items-center gap-1">
-                <button
-                  type="button"
-                  onClick={() => setInvestMode('existing')}
-                  className={`flex-1 py-1.5 px-3 rounded-lg font-bold text-xs transition ${
-                    investMode === 'existing'
-                      ? 'bg-slate-900 text-white shadow-xs'
-                      : 'text-gray-600 hover:text-slate-900'
-                  }`}
-                >
-                  Search Existing Product
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setInvestMode('new')}
-                  className={`flex-1 py-1.5 px-3 rounded-lg font-bold text-xs transition flex items-center justify-center gap-1.5 ${
-                    investMode === 'new'
-                      ? 'bg-slate-900 text-white shadow-xs'
-                      : 'text-gray-600 hover:text-slate-900'
-                  }`}
-                >
-                  <Plus className="w-3.5 h-3.5 text-[#D4AF37]" />
-                  <span>+ Add New Product / Manual Name</span>
-                </button>
-              </div>
+            {/* Form wrapping scrollable content and pinned footer */}
+            <form onSubmit={handleSaveProductInvestment} className="flex flex-col flex-1 min-h-0 overflow-hidden text-xs">
+              <div className="p-4 sm:p-6 space-y-4 overflow-y-auto flex-1">
+                {/* Mode Toggle: Existing Product vs New Manual Product */}
+                <div className="bg-gray-100 p-1 rounded-xl flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => setInvestMode('existing')}
+                    className={`flex-1 py-1.5 px-3 rounded-lg font-bold text-xs transition ${
+                      investMode === 'existing'
+                        ? 'bg-slate-900 text-white shadow-xs'
+                        : 'text-gray-600 hover:text-slate-900'
+                    }`}
+                  >
+                    Search Existing Product
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setInvestMode('new')}
+                    className={`flex-1 py-1.5 px-3 rounded-lg font-bold text-xs transition flex items-center justify-center gap-1.5 ${
+                      investMode === 'new'
+                        ? 'bg-slate-900 text-white shadow-xs'
+                        : 'text-gray-600 hover:text-slate-900'
+                    }`}
+                  >
+                    <Plus className="w-3.5 h-3.5 text-[#D4AF37]" />
+                    <span>+ Add New Product / Manual Name</span>
+                  </button>
+                </div>
 
-              {/* Mode A: Select Existing Product */}
-              {investMode === 'existing' && (
-                <div className="space-y-3 p-3.5 bg-gray-50 rounded-2xl border border-gray-200">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div>
-                      <label className="block font-bold text-gray-700 mb-1">Search & Select Product *</label>
-                      <input
-                        type="text"
-                        placeholder="Type to filter products..."
-                        value={productSearch}
-                        onChange={(e) => setProductSearch(e.target.value)}
-                        className="w-full mb-1.5 p-2 bg-white border border-gray-300 rounded-lg outline-none text-xs"
-                      />
-                      <select
-                        value={selectedProductId}
-                        onChange={(e) => {
-                          const pId = e.target.value;
-                          setSelectedProductId(pId);
-                          const prod = products.find((p) => p._id === pId);
-                          setSelectedSku(prod?.variants?.[0]?.sku || '');
-                        }}
-                        className="w-full p-2.5 bg-white border border-gray-300 rounded-xl outline-none text-slate-900 font-medium text-xs"
-                        required
-                      >
-                        {filteredExistingProducts.length === 0 ? (
-                          <option value="">No matching products found</option>
-                        ) : (
-                          filteredExistingProducts.map((p) => (
-                            <option key={p._id} value={p._id}>
-                              {p.name} {p.status === 'DRAFT' ? '(Draft - Investment Ready)' : ''}
+                {/* Mode A: Select Existing Product */}
+                {investMode === 'existing' && (
+                  <div className="space-y-3 p-3.5 bg-gray-50 rounded-2xl border border-gray-200">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className="block font-bold text-gray-700 mb-1">Search & Select Product *</label>
+                        <input
+                          type="text"
+                          placeholder="Type to filter products..."
+                          value={productSearch}
+                          onChange={(e) => setProductSearch(e.target.value)}
+                          className="w-full mb-1.5 p-2 bg-white border border-gray-300 rounded-lg outline-none text-xs"
+                        />
+                        <select
+                          value={selectedProductId}
+                          onChange={(e) => {
+                            const pId = e.target.value;
+                            setSelectedProductId(pId);
+                            const prod = products.find((p) => p._id === pId);
+                            setSelectedSku(prod?.variants?.[0]?.sku || '');
+                          }}
+                          className="w-full p-2.5 bg-white border border-gray-300 rounded-xl outline-none text-slate-900 font-medium text-xs"
+                          required
+                        >
+                          {filteredExistingProducts.length === 0 ? (
+                            <option value="">No matching products found</option>
+                          ) : (
+                            filteredExistingProducts.map((p) => (
+                              <option key={p._id} value={p._id}>
+                                {p.name} {p.status === 'DRAFT' ? '(Draft - Investment Ready)' : ''}
+                              </option>
+                            ))
+                          )}
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block font-bold text-gray-700 mb-1">Select Variant / SKU *</label>
+                        <select
+                          value={selectedSku}
+                          onChange={(e) => setSelectedSku(e.target.value)}
+                          className="w-full p-2.5 bg-white border border-gray-300 rounded-xl outline-none text-slate-900 font-mono text-xs mt-0 sm:mt-8"
+                          required
+                        >
+                          {currentSelectedProduct?.variants?.map((v: any) => (
+                            <option key={v.sku} value={v.sku}>
+                              {v.sku} — {v.color || ''} {v.size || ''} (Stock: {v.stockQuantity || 0}, WAC: ৳{v.weightedAverageCost || v.costPrice || 0})
                             </option>
-                          ))
-                        )}
-                      </select>
-                    </div>
-
-                    <div>
-                      <label className="block font-bold text-gray-700 mb-1">Select Variant / SKU *</label>
-                      <select
-                        value={selectedSku}
-                        onChange={(e) => setSelectedSku(e.target.value)}
-                        className="w-full p-2.5 bg-white border border-gray-300 rounded-xl outline-none text-slate-900 font-mono text-xs mt-6 sm:mt-8"
-                        required
-                      >
-                        {currentSelectedProduct?.variants?.map((v: any) => (
-                          <option key={v.sku} value={v.sku}>
-                            {v.sku} — {v.color || ''} {v.size || ''} (Stock: {v.stockQuantity || 0}, WAC: ৳{v.weightedAverageCost || v.costPrice || 0})
-                          </option>
-                        ))}
-                      </select>
+                          ))}
+                        </select>
+                      </div>
                     </div>
                   </div>
-                </div>
-              )}
+                )}
 
-              {/* Mode B: Add New Product / Manual Name */}
-              {investMode === 'new' && (
-                <div className="space-y-3 p-3.5 bg-amber-50/50 rounded-2xl border border-amber-200/80">
-                  <div className="space-y-1.5">
-                    <label className="block font-bold text-slate-900">
-                      Product Name (নতুন প্রোডাক্টের নাম) *
-                    </label>
+                {/* Mode B: Add New Product / Manual Name */}
+                {investMode === 'new' && (
+                  <div className="space-y-3 p-3.5 bg-amber-50/50 rounded-2xl border border-amber-200/80">
+                    <div className="space-y-1.5">
+                      <label className="block font-bold text-slate-900">
+                        Product Name (নতুন প্রোডাক্টের নাম) *
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="e.g. Original Dubai Cherry Premium Hijab or Reshmi Velvet Churi"
+                        value={newProductName}
+                        onChange={(e) => setNewProductName(e.target.value)}
+                        className="w-full p-2.5 bg-white border border-gray-300 rounded-xl outline-none text-slate-900 font-semibold"
+                        required
+                      />
+                      <span className="text-[10px] text-gray-500 block">
+                        This product identity will immediately be created and available for customer details in Product Add/Edit.
+                      </span>
+                    </div>
+
+                    {/* Duplicate Protection Warning */}
+                    {potentialMatches.length > 0 && (
+                      <div className="p-2.5 bg-amber-100/90 rounded-xl border border-amber-300 text-[11px] text-amber-900 space-y-1.5">
+                        <div className="flex items-center gap-1.5 font-bold">
+                          <AlertTriangle className="w-3.5 h-3.5 text-amber-700" />
+                          <span>Matching Product Already Found in Catalog:</span>
+                        </div>
+                        <div className="space-y-1">
+                          {potentialMatches.map((m) => (
+                            <div key={m._id} className="flex items-center justify-between bg-white/80 p-1.5 rounded-lg border border-amber-200">
+                              <div>
+                                <span className="font-bold text-slate-900">{m.name}</span>
+                                <span className="text-gray-500 ml-2 font-mono">
+                                  (Stock: {m.variants?.reduce((s: number, v: any) => s + (v.stockQuantity || 0), 0) || 0} pcs)
+                                </span>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setSelectedProductId(m._id);
+                                  setSelectedSku(m.variants?.[0]?.sku || '');
+                                  setInvestMode('existing');
+                                }}
+                                className="px-2 py-0.5 bg-amber-600 hover:bg-amber-700 text-white rounded text-[10px] font-bold transition"
+                              >
+                                Select Existing
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                      <div>
+                        <label className="block font-bold text-gray-700 mb-1">Color / Variant Tag (Optional)</label>
+                        <input
+                          type="text"
+                          placeholder="e.g. Olive, Standard, or Maroon"
+                          value={newVariantDetails}
+                          onChange={(e) => setNewVariantDetails(e.target.value)}
+                          className="w-full p-2 bg-white border border-gray-300 rounded-lg outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="block font-bold text-gray-700 mb-1">Initial SKU (Optional)</label>
+                        <input
+                          type="text"
+                          placeholder="Auto-generated if blank (e.g. AVE-5421)"
+                          value={newSku}
+                          onChange={(e) => setNewSku(e.target.value)}
+                          className="w-full p-2 bg-white border border-gray-300 rounded-lg outline-none font-mono"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Date, Quantity, Unit Purchase Price */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+                  <div>
+                    <label className="block font-bold text-gray-700 mb-1">Investment Date *</label>
                     <input
-                      type="text"
-                      placeholder="e.g. Original Dubai Cherry Premium Hijab or Reshmi Velvet Churi"
-                      value={newProductName}
-                      onChange={(e) => setNewProductName(e.target.value)}
-                      className="w-full p-2.5 bg-white border border-gray-300 rounded-xl outline-none text-slate-900 font-semibold"
+                      type="date"
+                      value={invDate}
+                      onChange={(e) => setInvDate(e.target.value)}
+                      className="w-full p-2.5 bg-white border border-gray-300 rounded-xl outline-none font-mono"
                       required
                     />
-                    <span className="text-[10px] text-gray-500 block">
-                      This product identity will immediately be created and available for customer details in Product Add/Edit.
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-gray-700 mb-1">Purchase Quantity (Units) *</label>
+                    <input
+                      type="number"
+                      min="1"
+                      value={invQty}
+                      onChange={(e) => setInvQty(Math.max(1, parseInt(e.target.value) || 0))}
+                      placeholder="e.g. 40"
+                      className="w-full p-2.5 bg-white border border-gray-300 rounded-xl outline-none font-mono text-sm font-bold"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-gray-700 mb-1">Purchase Price / Unit (BDT) *</label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={invPurchasePrice}
+                      onChange={(e) => setInvPurchasePrice(Math.max(0, parseFloat(e.target.value) || 0))}
+                      placeholder="e.g. 182"
+                      className="w-full p-2.5 bg-white border border-gray-300 rounded-xl outline-none font-mono text-sm font-bold text-slate-950"
+                      required
+                    />
+                  </div>
+                </div>
+
+                {/* Direct Packaging & Transport Cost Heads */}
+                <div className="p-4 bg-gray-50 rounded-2xl border border-gray-200 space-y-3">
+                  <div className="flex justify-between items-center">
+                    <span className="font-bold text-slate-900 text-xs flex items-center gap-1.5">
+                      <Package className="w-3.5 h-3.5 text-[#8C6D23]" />
+                      Direct Packaging & Inbound Shipping Costs / Unit
+                    </span>
+                    <span className="text-[10px] text-gray-500 font-mono">
+                      Enter 0 if not applicable (Product-specific)
                     </span>
                   </div>
 
-                  {/* Duplicate Protection Warning */}
-                  {potentialMatches.length > 0 && (
-                    <div className="p-2.5 bg-amber-100/90 rounded-xl border border-amber-300 text-[11px] text-amber-900 space-y-1.5">
-                      <div className="flex items-center gap-1.5 font-bold">
-                        <AlertTriangle className="w-3.5 h-3.5 text-amber-700" />
-                        <span>Matching Product Already Found in Catalog:</span>
-                      </div>
-                      <div className="space-y-1">
-                        {potentialMatches.map((m) => (
-                          <div key={m._id} className="flex items-center justify-between bg-white/80 p-1.5 rounded-lg border border-amber-200">
-                            <div>
-                              <span className="font-bold text-slate-900">{m.name}</span>
-                              <span className="text-gray-500 ml-2 font-mono">
-                                (Stock: {m.variants?.reduce((s: number, v: any) => s + (v.stockQuantity || 0), 0) || 0} pcs)
-                              </span>
-                            </div>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setSelectedProductId(m._id);
-                                setSelectedSku(m.variants?.[0]?.sku || '');
-                                setInvestMode('existing');
-                              }}
-                              className="px-2 py-0.5 bg-amber-600 hover:bg-amber-700 text-white rounded text-[10px] font-bold transition"
-                            >
-                              Select Existing
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                     <div>
-                      <label className="block font-bold text-gray-700 mb-1">Color / Variant Tag (Optional)</label>
+                      <label className="block text-[11px] font-semibold text-gray-600 mb-1">Box Cost (৳)</label>
                       <input
-                        type="text"
-                        placeholder="e.g. Olive, Standard, or Maroon"
-                        value={newVariantDetails}
-                        onChange={(e) => setNewVariantDetails(e.target.value)}
-                        className="w-full p-2 bg-white border border-gray-300 rounded-lg outline-none"
+                        type="number"
+                        min="0"
+                        value={boxCost}
+                        onChange={(e) => setBoxCost(Math.max(0, parseFloat(e.target.value) || 0))}
+                        placeholder="0"
+                        className="w-full p-2 bg-white border border-gray-300 rounded-lg outline-none font-mono"
                       />
                     </div>
+
                     <div>
-                      <label className="block font-bold text-gray-700 mb-1">Initial SKU (Optional)</label>
+                      <label className="block text-[11px] font-semibold text-gray-600 mb-1">Courier / Transport (৳)</label>
                       <input
-                        type="text"
-                        placeholder="Auto-generated if blank (e.g. AVE-5421)"
-                        value={newSku}
-                        onChange={(e) => setNewSku(e.target.value)}
+                        type="number"
+                        min="0"
+                        value={transportCost}
+                        onChange={(e) => setTransportCost(Math.max(0, parseFloat(e.target.value) || 0))}
+                        placeholder="0"
+                        className="w-full p-2 bg-white border border-gray-300 rounded-lg outline-none font-mono"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-semibold text-gray-600 mb-1">Poly Cost (৳)</label>
+                      <input
+                        type="number"
+                        min="0"
+                        value={polyCost}
+                        onChange={(e) => setPolyCost(Math.max(0, parseFloat(e.target.value) || 0))}
+                        placeholder="0"
+                        className="w-full p-2 bg-white border border-gray-300 rounded-lg outline-none font-mono"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-semibold text-gray-600 mb-1">Sticker Cost (৳)</label>
+                      <input
+                        type="number"
+                        min="0"
+                        value={stickerCost}
+                        onChange={(e) => setStickerCost(Math.max(0, parseFloat(e.target.value) || 0))}
+                        placeholder="0"
+                        className="w-full p-2 bg-white border border-gray-300 rounded-lg outline-none font-mono"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-semibold text-gray-600 mb-1">Tag / Nar Cost (৳)</label>
+                      <input
+                        type="number"
+                        min="0"
+                        value={tagCost}
+                        onChange={(e) => setTagCost(Math.max(0, parseFloat(e.target.value) || 0))}
+                        placeholder="0"
+                        className="w-full p-2 bg-white border border-gray-300 rounded-lg outline-none font-mono"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-semibold text-gray-600 mb-1">Other Direct Packaging (৳)</label>
+                      <input
+                        type="number"
+                        min="0"
+                        value={otherCost}
+                        onChange={(e) => setOtherCost(Math.max(0, parseFloat(e.target.value) || 0))}
+                        placeholder="0"
                         className="w-full p-2 bg-white border border-gray-300 rounded-lg outline-none font-mono"
                       />
                     </div>
                   </div>
                 </div>
-              )}
 
-              {/* Date, Quantity, Unit Purchase Price */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
-                <div>
-                  <label className="block font-bold text-gray-700 mb-1">Investment Date *</label>
-                  <input
-                    type="date"
-                    value={invDate}
-                    onChange={(e) => setInvDate(e.target.value)}
-                    className="w-full p-2.5 bg-white border border-gray-300 rounded-xl outline-none font-mono"
-                    required
-                  />
+                {/* LIVE DYNAMIC CALCULATION PREVIEW COCKPIT */}
+                <div className="p-4 bg-slate-950 text-white rounded-2xl space-y-3 border border-amber-500/30">
+                  <div className="flex justify-between items-center text-[11px] text-gray-400">
+                    <span className="text-[#D4AF37] font-bold uppercase tracking-wider">
+                      Instant Costing Calculation
+                    </span>
+                    <span className="font-mono text-emerald-400">Zero P&L Double-Counting</span>
+                  </div>
+
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center sm:text-left">
+                    <div className="bg-slate-900 p-2.5 rounded-xl border border-gray-800">
+                      <span className="text-[10px] text-gray-400 block">Purchase Price</span>
+                      <p className="text-base font-bold font-mono text-white">৳{invPurchasePrice}</p>
+                    </div>
+
+                    <div className="bg-slate-900 p-2.5 rounded-xl border border-gray-800">
+                      <span className="text-[10px] text-gray-400 block">+ Direct Pack/Ship</span>
+                      <p className="text-base font-bold font-mono text-amber-300">+৳{additionalDirectCostPerUnit}</p>
+                    </div>
+
+                    <div className="bg-slate-900 p-2.5 rounded-xl border border-[#D4AF37]/50">
+                      <span className="text-[10px] text-[#D4AF37] font-bold block">Actual Cost / Unit</span>
+                      <p className="text-lg font-black font-mono text-[#D4AF37]">৳{actualProductCostPerUnit}</p>
+                    </div>
+
+                    <div className="bg-slate-900 p-2.5 rounded-xl border border-emerald-500/40">
+                      <span className="text-[10px] text-emerald-300 font-bold block">Total Investment</span>
+                      <p className="text-lg font-black font-mono text-emerald-400">
+                        ৳{totalInvestmentAmount.toLocaleString()}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="text-[11px] text-gray-400 font-mono flex flex-wrap items-center justify-between gap-1 pt-1">
+                    <span>
+                      Formula: (৳{invPurchasePrice} + ৳{additionalDirectCostPerUnit}) × {invQty} units = ৳{totalInvestmentAmount.toLocaleString()}
+                    </span>
+                    <span className="text-emerald-400 font-semibold">
+                      Stock Addition: +{invQty} units
+                    </span>
+                  </div>
                 </div>
 
-                <div>
-                  <label className="block font-bold text-gray-700 mb-1">Purchase Quantity (Units) *</label>
-                  <input
-                    type="number"
-                    min="1"
-                    value={invQty}
-                    onChange={(e) => setInvQty(Math.max(1, parseInt(e.target.value) || 0))}
-                    placeholder="e.g. 40"
-                    className="w-full p-2.5 bg-white border border-gray-300 rounded-xl outline-none font-mono text-sm font-bold"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className="block font-bold text-gray-700 mb-1">Purchase Price / Unit (BDT) *</label>
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={invPurchasePrice}
-                    onChange={(e) => setInvPurchasePrice(Math.max(0, parseFloat(e.target.value) || 0))}
-                    placeholder="e.g. 182"
-                    className="w-full p-2.5 bg-white border border-gray-300 rounded-xl outline-none font-mono text-sm font-bold text-slate-950"
-                    required
-                  />
-                </div>
-              </div>
-
-              {/* Direct Packaging & Transport Cost Heads (Manual Entry - Not Auto-Populated) */}
-              <div className="p-4 bg-gray-50 rounded-2xl border border-gray-200 space-y-3">
-                <div className="flex justify-between items-center">
-                  <span className="font-bold text-slate-900 text-xs flex items-center gap-1.5">
-                    <Package className="w-3.5 h-3.5 text-[#8C6D23]" />
-                    Direct Packaging & Inbound Shipping Costs / Unit
-                  </span>
-                  <span className="text-[10px] text-gray-500 font-mono">
-                    Enter 0 if not applicable (Product-specific)
-                  </span>
-                </div>
-
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                {/* Payment Account & Notes */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                   <div>
-                    <label className="block text-[11px] font-semibold text-gray-600 mb-1">Box Cost (৳)</label>
-                    <input
-                      type="number"
-                      min="0"
-                      value={boxCost}
-                      onChange={(e) => setBoxCost(Math.max(0, parseFloat(e.target.value) || 0))}
-                      placeholder="0"
-                      className="w-full p-2 bg-white border border-gray-300 rounded-lg outline-none font-mono"
-                    />
+                    <label className="block font-bold text-gray-700 mb-1">Funded From Account</label>
+                    <select
+                      value={paymentAccount}
+                      onChange={(e) => setPaymentAccount(e.target.value)}
+                      className="w-full p-2.5 bg-white border border-gray-300 rounded-xl outline-none"
+                    >
+                      <option value="Bank">Bank Account (Working Capital)</option>
+                      <option value="Cash">Cash in Hand / Showroom Register</option>
+                      <option value="bKash Merchant">bKash Merchant Account</option>
+                      <option value="Owner Capital">Direct Owner Personal Capital</option>
+                    </select>
                   </div>
 
                   <div>
-                    <label className="block text-[11px] font-semibold text-gray-600 mb-1">Courier / Transport (৳)</label>
+                    <label className="block font-bold text-gray-700 mb-1">Notes / Supplier Batch</label>
                     <input
-                      type="number"
-                      min="0"
-                      value={transportCost}
-                      onChange={(e) => setTransportCost(Math.max(0, parseFloat(e.target.value) || 0))}
-                      placeholder="0"
-                      className="w-full p-2 bg-white border border-gray-300 rounded-lg outline-none font-mono"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-[11px] font-semibold text-gray-600 mb-1">Poly Cost (৳)</label>
-                    <input
-                      type="number"
-                      min="0"
-                      value={polyCost}
-                      onChange={(e) => setPolyCost(Math.max(0, parseFloat(e.target.value) || 0))}
-                      placeholder="0"
-                      className="w-full p-2 bg-white border border-gray-300 rounded-lg outline-none font-mono"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-[11px] font-semibold text-gray-600 mb-1">Sticker Cost (৳)</label>
-                    <input
-                      type="number"
-                      min="0"
-                      value={stickerCost}
-                      onChange={(e) => setStickerCost(Math.max(0, parseFloat(e.target.value) || 0))}
-                      placeholder="0"
-                      className="w-full p-2 bg-white border border-gray-300 rounded-lg outline-none font-mono"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-[11px] font-semibold text-gray-600 mb-1">Tag / Nar Cost (৳)</label>
-                    <input
-                      type="number"
-                      min="0"
-                      value={tagCost}
-                      onChange={(e) => setTagCost(Math.max(0, parseFloat(e.target.value) || 0))}
-                      placeholder="0"
-                      className="w-full p-2 bg-white border border-gray-300 rounded-lg outline-none font-mono"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-[11px] font-semibold text-gray-600 mb-1">Other Direct Packaging (৳)</label>
-                    <input
-                      type="number"
-                      min="0"
-                      value={otherCost}
-                      onChange={(e) => setOtherCost(Math.max(0, parseFloat(e.target.value) || 0))}
-                      placeholder="0"
-                      className="w-full p-2 bg-white border border-gray-300 rounded-lg outline-none font-mono"
+                      type="text"
+                      value={invNotes}
+                      onChange={(e) => setInvNotes(e.target.value)}
+                      placeholder="e.g. Dubai supplier shipment batch #4"
+                      className="w-full p-2.5 bg-white border border-gray-300 rounded-xl outline-none"
                     />
                   </div>
                 </div>
               </div>
 
-              {/* LIVE DYNAMIC CALCULATION PREVIEW COCKPIT */}
-              <div className="p-4 bg-slate-950 text-white rounded-2xl space-y-3 border border-amber-500/30">
-                <div className="flex justify-between items-center text-[11px] text-gray-400">
-                  <span className="text-[#D4AF37] font-bold uppercase tracking-wider">
-                    Instant Costing Calculation
-                  </span>
-                  <span className="font-mono text-emerald-400">Zero P&L Double-Counting</span>
-                </div>
-
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center sm:text-left">
-                  <div className="bg-slate-900 p-2.5 rounded-xl border border-gray-800">
-                    <span className="text-[10px] text-gray-400 block">Purchase Price</span>
-                    <p className="text-base font-bold font-mono text-white">৳{invPurchasePrice}</p>
-                  </div>
-
-                  <div className="bg-slate-900 p-2.5 rounded-xl border border-gray-800">
-                    <span className="text-[10px] text-gray-400 block">+ Direct Pack/Ship</span>
-                    <p className="text-base font-bold font-mono text-amber-300">+৳{additionalDirectCostPerUnit}</p>
-                  </div>
-
-                  <div className="bg-slate-900 p-2.5 rounded-xl border border-[#D4AF37]/50">
-                    <span className="text-[10px] text-[#D4AF37] font-bold block">Actual Cost / Unit</span>
-                    <p className="text-lg font-black font-mono text-[#D4AF37]">৳{actualProductCostPerUnit}</p>
-                  </div>
-
-                  <div className="bg-slate-900 p-2.5 rounded-xl border border-emerald-500/40">
-                    <span className="text-[10px] text-emerald-300 font-bold block">Total Investment</span>
-                    <p className="text-lg font-black font-mono text-emerald-400">
-                      ৳{totalInvestmentAmount.toLocaleString()}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="text-[11px] text-gray-400 font-mono flex items-center justify-between pt-1">
-                  <span>
-                    Formula: (৳{invPurchasePrice} + ৳{additionalDirectCostPerUnit}) × {invQty} units = ৳{totalInvestmentAmount.toLocaleString()}
-                  </span>
-                  <span>
-                    Stock Addition: +{invQty} units
-                  </span>
-                </div>
-              </div>
-
-              {/* Payment Account & Notes */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                <div>
-                  <label className="block font-bold text-gray-700 mb-1">Funded From Account</label>
-                  <select
-                    value={paymentAccount}
-                    onChange={(e) => setPaymentAccount(e.target.value)}
-                    className="w-full p-2.5 bg-white border border-gray-300 rounded-xl outline-none"
-                  >
-                    <option value="Bank">Bank Account (Working Capital)</option>
-                    <option value="Cash">Cash in Hand / Showroom Register</option>
-                    <option value="bKash Merchant">bKash Merchant Account</option>
-                    <option value="Owner Capital">Direct Owner Personal Capital</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block font-bold text-gray-700 mb-1">Notes / Supplier Batch</label>
-                  <input
-                    type="text"
-                    value={invNotes}
-                    onChange={(e) => setInvNotes(e.target.value)}
-                    placeholder="e.g. Dubai supplier shipment batch #4"
-                    className="w-full p-2.5 bg-white border border-gray-300 rounded-xl outline-none"
-                  />
-                </div>
-              </div>
-
-              {/* Modal Buttons */}
-              <div className="flex gap-3 pt-3">
+              {/* Pinned Action Footer */}
+              <div className="p-4 sm:p-5 border-t border-gray-200 bg-gray-50 flex items-center gap-3 shrink-0 shadow-inner">
                 <button
                   type="button"
                   onClick={() => setShowInvestModal(false)}
-                  className="flex-1 py-3 bg-gray-100 hover:bg-gray-200 text-gray-800 font-bold rounded-xl transition"
+                  className="w-1/3 sm:w-1/4 py-3 bg-white hover:bg-gray-100 text-gray-700 font-bold rounded-xl transition border border-gray-300 shadow-xs"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={submittingInvest}
-                  className="flex-1 py-3 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl transition shadow-lg flex items-center justify-center gap-2 border border-[#D4AF37]/50"
+                  className="flex-1 py-3 bg-gradient-to-r from-slate-950 via-slate-900 to-[#1c2438] hover:from-slate-900 hover:to-slate-800 text-white font-bold rounded-xl transition shadow-lg flex items-center justify-center gap-2 border border-[#D4AF37]/50"
                 >
                   {submittingInvest ? (
                     <>
@@ -1455,7 +1465,10 @@ export default function CapitalAndAssetsPage() {
                       <span>Saving Investment...</span>
                     </>
                   ) : (
-                    <span>Confirm & Save Product Investment</span>
+                    <>
+                      <CheckCircle2 className="w-4 h-4 text-[#D4AF37]" />
+                      <span>Confirm & Save Product Investment</span>
+                    </>
                   )}
                 </button>
               </div>
@@ -1468,163 +1481,166 @@ export default function CapitalAndAssetsPage() {
       {/* MODAL 2: EDIT / CORRECTION + AUDIT LOG                                    */}
       {/* ========================================================================= */}
       {editingInvest && (
-        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white w-full max-w-xl rounded-3xl shadow-2xl p-6 sm:p-8 space-y-4 my-8">
-            <div className="flex justify-between items-center pb-2 border-b border-gray-200">
+        <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-md flex items-center justify-center p-3 sm:p-6 overflow-hidden">
+          <div className="bg-white w-full max-w-xl max-h-[92vh] rounded-2xl sm:rounded-3xl shadow-2xl flex flex-col border border-amber-300/40 overflow-hidden">
+            <div className="p-4 sm:p-5 bg-gradient-to-r from-[#0B0F19] via-[#111827] to-[#1A2234] text-white flex justify-between items-center border-b border-gray-800 shrink-0">
               <div>
-                <span className="text-[10px] font-bold uppercase tracking-widest text-amber-700">
+                <span className="text-[10px] font-bold uppercase tracking-widest text-[#D4AF37] block">
                   Strict Audit Compliance Guard
                 </span>
-                <h3 className="text-lg font-bold font-serif-luxury text-slate-950">
+                <h3 className="text-base sm:text-lg font-bold font-serif-luxury text-white mt-0.5">
                   Correct Investment #{editingInvest.investmentId}
                 </h3>
               </div>
               <button
+                type="button"
                 onClick={() => setEditingInvest(null)}
-                className="p-1.5 text-gray-400 hover:text-gray-700 rounded-lg"
+                className="p-1.5 text-gray-400 hover:text-white hover:bg-white/10 rounded-lg transition"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <form onSubmit={handleSaveEdit} className="space-y-3.5 text-xs">
-              <div className="p-3 bg-gray-50 rounded-xl">
-                <span className="font-bold text-slate-900 block">{editingInvest.productName}</span>
-                <span className="text-gray-500 font-mono text-[11px]">
-                  SKU: {editingInvest.variantSku} • Original Total: ৳{editingInvest.totalInvestment.toLocaleString()}
-                </span>
-              </div>
+            <form onSubmit={handleSaveEdit} className="flex flex-col flex-1 min-h-0 overflow-hidden text-xs">
+              <div className="p-4 sm:p-6 space-y-3.5 overflow-y-auto flex-1">
+                <div className="p-3 bg-gray-50 rounded-xl border border-gray-200">
+                  <span className="font-bold text-slate-900 block">{editingInvest.productName}</span>
+                  <span className="text-gray-500 font-mono text-[11px]">
+                    SKU: {editingInvest.variantSku} • Original Total: ৳{editingInvest.totalInvestment.toLocaleString()}
+                  </span>
+                </div>
 
-              <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block font-bold text-gray-700 mb-1">Quantity (Units)</label>
+                    <input
+                      type="number"
+                      min="1"
+                      value={editQty}
+                      onChange={(e) => setEditQty(Math.max(1, parseInt(e.target.value) || 0))}
+                      className="w-full p-2.5 bg-white border border-gray-300 rounded-xl font-mono font-bold"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-gray-700 mb-1">Purchase Price / Unit (৳)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={editPurchasePrice}
+                      onChange={(e) => setEditPurchasePrice(Math.max(0, parseFloat(e.target.value) || 0))}
+                      className="w-full p-2.5 bg-white border border-gray-300 rounded-xl font-mono font-bold"
+                      required
+                    />
+                  </div>
+                </div>
+
+                {/* Direct Costs */}
+                <div className="grid grid-cols-3 gap-2 pt-1">
+                  <div>
+                    <label className="block text-[10px] font-semibold text-gray-600 mb-0.5">Box (৳)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={editBoxCost}
+                      onChange={(e) => setEditBoxCost(Math.max(0, parseFloat(e.target.value) || 0))}
+                      className="w-full p-2 bg-white border border-gray-300 rounded-lg font-mono"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-semibold text-gray-600 mb-0.5">Transport (৳)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={editTransportCost}
+                      onChange={(e) => setEditTransportCost(Math.max(0, parseFloat(e.target.value) || 0))}
+                      className="w-full p-2 bg-white border border-gray-300 rounded-lg font-mono"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-semibold text-gray-600 mb-0.5">Poly (৳)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={editPolyCost}
+                      onChange={(e) => setEditPolyCost(Math.max(0, parseFloat(e.target.value) || 0))}
+                      className="w-full p-2 bg-white border border-gray-300 rounded-lg font-mono"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-semibold text-gray-600 mb-0.5">Sticker (৳)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={editStickerCost}
+                      onChange={(e) => setEditStickerCost(Math.max(0, parseFloat(e.target.value) || 0))}
+                      className="w-full p-2 bg-white border border-gray-300 rounded-lg font-mono"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-semibold text-gray-600 mb-0.5">Tag/Nar (৳)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={editTagCost}
+                      onChange={(e) => setEditTagCost(Math.max(0, parseFloat(e.target.value) || 0))}
+                      className="w-full p-2 bg-white border border-gray-300 rounded-lg font-mono"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-semibold text-gray-600 mb-0.5">Other (৳)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={editOtherCost}
+                      onChange={(e) => setEditOtherCost(Math.max(0, parseFloat(e.target.value) || 0))}
+                      className="w-full p-2 bg-white border border-gray-300 rounded-lg font-mono"
+                    />
+                  </div>
+                </div>
+
+                {/* Revised Totals */}
+                <div className="p-3 bg-slate-900 text-white rounded-xl flex justify-between items-center font-mono">
+                  <div>
+                    <span className="text-[10px] text-gray-400 block">Revised Actual Cost/Unit</span>
+                    <span className="text-sm font-bold text-[#D4AF37]">৳{editActualCost}</span>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-[10px] text-gray-400 block">Revised Total Investment</span>
+                    <span className="text-sm font-bold text-emerald-400">৳{editTotal.toLocaleString()}</span>
+                  </div>
+                </div>
+
+                {/* Mandatory Reason for Audit Log */}
                 <div>
-                  <label className="block font-bold text-gray-700 mb-1">Quantity (Units)</label>
+                  <label className="block font-bold text-slate-900 mb-1">
+                    Reason for Correction (Mandatory Audit Trail) *
+                  </label>
                   <input
-                    type="number"
-                    min="1"
-                    value={editQty}
-                    onChange={(e) => setEditQty(Math.max(1, parseInt(e.target.value) || 0))}
-                    className="w-full p-2.5 bg-white border border-gray-300 rounded-xl font-mono font-bold"
+                    type="text"
+                    placeholder="e.g. Corrected invoice unit price after final supplier bill"
+                    value={editReason}
+                    onChange={(e) => setEditReason(e.target.value)}
+                    className="w-full p-2.5 bg-amber-50 border border-amber-300 rounded-xl outline-none text-slate-900"
                     required
                   />
                 </div>
-
-                <div>
-                  <label className="block font-bold text-gray-700 mb-1">Purchase Price / Unit (৳)</label>
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={editPurchasePrice}
-                    onChange={(e) => setEditPurchasePrice(Math.max(0, parseFloat(e.target.value) || 0))}
-                    className="w-full p-2.5 bg-white border border-gray-300 rounded-xl font-mono font-bold"
-                    required
-                  />
-                </div>
               </div>
 
-              {/* Direct Costs */}
-              <div className="grid grid-cols-3 gap-2 pt-1">
-                <div>
-                  <label className="block text-[10px] font-semibold text-gray-600 mb-0.5">Box (৳)</label>
-                  <input
-                    type="number"
-                    min="0"
-                    value={editBoxCost}
-                    onChange={(e) => setEditBoxCost(Math.max(0, parseFloat(e.target.value) || 0))}
-                    className="w-full p-2 bg-white border border-gray-300 rounded-lg font-mono"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-semibold text-gray-600 mb-0.5">Transport (৳)</label>
-                  <input
-                    type="number"
-                    min="0"
-                    value={editTransportCost}
-                    onChange={(e) => setEditTransportCost(Math.max(0, parseFloat(e.target.value) || 0))}
-                    className="w-full p-2 bg-white border border-gray-300 rounded-lg font-mono"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-semibold text-gray-600 mb-0.5">Poly (৳)</label>
-                  <input
-                    type="number"
-                    min="0"
-                    value={editPolyCost}
-                    onChange={(e) => setEditPolyCost(Math.max(0, parseFloat(e.target.value) || 0))}
-                    className="w-full p-2 bg-white border border-gray-300 rounded-lg font-mono"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-semibold text-gray-600 mb-0.5">Sticker (৳)</label>
-                  <input
-                    type="number"
-                    min="0"
-                    value={editStickerCost}
-                    onChange={(e) => setEditStickerCost(Math.max(0, parseFloat(e.target.value) || 0))}
-                    className="w-full p-2 bg-white border border-gray-300 rounded-lg font-mono"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-semibold text-gray-600 mb-0.5">Tag (৳)</label>
-                  <input
-                    type="number"
-                    min="0"
-                    value={editTagCost}
-                    onChange={(e) => setEditTagCost(Math.max(0, parseFloat(e.target.value) || 0))}
-                    className="w-full p-2 bg-white border border-gray-300 rounded-lg font-mono"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-semibold text-gray-600 mb-0.5">Other (৳)</label>
-                  <input
-                    type="number"
-                    min="0"
-                    value={editOtherCost}
-                    onChange={(e) => setEditOtherCost(Math.max(0, parseFloat(e.target.value) || 0))}
-                    className="w-full p-2 bg-white border border-gray-300 rounded-lg font-mono"
-                  />
-                </div>
-              </div>
-
-              {/* Revised Totals */}
-              <div className="p-3 bg-slate-900 text-white rounded-xl flex justify-between items-center font-mono">
-                <div>
-                  <span className="text-[10px] text-gray-400 block">Revised Actual Cost/Unit</span>
-                  <span className="text-sm font-bold text-[#D4AF37]">৳{editActualCost}</span>
-                </div>
-                <div className="text-right">
-                  <span className="text-[10px] text-gray-400 block">Revised Total Investment</span>
-                  <span className="text-sm font-bold text-emerald-400">৳{editTotal.toLocaleString()}</span>
-                </div>
-              </div>
-
-              {/* Mandatory Reason for Audit Log */}
-              <div>
-                <label className="block font-bold text-slate-900 mb-1">
-                  Reason for Correction (Mandatory Audit Trail) *
-                </label>
-                <input
-                  type="text"
-                  placeholder="e.g. Corrected invoice unit price after final supplier bill"
-                  value={editReason}
-                  onChange={(e) => setEditReason(e.target.value)}
-                  className="w-full p-2.5 bg-amber-50 border border-amber-300 rounded-xl outline-none text-slate-900"
-                  required
-                />
-              </div>
-
-              <div className="flex gap-3 pt-2">
+              <div className="p-4 border-t border-gray-200 bg-gray-50 flex gap-3 shrink-0">
                 <button
                   type="button"
                   onClick={() => setEditingInvest(null)}
-                  className="flex-1 py-2.5 bg-gray-100 text-gray-800 font-bold rounded-xl"
+                  className="w-1/3 py-2.5 bg-white hover:bg-gray-100 text-gray-800 font-bold rounded-xl border border-gray-300 transition"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={submittingEdit}
-                  className="flex-1 py-2.5 bg-slate-900 text-white font-bold rounded-xl"
+                  className="flex-1 py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl shadow transition"
                 >
                   {submittingEdit ? 'Saving Correction...' : 'Save & Log Correction'}
                 </button>
@@ -1700,121 +1716,124 @@ export default function CapitalAndAssetsPage() {
       {/* MODAL 4: STOCK LOSS ADJUSTMENT (DAMAGED / LOST)                           */}
       {/* ========================================================================= */}
       {showAdjustModal && (
-        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white w-full max-w-lg rounded-3xl shadow-2xl p-6 sm:p-8 space-y-4">
-            <div className="flex justify-between items-center pb-2 border-b border-gray-200">
+        <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-md flex items-center justify-center p-3 sm:p-6 overflow-hidden">
+          <div className="bg-white w-full max-w-lg max-h-[92vh] rounded-2xl sm:rounded-3xl shadow-2xl flex flex-col border border-red-300/40 overflow-hidden">
+            <div className="p-4 sm:p-5 bg-gradient-to-r from-red-950 via-slate-900 to-[#1A2234] text-white flex justify-between items-center border-b border-gray-800 shrink-0">
               <div className="flex items-center gap-2">
-                <AlertTriangle className="w-5 h-5 text-amber-600" />
-                <h3 className="text-lg font-bold font-serif-luxury text-slate-950">
+                <AlertTriangle className="w-5 h-5 text-amber-400" />
+                <h3 className="text-base sm:text-lg font-bold font-serif-luxury text-white">
                   Damaged / Lost Stock Adjustment
                 </h3>
               </div>
               <button
+                type="button"
                 onClick={() => setShowAdjustModal(false)}
-                className="p-1 text-gray-400 hover:text-gray-700"
+                className="p-1.5 text-gray-400 hover:text-white hover:bg-white/10 rounded-lg transition"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <form onSubmit={handleSaveStockAdjustment} className="space-y-3.5 text-xs">
-              <div>
-                <label className="block font-bold text-gray-700 mb-1">Select Product *</label>
-                <select
-                  value={adjustProductId}
-                  onChange={(e) => {
-                    const pId = e.target.value;
-                    setAdjustProductId(pId);
-                    const prod = products.find((p) => p._id === pId);
-                    setAdjustSku(prod?.variants?.[0]?.sku || '');
-                  }}
-                  className="w-full p-2.5 bg-white border border-gray-300 rounded-xl"
-                  required
-                >
-                  {products.map((p) => (
-                    <option key={p._id} value={p._id}>
-                      {p.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block font-bold text-gray-700 mb-1">Select Variant / SKU *</label>
-                <select
-                  value={adjustSku}
-                  onChange={(e) => setAdjustSku(e.target.value)}
-                  className="w-full p-2.5 bg-white border border-gray-300 rounded-xl font-mono"
-                  required
-                >
-                  {products
-                    .find((p) => p._id === adjustProductId)
-                    ?.variants?.map((v: any) => (
-                      <option key={v.sku} value={v.sku}>
-                        {v.sku} — {v.color || ''} {v.size || ''} (Current Stock: {v.stockQuantity || 0} pcs)
+            <form onSubmit={handleSaveStockAdjustment} className="flex flex-col flex-1 min-h-0 overflow-hidden text-xs">
+              <div className="p-4 sm:p-6 space-y-3.5 overflow-y-auto flex-1">
+                <div>
+                  <label className="block font-bold text-gray-700 mb-1">Select Product *</label>
+                  <select
+                    value={adjustProductId}
+                    onChange={(e) => {
+                      const pId = e.target.value;
+                      setAdjustProductId(pId);
+                      const prod = products.find((p) => p._id === pId);
+                      setAdjustSku(prod?.variants?.[0]?.sku || '');
+                    }}
+                    className="w-full p-2.5 bg-white border border-gray-300 rounded-xl"
+                    required
+                  >
+                    {products.map((p) => (
+                      <option key={p._id} value={p._id}>
+                        {p.name}
                       </option>
                     ))}
-                </select>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-bold text-gray-700 mb-1">Adjustment Reason *</label>
-                  <select
-                    value={adjustReason}
-                    onChange={(e) => setAdjustReason(e.target.value as any)}
-                    className="w-full p-2.5 bg-white border border-gray-300 rounded-xl font-bold"
-                  >
-                    <option value="DAMAGED">DAMAGED (Defective / Broken)</option>
-                    <option value="LOST">LOST (Discrepancy / Missing)</option>
-                    <option value="EXPIRED">EXPIRED / Shop Soiled</option>
-                    <option value="INVENTORY_DISCREPANCY">Count Correction Discrepancy</option>
                   </select>
                 </div>
 
                 <div>
-                  <label className="block font-bold text-gray-700 mb-1">Quantity to Write Off *</label>
-                  <input
-                    type="number"
-                    min="1"
-                    value={adjustQty}
-                    onChange={(e) => setAdjustQty(Math.max(1, parseInt(e.target.value) || 0))}
-                    className="w-full p-2.5 bg-white border border-gray-300 rounded-xl font-mono font-bold text-red-600 text-sm"
+                  <label className="block font-bold text-gray-700 mb-1">Select Variant / SKU *</label>
+                  <select
+                    value={adjustSku}
+                    onChange={(e) => setAdjustSku(e.target.value)}
+                    className="w-full p-2.5 bg-white border border-gray-300 rounded-xl font-mono"
                     required
+                  >
+                    {products
+                      .find((p) => p._id === adjustProductId)
+                      ?.variants?.map((v: any) => (
+                        <option key={v.sku} value={v.sku}>
+                          {v.sku} — {v.color || ''} {v.size || ''} (Current Stock: {v.stockQuantity || 0} pcs)
+                        </option>
+                      ))}
+                  </select>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block font-bold text-gray-700 mb-1">Adjustment Reason *</label>
+                    <select
+                      value={adjustReason}
+                      onChange={(e) => setAdjustReason(e.target.value as any)}
+                      className="w-full p-2.5 bg-white border border-gray-300 rounded-xl font-bold"
+                    >
+                      <option value="DAMAGED">DAMAGED (Defective / Broken)</option>
+                      <option value="LOST">LOST (Discrepancy / Missing)</option>
+                      <option value="EXPIRED">EXPIRED / Shop Soiled</option>
+                      <option value="INVENTORY_DISCREPANCY">Count Correction Discrepancy</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-gray-700 mb-1">Quantity to Write Off *</label>
+                    <input
+                      type="number"
+                      min="1"
+                      value={adjustQty}
+                      onChange={(e) => setAdjustQty(Math.max(1, parseInt(e.target.value) || 0))}
+                      className="w-full p-2.5 bg-white border border-gray-300 rounded-xl font-mono font-bold text-red-600 text-sm"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block font-bold text-gray-700 mb-1">Incident Notes / Cause</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Broken packaging carton during courier transit"
+                    value={adjustNotes}
+                    onChange={(e) => setAdjustNotes(e.target.value)}
+                    className="w-full p-2.5 bg-white border border-gray-300 rounded-xl"
                   />
+                </div>
+
+                <div className="p-3 bg-red-50 text-red-800 rounded-xl border border-red-200 text-[11px]">
+                  <p className="font-bold">Accounting Rule Notice:</p>
+                  <p>
+                    Writing off {adjustQty} units will deduct sellable stock immediately and reflect as damage loss in Business Performance & P&L.
+                  </p>
                 </div>
               </div>
 
-              <div>
-                <label className="block font-bold text-gray-700 mb-1">Incident Notes / Cause</label>
-                <input
-                  type="text"
-                  placeholder="e.g. Broken packaging carton during courier transit"
-                  value={adjustNotes}
-                  onChange={(e) => setAdjustNotes(e.target.value)}
-                  className="w-full p-2.5 bg-white border border-gray-300 rounded-xl"
-                />
-              </div>
-
-              <div className="p-3 bg-red-50 text-red-800 rounded-xl border border-red-200 text-[11px]">
-                <p className="font-bold">Accounting Rule Notice:</p>
-                <p>
-                  Writing off {adjustQty} units will deduct sellable stock immediately and reflect as damage loss in Business Performance & P&L.
-                </p>
-              </div>
-
-              <div className="flex gap-3 pt-2">
+              <div className="p-4 border-t border-gray-200 bg-gray-50 flex gap-3 shrink-0">
                 <button
                   type="button"
                   onClick={() => setShowAdjustModal(false)}
-                  className="flex-1 py-2.5 bg-gray-100 text-gray-800 font-bold rounded-xl"
+                  className="w-1/3 py-2.5 bg-white hover:bg-gray-100 text-gray-800 font-bold rounded-xl border border-gray-300"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={submittingAdjust}
-                  className="flex-1 py-2.5 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl transition"
+                  className="flex-1 py-2.5 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl transition shadow"
                 >
                   {submittingAdjust ? 'Processing Write-Off...' : 'Confirm Stock Write-Off'}
                 </button>
@@ -1930,99 +1949,105 @@ export default function CapitalAndAssetsPage() {
       {/* MODAL: RECORD TREASURY CAPITAL EVENT                                      */}
       {/* ========================================================================= */}
       {showCapitalModal && (
-        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white w-full max-w-lg rounded-2xl shadow-2xl p-6 space-y-4">
-            <div className="flex justify-between items-center pb-2 border-b border-gray-200">
-              <h3 className="text-base font-bold font-serif-luxury text-slate-950">Record Treasury Capital Event</h3>
-              <button onClick={() => setShowCapitalModal(false)} className="p-1 text-gray-400">
+        <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-md flex items-center justify-center p-3 sm:p-6 overflow-hidden">
+          <div className="bg-white w-full max-w-lg max-h-[92vh] rounded-2xl sm:rounded-3xl shadow-2xl flex flex-col border border-gray-200 overflow-hidden">
+            <div className="p-4 sm:p-5 bg-gradient-to-r from-[#0B0F19] via-[#111827] to-[#1A2234] text-white flex justify-between items-center border-b border-gray-800 shrink-0">
+              <h3 className="text-base sm:text-lg font-bold font-serif-luxury text-white">Record Treasury Capital Event</h3>
+              <button
+                type="button"
+                onClick={() => setShowCapitalModal(false)}
+                className="p-1.5 text-gray-400 hover:text-white hover:bg-white/10 rounded-lg transition"
+              >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <form onSubmit={handleSaveTx} className="space-y-3 text-xs">
-              <div>
-                <label className="block font-bold text-gray-700 mb-1">Transaction Type *</label>
-                <select
-                  value={txType}
-                  onChange={(e) => setTxType(e.target.value)}
-                  className="w-full p-2.5 bg-white border border-gray-300 rounded-xl outline-none"
-                >
-                  <option value="OWNER_CAPITAL_IN">Owner Capital In (Equity Investment)</option>
-                  <option value="OWNER_WITHDRAWAL">Owner Withdrawal (Drawings)</option>
-                  <option value="LOAN_IN">Loan / Borrowed Capital In</option>
-                  <option value="LOAN_REPAYMENT">Loan Principal Repayment</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block font-bold text-gray-700 mb-1">Amount (BDT) *</label>
-                <input
-                  type="number"
-                  min="1"
-                  value={txAmount}
-                  onChange={(e) => setTxAmount(Number(e.target.value))}
-                  className="w-full p-2.5 bg-white border border-gray-300 rounded-xl outline-none font-mono text-sm"
-                  required
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
+            <form onSubmit={handleSaveTx} className="flex flex-col flex-1 min-h-0 overflow-hidden text-xs">
+              <div className="p-4 sm:p-6 space-y-3.5 overflow-y-auto flex-1">
                 <div>
-                  <label className="block font-bold text-gray-700 mb-1">Investor / Source</label>
+                  <label className="block font-bold text-gray-700 mb-1">Transaction Type *</label>
+                  <select
+                    value={txType}
+                    onChange={(e) => setTxType(e.target.value)}
+                    className="w-full p-2.5 bg-white border border-gray-300 rounded-xl outline-none"
+                  >
+                    <option value="OWNER_CAPITAL_IN">Owner Capital In (Equity Investment)</option>
+                    <option value="OWNER_WITHDRAWAL">Owner Withdrawal (Drawings)</option>
+                    <option value="LOAN_IN">Loan / Borrowed Capital In</option>
+                    <option value="LOAN_REPAYMENT">Loan Principal Repayment</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block font-bold text-gray-700 mb-1">Amount (BDT) *</label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={txAmount}
+                    onChange={(e) => setTxAmount(Number(e.target.value))}
+                    className="w-full p-2.5 bg-white border border-gray-300 rounded-xl outline-none font-mono text-sm"
+                    required
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block font-bold text-gray-700 mb-1">Investor / Source</label>
+                    <input
+                      type="text"
+                      value={txSource}
+                      onChange={(e) => setTxSource(e.target.value)}
+                      placeholder="e.g. Managing Director"
+                      className="w-full p-2.5 bg-white border border-gray-300 rounded-xl outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-bold text-gray-700 mb-1">Deposit Account</label>
+                    <input
+                      type="text"
+                      value={txAccount}
+                      onChange={(e) => setTxAccount(e.target.value)}
+                      placeholder="e.g. City Bank / bKash"
+                      className="w-full p-2.5 bg-white border border-gray-300 rounded-xl outline-none"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block font-bold text-gray-700 mb-1">Reference / Bank Slip No</label>
                   <input
                     type="text"
-                    value={txSource}
-                    onChange={(e) => setTxSource(e.target.value)}
-                    placeholder="e.g. Managing Director"
+                    value={txRef}
+                    onChange={(e) => setTxRef(e.target.value)}
+                    placeholder="e.g. CHEQUE-10294"
                     className="w-full p-2.5 bg-white border border-gray-300 rounded-xl outline-none"
                   />
                 </div>
+
                 <div>
-                  <label className="block font-bold text-gray-700 mb-1">Deposit Account</label>
+                  <label className="block font-bold text-gray-700 mb-1">Notes</label>
                   <input
                     type="text"
-                    value={txAccount}
-                    onChange={(e) => setTxAccount(e.target.value)}
-                    placeholder="e.g. City Bank / bKash"
+                    value={txNotes}
+                    onChange={(e) => setTxNotes(e.target.value)}
+                    placeholder="e.g. Seasonal festive inventory purchase fund"
                     className="w-full p-2.5 bg-white border border-gray-300 rounded-xl outline-none"
                   />
                 </div>
               </div>
 
-              <div>
-                <label className="block font-bold text-gray-700 mb-1">Reference / Bank Slip No</label>
-                <input
-                  type="text"
-                  value={txRef}
-                  onChange={(e) => setTxRef(e.target.value)}
-                  placeholder="e.g. CHEQUE-10294"
-                  className="w-full p-2.5 bg-white border border-gray-300 rounded-xl outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="block font-bold text-gray-700 mb-1">Notes</label>
-                <input
-                  type="text"
-                  value={txNotes}
-                  onChange={(e) => setTxNotes(e.target.value)}
-                  placeholder="e.g. Seasonal festive inventory purchase fund"
-                  className="w-full p-2.5 bg-white border border-gray-300 rounded-xl outline-none"
-                />
-              </div>
-
-              <div className="flex gap-3 pt-3">
+              <div className="p-4 border-t border-gray-200 bg-gray-50 flex gap-3 shrink-0">
                 <button
                   type="button"
                   onClick={() => setShowCapitalModal(false)}
-                  className="flex-1 py-2.5 bg-gray-100 text-gray-800 font-bold rounded-xl"
+                  className="w-1/3 py-2.5 bg-white hover:bg-gray-100 text-gray-800 font-bold rounded-xl border border-gray-300"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={submittingCapital}
-                  className="flex-1 py-2.5 bg-slate-900 text-white font-bold rounded-xl"
+                  className="flex-1 py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl shadow transition"
                 >
                   {submittingCapital ? 'Recording...' : 'Save Capital Event'}
                 </button>

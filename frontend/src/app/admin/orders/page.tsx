@@ -150,7 +150,7 @@ export default function AdminOrdersPage() {
   // Direct Delivery & Customer Pickup Fulfillment Modal
   const [showDeliveryModal, setShowDeliveryModal] = useState(false);
   const [deliveryTargetOrder, setDeliveryTargetOrder] = useState<any>(null);
-  const [deliveryType, setDeliveryType] = useState<'DIRECT_HAND_DELIVERY' | 'CUSTOMER_PICKUP'>('DIRECT_HAND_DELIVERY');
+  const [deliveryType, setDeliveryType] = useState<'DIRECT_HAND_DELIVERY' | 'CUSTOMER_PICKUP' | 'SHOWROOM_PICKUP'>('DIRECT_HAND_DELIVERY');
   const [paymentReceivedNow, setPaymentReceivedNow] = useState(false);
   const [deliveryAmount, setDeliveryAmount] = useState<number>(0);
   const [deliveryPaymentMethod, setDeliveryPaymentMethod] = useState('Cash');
@@ -372,7 +372,7 @@ export default function AdminOrdersPage() {
   };
 
   // Open Direct Delivery or Pickup Modal
-  const openDeliveryModal = (order: any, type: 'DIRECT_HAND_DELIVERY' | 'CUSTOMER_PICKUP') => {
+  const openDeliveryModal = (order: any, type: 'DIRECT_HAND_DELIVERY' | 'CUSTOMER_PICKUP' | 'SHOWROOM_PICKUP') => {
     setDeliveryTargetOrder(order);
     setDeliveryType(type);
     const remainingDue =

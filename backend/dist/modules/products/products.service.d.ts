@@ -42,6 +42,8 @@ export declare class ProductsService implements OnModuleInit {
     private returnRequestModel;
     private readonly auditLogService;
     private readonly logger;
+    private publicCache;
+    clearProductCache(): void;
     constructor(productModel: Model<ProductDocument>, categoryModel: Model<CategoryDocument>, orderModel: Model<OrderDocument>, purchaseOrderModel: Model<PurchaseOrderDocument>, transactionModel: Model<InventoryTransactionDocument>, returnRequestModel: Model<ReturnRequestDocument>, auditLogService: AuditLogService);
     onModuleInit(): Promise<void>;
     seedDefaultProducts(): Promise<{
@@ -66,21 +68,7 @@ export declare class ProductsService implements OnModuleInit {
         sort?: string;
         page?: number;
         limit?: number;
-    }): Promise<{
-        products: (import("mongoose").Document<unknown, {}, ProductDocument, {}, import("mongoose").DefaultSchemaOptions> & Product & import("mongoose").Document<import("mongoose").Types.ObjectId, any, any, Record<string, any>, {}> & Required<{
-            _id: import("mongoose").Types.ObjectId;
-        }> & {
-            __v: number;
-        } & {
-            id: string;
-        })[];
-        pagination: {
-            total: number;
-            page: number;
-            limit: number;
-            totalPages: number;
-        };
-    }>;
+    }): Promise<any>;
     findBySlug(slug: string): Promise<Product>;
     findById(id: string): Promise<Product>;
     findAdminAll(query: {
@@ -89,12 +77,10 @@ export declare class ProductsService implements OnModuleInit {
         isPublished?: boolean;
         status?: string;
         dataMode?: string;
-    }): Promise<(import("mongoose").Document<unknown, {}, ProductDocument, {}, import("mongoose").DefaultSchemaOptions> & Product & import("mongoose").Document<import("mongoose").Types.ObjectId, any, any, Record<string, any>, {}> & Required<{
+    }): Promise<(Product & import("mongoose").Document<import("mongoose").Types.ObjectId, any, any, Record<string, any>, {}> & Required<{
         _id: import("mongoose").Types.ObjectId;
     }> & {
         __v: number;
-    } & {
-        id: string;
     })[]>;
     private ensureCategory;
     create(data: Partial<Product>): Promise<Product>;
